@@ -1,0 +1,243 @@
+<!--GUIOS-APP {"id":"todo-list","name":"Todoリスト","icon":"✅","color":"#3f9142","version":"1.0.0","author":"Claude","description":"タスクを追加・完了・削除できるシンプルなToDoリストアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Todoリスト</title>
+<style>
+  :root{
+    --accent:#3f9142;
+    --bg:#101a11;
+    --card:#182419;
+    --text:#eef7ee;
+    --sub:#aec7ae;
+    --line:#28382a;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    display:flex; flex-direction:column;
+  }
+  .topbar{padding:14px 16px 8px; flex:none;}
+  .topbar h1{font-size:18px; margin:0 0 12px; display:flex; align-items:center; gap:8px;}
+  .addrow{display:flex; gap:8px;}
+  #taskInput{
+    flex:1; padding:12px 14px; border-radius:10px; border:1px solid var(--line);
+    background:#0c140d; color:var(--text); font-size:16px; outline:none;
+  }
+  #taskInput:focus{border-color:var(--accent);}
+  #addBtn{
+    padding:0 20px; border-radius:10px; border:none; background:var(--accent);
+    color:#031c05; font-weight:700; font-size:15px; cursor:pointer; min-height:44px; flex:none;
+  }
+  .tabs{
+    display:flex; gap:6px; padding:10px 16px; flex:none;
+  }
+  .tabs button{
+    flex:1; padding:10px 6px; border-radius:10px; border:1px solid var(--line);
+    background:transparent; color:var(--sub); font-weight:700; font-size:13px; cursor:pointer; min-height:40px;
+  }
+  .tabs button.active{background:var(--accent); color:#031c05; border-color:var(--accent);}
+  .countbar{padding:0 16px 8px; font-size:13px; color:var(--sub); flex:none;}
+  .list-wrap{flex:1; overflow-y:auto; padding:4px 16px 16px;}
+  .task-item{
+    display:flex; align-items:center; gap:10px;
+    background:var(--card); border:1px solid var(--line); border-radius:12px;
+    padding:12px; margin-bottom:8px;
+  }
+  .task-check{
+    width:26px; height:26px; border-radius:8px; border:2px solid var(--accent);
+    flex:none; cursor:pointer; background:transparent; display:flex; align-items:center; justify-content:center;
+    color:#fff; font-size:16px; font-weight:900; padding:0;
+  }
+  .task-check.checked{background:var(--accent);}
+  .task-text{flex:1; font-size:15px; word-break:break-word; cursor:default;}
+  .task-text.done{text-decoration:line-through; color:var(--sub); opacity:.7;}
+  .task-del{
+    flex:none; width:36px; height:36px; border-radius:8px; border:none; background:transparent;
+    color:var(--sub); font-size:18px; cursor:pointer;
+  }
+  .task-del:hover{color:#e07a7a;}
+  .empty{color:var(--sub); text-align:center; padding:50px 20px; font-size:14px;}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>✅ Todoリスト</h1>
+    <div class="addrow">
+      <input type="text" id="taskInput" placeholder="タスクを入力...">
+      <button id="addBtn">追加</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="active" data-filter="all">すべて</button>
+    <button data-filter="active">未完了</button>
+    <button data-filter="done">完了済み</button>
+  </div>
+
+  <div class="countbar" id="countbar">残り0件</div>
+
+  <div class="list-wrap" id="listWrap">
+    <div class="empty">タスクがありません</div>
+  </div>
+
+  <div id="toast" style="position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:#1c281d; color:var(--text); padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; pointer-events:none; transition:all .25s; border:1px solid var(--line);
+    max-width:90%; text-align:center; z-index:999;"></div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var STORAGE_KEY = 'tasks';
+  var FALLBACK_KEY = 'guios-fallback-todo-list-tasks';
+
+  var tasks = [];
+  var currentFilter = 'all';
+
+  function showToast(msg){
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.opacity = '1';
+    t.style.transform = 'translateX(-50%) translateY(0)';
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(function(){
+      t.style.opacity = '0';
+      t.style.transform = 'translateX(-50%) translateY(20px)';
+    }, 1600);
+  }
+  function notify(msg, type){
+    if(window.GUIOS && window.GUIOS.notify){
+      GUIOS.notify(msg, {type: type || 'info'});
+    } else {
+      showToast(msg);
+    }
+  }
+
+  async function loadTasks(){
+    if(hasSDK){
+      var v = await GUIOS.storage.get(STORAGE_KEY);
+      return Array.isArray(v) ? v : [];
+    } else {
+      try{
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        return raw ? JSON.parse(raw) : [];
+      }catch(e){ return []; }
+    }
+  }
+  async function saveTasks(list){
+    if(hasSDK){
+      await GUIOS.storage.set(STORAGE_KEY, list);
+    } else {
+      try{ localStorage.setItem(FALLBACK_KEY, JSON.stringify(list)); }catch(e){}
+    }
+  }
+
+  function render(){
+    var wrap = document.getElementById('listWrap');
+    var filtered = tasks.filter(function(t){
+      if(currentFilter === 'active') return !t.done;
+      if(currentFilter === 'done') return t.done;
+      return true;
+    });
+
+    var remaining = tasks.filter(function(t){ return !t.done; }).length;
+    document.getElementById('countbar').textContent = '残り' + remaining + '件';
+
+    if(filtered.length === 0){
+      var msg = '';
+      if(currentFilter === 'done') msg = '完了したタスクはありません';
+      else if(currentFilter === 'active') msg = '未完了のタスクはありません';
+      else msg = 'タスクがありません';
+      wrap.innerHTML = '<div class="empty">' + msg + '</div>';
+      return;
+    }
+
+    wrap.innerHTML = '';
+    filtered.forEach(function(task){
+      var item = document.createElement('div');
+      item.className = 'task-item';
+
+      var check = document.createElement('button');
+      check.className = 'task-check' + (task.done ? ' checked' : '');
+      check.textContent = task.done ? '✓' : '';
+      check.addEventListener('click', function(){ toggleTask(task.id); });
+
+      var text = document.createElement('div');
+      text.className = 'task-text' + (task.done ? ' done' : '');
+      text.textContent = task.text;
+
+      var del = document.createElement('button');
+      del.className = 'task-del';
+      del.textContent = '✕';
+      del.addEventListener('click', function(){ deleteTask(task.id); });
+
+      item.appendChild(check);
+      item.appendChild(text);
+      item.appendChild(del);
+      wrap.appendChild(item);
+    });
+  }
+
+  async function addTask(){
+    var input = document.getElementById('taskInput');
+    var text = input.value.trim();
+    if(!text){
+      notify('タスクを入力してください', 'error');
+      return;
+    }
+    tasks.push({
+      id: 'task-' + Date.now() + '-' + Math.floor(Math.random()*10000),
+      text: text,
+      done: false,
+      createdAt: Date.now()
+    });
+    input.value = '';
+    await saveTasks(tasks);
+    render();
+    if(window.GUIOS && window.GUIOS.haptic) GUIOS.haptic();
+  }
+
+  async function toggleTask(id){
+    var t = tasks.find(function(x){ return x.id === id; });
+    if(!t) return;
+    t.done = !t.done;
+    await saveTasks(tasks);
+    render();
+  }
+
+  async function deleteTask(id){
+    tasks = tasks.filter(function(x){ return x.id !== id; });
+    await saveTasks(tasks);
+    render();
+  }
+
+  document.getElementById('addBtn').addEventListener('click', addTask);
+  document.getElementById('taskInput').addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      addTask();
+    }
+  });
+
+  document.querySelectorAll('.tabs button').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('.tabs button').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      currentFilter = btn.dataset.filter;
+      render();
+    });
+  });
+
+  async function init(){
+    tasks = await loadTasks();
+    render();
+  }
+  init();
+</script>
+</body>
+</html>

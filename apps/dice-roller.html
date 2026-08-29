@@ -1,0 +1,388 @@
+<!--GUIOS-APP {"id":"dice-roller","name":"サイコロ","icon":"🎲","color":"#7d5ba6","version":"1.0.0","author":"Claude","description":"個数と面数を指定してサイコロを振れるダイスローラーアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>サイコロ</title>
+<style>
+  :root{
+    --accent:#7d5ba6;
+    --bg:#160f1e;
+    --card:#211730;
+    --text:#f4eefc;
+    --sub:#b3a4cc;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    min-height:100vh;
+    padding:16px;
+    padding-bottom:40px;
+  }
+  h1{
+    font-size:20px;
+    margin:4px 0 16px;
+    text-align:center;
+  }
+  .panel{
+    max-width:480px;
+    margin:0 auto;
+    background:var(--card);
+    border-radius:16px;
+    padding:16px;
+    border:1px solid rgba(255,255,255,0.06);
+  }
+  .controls{
+    display:flex;
+    gap:12px;
+    flex-wrap:wrap;
+    justify-content:center;
+    margin-bottom:14px;
+  }
+  .field{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    align-items:center;
+  }
+  .field label{
+    font-size:12px;
+    color:var(--sub);
+  }
+  select, .stepper{
+    background:#2c2040;
+    color:var(--text);
+    border:1px solid rgba(255,255,255,0.12);
+    border-radius:10px;
+    padding:8px 10px;
+    font-size:15px;
+    min-height:44px;
+  }
+  .stepper{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .stepper button{
+    width:36px;
+    height:36px;
+    border-radius:8px;
+    border:none;
+    background:var(--accent);
+    color:#1a1226;
+    font-size:18px;
+    font-weight:700;
+    cursor:pointer;
+  }
+  .stepper .val{
+    min-width:24px;
+    text-align:center;
+    font-weight:700;
+    font-size:16px;
+  }
+  .roll-btn{
+    display:block;
+    width:100%;
+    padding:14px;
+    border-radius:12px;
+    border:none;
+    background:var(--accent);
+    color:#1a1226;
+    font-weight:700;
+    font-size:17px;
+    cursor:pointer;
+    margin-bottom:14px;
+  }
+  .roll-btn:active{ transform:scale(0.98); }
+  .dice-area{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    justify-content:center;
+    min-height:70px;
+    margin-bottom:10px;
+  }
+  .die{
+    width:64px;
+    height:64px;
+    border-radius:12px;
+    background:#fff;
+    color:#211730;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:26px;
+    font-weight:800;
+    box-shadow:0 3px 0 rgba(0,0,0,0.25);
+    position:relative;
+  }
+  .die.rolling{
+    animation:shake 0.5s ease-in-out;
+  }
+  @keyframes shake{
+    0%{ transform:rotate(0deg) scale(1); }
+    20%{ transform:rotate(-18deg) scale(1.05); }
+    40%{ transform:rotate(15deg) scale(1.05); }
+    60%{ transform:rotate(-12deg) scale(1.02); }
+    80%{ transform:rotate(8deg) scale(1.02); }
+    100%{ transform:rotate(0deg) scale(1); }
+  }
+  .pips{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    grid-template-rows:repeat(3,1fr);
+    width:44px;
+    height:44px;
+    gap:2px;
+  }
+  .pip{
+    border-radius:50%;
+  }
+  .pip.on{ background:#211730; }
+  .sum-row{
+    text-align:center;
+    font-size:15px;
+    color:var(--sub);
+    margin-bottom:14px;
+  }
+  .sum-row b{
+    color:var(--text);
+    font-size:22px;
+  }
+  .history{
+    max-height:180px;
+    overflow-y:auto;
+    border-top:1px solid rgba(255,255,255,0.08);
+    padding-top:8px;
+  }
+  .history h2{
+    font-size:13px;
+    color:var(--sub);
+    margin:0 0 6px;
+    font-weight:600;
+  }
+  .hist-item{
+    font-size:13px;
+    padding:6px 4px;
+    border-bottom:1px solid rgba(255,255,255,0.05);
+    display:flex;
+    justify-content:space-between;
+    gap:8px;
+  }
+  .hist-item .vals{
+    color:var(--sub);
+  }
+  .hist-item b{
+    color:var(--accent);
+  }
+</style>
+</head>
+<body>
+  <h1>🎲 サイコロ</h1>
+  <div class="panel">
+    <div class="controls">
+      <div class="field">
+        <label>個数</label>
+        <div class="stepper">
+          <button id="countMinus" type="button">−</button>
+          <div class="val" id="countVal">2</div>
+          <button id="countPlus" type="button">＋</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>面数</label>
+        <select id="sidesSelect">
+          <option value="4">d4</option>
+          <option value="6" selected>d6</option>
+          <option value="8">d8</option>
+          <option value="10">d10</option>
+          <option value="12">d12</option>
+          <option value="20">d20</option>
+        </select>
+      </div>
+    </div>
+    <button class="roll-btn" id="rollBtn" type="button">振る</button>
+    <div class="dice-area" id="diceArea"></div>
+    <div class="sum-row" id="sumRow">合計: <b>-</b></div>
+    <div class="history">
+      <h2>履歴</h2>
+      <div id="historyList"></div>
+    </div>
+  </div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var STORE_KEY = "history";
+  var LS_KEY = "dice-roller:" + STORE_KEY;
+
+  var count = 2;
+  var sides = 6;
+  var history = [];
+  var rolling = false;
+
+  var countVal = document.getElementById("countVal");
+  var countMinus = document.getElementById("countMinus");
+  var countPlus = document.getElementById("countPlus");
+  var sidesSelect = document.getElementById("sidesSelect");
+  var rollBtn = document.getElementById("rollBtn");
+  var diceArea = document.getElementById("diceArea");
+  var sumRow = document.getElementById("sumRow");
+  var historyList = document.getElementById("historyList");
+
+  function clampCount(n){
+    return Math.max(1, Math.min(6, n));
+  }
+
+  countMinus.addEventListener("click", function(){
+    if (rolling) return;
+    count = clampCount(count - 1);
+    countVal.textContent = count;
+  });
+  countPlus.addEventListener("click", function(){
+    if (rolling) return;
+    count = clampCount(count + 1);
+    countVal.textContent = count;
+  });
+  sidesSelect.addEventListener("change", function(){
+    sides = parseInt(sidesSelect.value, 10);
+  });
+
+  function pipPattern(n){
+    // returns array of 9 booleans for 3x3 grid representing pips 1-6
+    var map = {
+      1: [4],
+      2: [0,8],
+      3: [0,4,8],
+      4: [0,2,6,8],
+      5: [0,2,4,6,8],
+      6: [0,2,3,5,6,8]
+    };
+    var idxs = map[n] || [];
+    var arr = new Array(9).fill(false);
+    idxs.forEach(function(i){ arr[i] = true; });
+    return arr;
+  }
+
+  function buildDieFace(value){
+    if (sides === 6){
+      var pattern = pipPattern(value);
+      var html = '<div class="pips">';
+      for (var i = 0; i < 9; i++){
+        html += '<div class="pip' + (pattern[i] ? ' on' : '') + '"></div>';
+      }
+      html += '</div>';
+      return html;
+    }
+    return '<span>' + value + '</span>';
+  }
+
+  function renderDiceStatic(){
+    diceArea.innerHTML = "";
+    for (var i = 0; i < count; i++){
+      var d = document.createElement("div");
+      d.className = "die";
+      d.innerHTML = sides === 6 ? buildDieFace(1) : '<span>?</span>';
+      diceArea.appendChild(d);
+    }
+  }
+  renderDiceStatic();
+
+  function renderHistory(){
+    historyList.innerHTML = "";
+    if (history.length === 0){
+      historyList.innerHTML = '<div class="hist-item"><span>まだ履歴がありません</span></div>';
+      return;
+    }
+    history.forEach(function(h){
+      var row = document.createElement("div");
+      row.className = "hist-item";
+      row.innerHTML =
+        '<span class="vals">d' + h.sides + ' × ' + h.count + ' : [' + h.values.join(", ") + ']</span>' +
+        '<b>合計 ' + h.sum + '</b>';
+      historyList.appendChild(row);
+    });
+  }
+
+  async function loadHistory(){
+    try {
+      if (hasSDK){
+        var v = await window.GUIOS.storage.get(STORE_KEY);
+        if (Array.isArray(v)) history = v;
+      } else {
+        var raw = localStorage.getItem(LS_KEY);
+        if (raw) history = JSON.parse(raw);
+      }
+    } catch(e){}
+    renderHistory();
+  }
+
+  async function saveHistory(){
+    history = history.slice(0, 30);
+    try {
+      if (hasSDK){
+        await window.GUIOS.storage.set(STORE_KEY, history);
+      } else {
+        localStorage.setItem(LS_KEY, JSON.stringify(history));
+      }
+    } catch(e){}
+  }
+
+  function notify(msg){
+    if (window.GUIOS && window.GUIOS.notify){
+      window.GUIOS.notify(msg, { type: "success" });
+    }
+  }
+
+  function haptic(){
+    if (window.GUIOS && window.GUIOS.haptic){
+      try { window.GUIOS.haptic(); } catch(e){}
+    }
+  }
+
+  rollBtn.addEventListener("click", function(){
+    if (rolling) return;
+    rolling = true;
+    rollBtn.disabled = true;
+
+    diceArea.innerHTML = "";
+    var dieEls = [];
+    for (var i = 0; i < count; i++){
+      var d = document.createElement("div");
+      d.className = "die rolling";
+      d.innerHTML = sides === 6 ? buildDieFace(1) : '<span>?</span>';
+      diceArea.appendChild(d);
+      dieEls.push(d);
+    }
+    sumRow.innerHTML = '合計: <b>…</b>';
+
+    setTimeout(function(){
+      var values = [];
+      for (var i = 0; i < count; i++){
+        var v = Math.floor(Math.random() * sides) + 1;
+        values.push(v);
+        dieEls[i].classList.remove("rolling");
+        dieEls[i].innerHTML = sides === 6 ? buildDieFace(v) : '<span>' + v + '</span>';
+      }
+      var sum = values.reduce(function(a,b){ return a+b; }, 0);
+      sumRow.innerHTML = '合計: <b>' + sum + '</b>';
+
+      history.unshift({ count: count, sides: sides, values: values, sum: sum });
+      renderHistory();
+      saveHistory();
+
+      haptic();
+      notify("合計 " + sum + " が出ました！");
+
+      rolling = false;
+      rollBtn.disabled = false;
+    }, 520);
+  });
+
+  loadHistory();
+</script>
+</body>
+</html>

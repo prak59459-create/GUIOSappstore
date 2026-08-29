@@ -1,0 +1,184 @@
+<!--GUIOS-APP {"id":"unit-converter","name":"単位変換","icon":"📐","color":"#4a6fa5","version":"1.0.0","author":"Claude","description":"長さ・重さ・温度をまとめて変換できる単位変換ツール。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>単位変換</title>
+<style>
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:#0e1420; color:#e8edf7; min-height:100vh; padding:16px;
+  }
+  h1{ font-size:18px; margin:0 0 14px; color:#9fbaea; }
+  .tabs{ display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
+  .tab{
+    flex:1; min-width:90px; padding:12px 8px; border-radius:12px; border:none;
+    background:#182338; color:#c6d3ec; font-size:14px; font-weight:600; cursor:pointer;
+    min-height:44px; -webkit-tap-highlight-color:transparent;
+  }
+  .tab.active{ background:#4a6fa5; color:#eef3fc; }
+  .card{
+    background:#141d30; border-radius:16px; padding:16px; margin-bottom:14px;
+  }
+  label{ display:block; font-size:13px; color:#9fb0d0; margin-bottom:6px; }
+  input[type="number"]{
+    width:100%; padding:14px; border-radius:10px; border:1px solid #2a3a5c;
+    background:#0e1420; color:#eef3fc; font-size:20px; margin-bottom:14px;
+    -webkit-appearance:none; appearance:none;
+  }
+  select{
+    width:100%; padding:12px; border-radius:10px; border:1px solid #2a3a5c;
+    background:#0e1420; color:#eef3fc; font-size:16px; margin-bottom:4px;
+  }
+  .results{ display:flex; flex-direction:column; gap:8px; margin-top:10px; }
+  .row{
+    display:flex; justify-content:space-between; align-items:center;
+    background:#0e1420; border-radius:10px; padding:12px 14px;
+  }
+  .row.base{ background:#1c2b47; }
+  .unit{ color:#9fb0d0; font-size:14px; }
+  .val{ font-size:16px; font-weight:700; word-break:break-all; text-align:right; }
+</style>
+</head>
+<body>
+  <h1>📐 単位変換</h1>
+  <div class="tabs">
+    <button class="tab active" data-cat="length">長さ</button>
+    <button class="tab" data-cat="weight">重さ</button>
+    <button class="tab" data-cat="temp">温度</button>
+  </div>
+
+  <div class="card">
+    <label for="valInput">数値を入力</label>
+    <input type="number" id="valInput" value="1" inputmode="decimal">
+    <label for="unitSelect">基準の単位</label>
+    <select id="unitSelect"></select>
+  </div>
+
+  <div class="card">
+    <div class="results" id="results"></div>
+  </div>
+
+<script>
+  var UNITS = {
+    length: {
+      label: '長さ',
+      // factor: multiply value by factor to get meters
+      units: {
+        m:    { name: 'メートル (m)', factor: 1 },
+        km:   { name: 'キロメートル (km)', factor: 1000 },
+        cm:   { name: 'センチメートル (cm)', factor: 0.01 },
+        mm:   { name: 'ミリメートル (mm)', factor: 0.001 },
+        mile: { name: 'マイル (mile)', factor: 1609.344 },
+        ft:   { name: 'フィート (ft)', factor: 0.3048 },
+        inch: { name: 'インチ (inch)', factor: 0.0254 }
+      }
+    },
+    weight: {
+      label: '重さ',
+      // factor: multiply value by factor to get kilograms
+      units: {
+        kg: { name: 'キログラム (kg)', factor: 1 },
+        g:  { name: 'グラム (g)', factor: 0.001 },
+        mg: { name: 'ミリグラム (mg)', factor: 0.000001 },
+        lb: { name: 'ポンド (lb)', factor: 0.45359237 },
+        oz: { name: 'オンス (oz)', factor: 0.028349523125 }
+      }
+    },
+    temp: {
+      label: '温度',
+      units: {
+        c: { name: '摂氏 (℃)' },
+        f: { name: '華氏 (℉)' },
+        k: { name: 'ケルビン (K)' }
+      }
+    }
+  };
+
+  var currentCat = 'length';
+  var tabs = document.querySelectorAll('.tab');
+  var unitSelect = document.getElementById('unitSelect');
+  var valInput = document.getElementById('valInput');
+  var resultsEl = document.getElementById('results');
+
+  function populateUnitSelect(){
+    var cat = UNITS[currentCat];
+    var keys = Object.keys(cat.units);
+    unitSelect.innerHTML = keys.map(function(k){
+      return '<option value="' + k + '">' + cat.units[k].name + '</option>';
+    }).join('');
+  }
+
+  function toCelsius(v, from){
+    if (from === 'c') return v;
+    if (from === 'f') return (v - 32) * 5 / 9;
+    if (from === 'k') return v - 273.15;
+  }
+  function fromCelsius(c, to){
+    if (to === 'c') return c;
+    if (to === 'f') return c * 9 / 5 + 32;
+    if (to === 'k') return c + 273.15;
+  }
+
+  function formatNum(n){
+    if (!isFinite(n)) return '—';
+    if (Math.abs(n) >= 1e9 || (Math.abs(n) < 1e-6 && n !== 0)) return n.toExponential(4);
+    var rounded = Math.round(n * 1e6) / 1e6;
+    return String(rounded);
+  }
+
+  function render(){
+    var cat = UNITS[currentCat];
+    var fromKey = unitSelect.value;
+    var raw = valInput.value;
+    var v = parseFloat(raw);
+    if (raw === '' || isNaN(v)) {
+      resultsEl.innerHTML = '<div class="row"><span class="unit">数値を入力してください</span></div>';
+      return;
+    }
+
+    var keys = Object.keys(cat.units);
+    var html = '';
+
+    if (currentCat === 'temp') {
+      var c = toCelsius(v, fromKey);
+      keys.forEach(function(k){
+        var out = fromCelsius(c, k);
+        var isBase = k === fromKey;
+        html += '<div class="row' + (isBase ? ' base' : '') + '">' +
+          '<span class="unit">' + cat.units[k].name + '</span>' +
+          '<span class="val">' + formatNum(out) + '</span></div>';
+      });
+    } else {
+      var meters = v * cat.units[fromKey].factor;
+      keys.forEach(function(k){
+        var out = meters / cat.units[k].factor;
+        var isBase = k === fromKey;
+        html += '<div class="row' + (isBase ? ' base' : '') + '">' +
+          '<span class="unit">' + cat.units[k].name + '</span>' +
+          '<span class="val">' + formatNum(out) + '</span></div>';
+      });
+    }
+    resultsEl.innerHTML = html;
+  }
+
+  tabs.forEach(function(tab){
+    tab.addEventListener('click', function(){
+      tabs.forEach(function(t){ t.classList.remove('active'); });
+      tab.classList.add('active');
+      currentCat = tab.dataset.cat;
+      populateUnitSelect();
+      render();
+    });
+  });
+
+  unitSelect.addEventListener('change', render);
+  valInput.addEventListener('input', render);
+
+  populateUnitSelect();
+  render();
+</script>
+</body>
+</html>

@@ -1,0 +1,350 @@
+<!--GUIOS-APP {"id":"expense-tracker","name":"家計簿","icon":"💰","color":"#d9a441","version":"1.0.0","author":"Claude","description":"日々の支出を記録し、カテゴリ別・月別に集計できる家計簿アプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>家計簿</title>
+<style>
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:#1a1508; color:#f5ecd8; min-height:100vh; padding:14px; padding-bottom:40px;
+  }
+  h1{ font-size:18px; margin:0 0 14px; text-align:center; letter-spacing:.02em; }
+  .card{
+    background:#241d0f; border-radius:16px; padding:16px; margin-bottom:14px;
+    box-shadow:0 6px 18px rgba(0,0,0,.3);
+  }
+  .month-nav{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .month-nav .month-label{ font-size:17px; font-weight:700; }
+  .icon-btn{
+    background:#3a2e14; color:#f5ecd8; border:none; border-radius:12px;
+    min-width:44px; min-height:44px; font-size:18px; cursor:pointer;
+  }
+  .icon-btn:active{ filter:brightness(1.3); }
+  .today-btn{
+    background:none; border:1px solid #d9a441; color:#d9a441; font-size:12px;
+    padding:6px 10px; border-radius:8px; min-height:32px;
+  }
+  .total-row{ display:flex; justify-content:space-between; align-items:baseline; margin-top:12px; }
+  .total-row .label{ font-size:13px; color:#c9bd9c; }
+  .total-row .value{ font-size:26px; font-weight:700; color:#f7d488; }
+  form.entry-form{ display:flex; flex-direction:column; gap:10px; }
+  .row2{ display:flex; gap:10px; }
+  .row2 > *{ flex:1; min-width:0; }
+  label.field{ display:flex; flex-direction:column; gap:4px; font-size:12px; color:#c9bd9c; }
+  input, select{
+    background:#14100a; border:1px solid #3a2e14; color:#f5ecd8; border-radius:10px;
+    padding:10px; font-size:15px; min-height:44px; width:100%; font-family:inherit;
+  }
+  input:focus, select:focus{ outline:1px solid #d9a441; }
+  .add-btn{
+    background:#d9a441; color:#241a06; border:none; border-radius:12px; font-weight:700;
+    font-size:15px; padding:12px; min-height:46px; cursor:pointer; margin-top:2px;
+  }
+  .add-btn:active{ filter:brightness(1.1); }
+  .section-title{ font-size:13px; color:#c9bd9c; margin:0 0 10px; font-weight:600; }
+  .bar-row{ margin-bottom:10px; }
+  .bar-row:last-child{ margin-bottom:0; }
+  .bar-head{ display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px; }
+  .bar-head .cat-name{ color:#f5ecd8; }
+  .bar-head .cat-amt{ color:#c9bd9c; }
+  .bar-track{ background:#14100a; border-radius:6px; height:10px; overflow:hidden; }
+  .bar-fill{ height:100%; background:#d9a441; border-radius:6px; transition:width .3s; }
+  .entries-list{ display:flex; flex-direction:column; gap:8px; }
+  .entry{
+    display:flex; align-items:center; gap:10px; background:#14100a; border-radius:12px;
+    padding:10px 12px;
+  }
+  .entry .cat-badge{
+    font-size:20px; width:38px; height:38px; border-radius:10px; background:#3a2e14;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .entry .info{ flex:1; min-width:0; }
+  .entry .amt{ font-size:16px; font-weight:700; color:#f7d488; }
+  .entry .meta{ font-size:12px; color:#c9bd9c; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .entry .del-btn{
+    background:none; border:none; color:#d97a5e; font-size:18px; min-width:40px; min-height:40px;
+    cursor:pointer; border-radius:8px;
+  }
+  .entry .del-btn:active{ background:#3a2e14; }
+  .empty{ text-align:center; color:#8a7f5f; font-size:13px; padding:20px 0; }
+  .toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:#3a2e14; color:#f5ecd8; padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; transition:opacity .25s, transform .25s; pointer-events:none;
+    max-width:90%; text-align:center; box-shadow:0 6px 18px rgba(0,0,0,.35); z-index:50;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+  <h1>💰 家計簿</h1>
+
+  <div class="card">
+    <div class="month-nav">
+      <button class="icon-btn" id="prevMonth">◀</button>
+      <div style="text-align:center;">
+        <div class="month-label" id="monthLabel">2026年8月</div>
+        <button class="today-btn" id="todayBtn">今月へ</button>
+      </div>
+      <button class="icon-btn" id="nextMonth">▶</button>
+    </div>
+    <div class="total-row">
+      <span class="label">今月の合計</span>
+      <span class="value" id="monthTotal">¥0</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">支出を追加</div>
+    <form class="entry-form" id="entryForm">
+      <div class="row2">
+        <label class="field">金額(円)
+          <input type="number" id="fAmount" inputmode="numeric" min="0" step="1" placeholder="1000" required>
+        </label>
+        <label class="field">カテゴリ
+          <select id="fCategory">
+            <option value="食費">食費</option>
+            <option value="交通">交通</option>
+            <option value="娯楽">娯楽</option>
+            <option value="日用品">日用品</option>
+            <option value="その他">その他</option>
+          </select>
+        </label>
+      </div>
+      <div class="row2">
+        <label class="field">日付
+          <input type="date" id="fDate">
+        </label>
+        <label class="field">メモ(任意)
+          <input type="text" id="fMemo" placeholder="ランチ代など" maxlength="60">
+        </label>
+      </div>
+      <button type="submit" class="add-btn">＋ 追加する</button>
+    </form>
+  </div>
+
+  <div class="card" id="breakdownCard">
+    <div class="section-title">カテゴリ別内訳</div>
+    <div id="breakdown"></div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">明細</div>
+    <div class="entries-list" id="entriesList"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+  var APP_ID = 'expense-tracker';
+  var FALLBACK_KEY = 'guios-fallback-' + APP_ID + '-data';
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+
+  var CATEGORY_ICONS = { '食費':'🍚', '交通':'🚃', '娯楽':'🎮', '日用品':'🧴', 'その他':'📦' };
+  var CATEGORY_ORDER = ['食費','交通','娯楽','日用品','その他'];
+
+  var toastEl = document.getElementById('toast');
+  var toastTimer = null;
+  function showToast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ toastEl.classList.remove('show'); }, 1800);
+  }
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify) {
+      try { window.GUIOS.notify(msg, { type: type || 'info' }); return; } catch(e){}
+    }
+    showToast(msg);
+  }
+  function haptic(){
+    if (window.GUIOS && window.GUIOS.haptic) {
+      try { window.GUIOS.haptic(); } catch(e){}
+    }
+  }
+
+  async function loadEntries(){
+    if (hasSDK) {
+      try {
+        var v = await window.GUIOS.storage.get('entries');
+        return Array.isArray(v) ? v : [];
+      } catch(e){ return []; }
+    } else {
+      try {
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        var arr = raw ? JSON.parse(raw) : [];
+        return Array.isArray(arr) ? arr : [];
+      } catch(e){ return []; }
+    }
+  }
+  async function saveEntries(arr){
+    if (hasSDK) {
+      try { await window.GUIOS.storage.set('entries', arr); } catch(e){}
+    } else {
+      try { localStorage.setItem(FALLBACK_KEY, JSON.stringify(arr)); } catch(e){}
+    }
+  }
+
+  var entries = [];
+  var viewYear, viewMonth; // viewMonth: 0-11
+
+  function todayStr(){
+    var d = new Date();
+    return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate());
+  }
+  function pad2(n){ return n < 10 ? '0'+n : ''+n; }
+
+  function monthKey(y, m){ return y + '-' + pad2(m+1); }
+
+  function setDefaultDate(){
+    document.getElementById('fDate').value = todayStr();
+  }
+
+  function renderMonthLabel(){
+    document.getElementById('monthLabel').textContent = viewYear + '年' + (viewMonth+1) + '月';
+  }
+
+  function entriesForMonth(){
+    var key = monthKey(viewYear, viewMonth);
+    return entries.filter(function(e){ return e.date && e.date.slice(0,7) === key; });
+  }
+
+  function formatYen(n){
+    return '¥' + Math.round(n).toLocaleString('ja-JP');
+  }
+
+  function render(){
+    renderMonthLabel();
+    var list = entriesForMonth();
+    var total = list.reduce(function(s,e){ return s + (parseFloat(e.amount)||0); }, 0);
+    document.getElementById('monthTotal').textContent = formatYen(total);
+
+    // breakdown
+    var byCat = {};
+    CATEGORY_ORDER.forEach(function(c){ byCat[c] = 0; });
+    list.forEach(function(e){
+      var c = byCat.hasOwnProperty(e.category) ? e.category : 'その他';
+      byCat[c] = (byCat[c]||0) + (parseFloat(e.amount)||0);
+    });
+    var bd = document.getElementById('breakdown');
+    bd.innerHTML = '';
+    var any = false;
+    CATEGORY_ORDER.forEach(function(c){
+      var amt = byCat[c];
+      if (amt <= 0) return;
+      any = true;
+      var pct = total > 0 ? (amt/total*100) : 0;
+      var row = document.createElement('div');
+      row.className = 'bar-row';
+      row.innerHTML =
+        '<div class="bar-head"><span class="cat-name">' + CATEGORY_ICONS[c] + ' ' + c + '</span>' +
+        '<span class="cat-amt">' + formatYen(amt) + '（' + pct.toFixed(1) + '%）</span></div>' +
+        '<div class="bar-track"><div class="bar-fill" style="width:' + pct.toFixed(1) + '%"></div></div>';
+      bd.appendChild(row);
+    });
+    if (!any) {
+      bd.innerHTML = '<div class="empty">この月の支出はまだありません</div>';
+    }
+
+    // entries list newest first
+    var sorted = list.slice().sort(function(a,b){
+      if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+      return (b.createdAt||0) - (a.createdAt||0);
+    });
+    var el = document.getElementById('entriesList');
+    el.innerHTML = '';
+    if (sorted.length === 0) {
+      el.innerHTML = '<div class="empty">明細はありません</div>';
+      return;
+    }
+    sorted.forEach(function(e){
+      var row = document.createElement('div');
+      row.className = 'entry';
+      var icon = CATEGORY_ICONS[e.category] || '📦';
+      var metaParts = [e.date];
+      if (e.memo) metaParts.push(e.memo);
+      row.innerHTML =
+        '<div class="cat-badge">' + icon + '</div>' +
+        '<div class="info"><div class="amt">' + formatYen(e.amount) + '</div>' +
+        '<div class="meta">' + metaParts.join(' ・ ') + '</div></div>' +
+        '<button class="del-btn" data-id="' + e.id + '">🗑</button>';
+      el.appendChild(row);
+    });
+  }
+
+  document.getElementById('entriesList').addEventListener('click', async function(e){
+    var btn = e.target.closest('.del-btn');
+    if (!btn) return;
+    var id = btn.dataset.id;
+    entries = entries.filter(function(x){ return String(x.id) !== String(id); });
+    await saveEntries(entries);
+    render();
+    notify('削除しました', 'success');
+  });
+
+  document.getElementById('entryForm').addEventListener('submit', async function(e){
+    e.preventDefault();
+    var amount = parseFloat(document.getElementById('fAmount').value);
+    if (!amount || amount <= 0 || isNaN(amount)) {
+      notify('金額を正しく入力してください', 'error');
+      return;
+    }
+    var category = document.getElementById('fCategory').value;
+    var memo = document.getElementById('fMemo').value.trim();
+    var date = document.getElementById('fDate').value || todayStr();
+    var entry = {
+      id: Date.now() + '-' + Math.random().toString(36).slice(2,8),
+      amount: amount,
+      category: category,
+      memo: memo,
+      date: date,
+      createdAt: Date.now()
+    };
+    entries.push(entry);
+    await saveEntries(entries);
+    // jump view to the month of the new entry
+    var parts = date.split('-');
+    viewYear = parseInt(parts[0],10);
+    viewMonth = parseInt(parts[1],10) - 1;
+    render();
+    document.getElementById('fAmount').value = '';
+    document.getElementById('fMemo').value = '';
+    setDefaultDate();
+    notify('追加しました', 'success');
+    haptic();
+  });
+
+  document.getElementById('prevMonth').addEventListener('click', function(){
+    viewMonth--;
+    if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+    render();
+  });
+  document.getElementById('nextMonth').addEventListener('click', function(){
+    viewMonth++;
+    if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+    render();
+  });
+  document.getElementById('todayBtn').addEventListener('click', function(){
+    var d = new Date();
+    viewYear = d.getFullYear();
+    viewMonth = d.getMonth();
+    render();
+  });
+
+  (async function init(){
+    var d = new Date();
+    viewYear = d.getFullYear();
+    viewMonth = d.getMonth();
+    setDefaultDate();
+    entries = await loadEntries();
+    render();
+    if (window.GUIOS && window.GUIOS.setTitle) {
+      try { window.GUIOS.setTitle('家計簿'); } catch(e){}
+    }
+  })();
+</script>
+</body>
+</html>

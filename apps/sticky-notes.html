@@ -1,0 +1,310 @@
+<!--GUIOS-APP {"id":"sticky-notes","name":"付箋ボード","icon":"🗒️","color":"#e0a72c","version":"1.0.0","author":"Claude","description":"自由に配置できる付箋を貼って管理できる付箋ボードアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>付箋ボード</title>
+<style>
+  :root{
+    --accent:#e0a72c;
+    --bg:#171307;
+    --card:#221b0d;
+    --text:#f7f0dd;
+    --sub:#c7b98f;
+    --line:#3a2f16;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    display:flex; flex-direction:column;
+    overflow:hidden;
+  }
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 16px; border-bottom:1px solid var(--line); flex:none;
+  }
+  .topbar h1{font-size:18px; margin:0; display:flex; align-items:center; gap:8px;}
+  #addBtn{
+    padding:10px 16px; border-radius:10px; border:none; background:var(--accent);
+    color:#231a02; font-weight:700; font-size:14px; cursor:pointer; min-height:44px;
+  }
+  #board{
+    flex:1; position:relative; overflow:auto;
+    background:
+      radial-gradient(circle at 1px 1px, rgba(255,255,255,0.06) 1px, transparent 1px) 0 0/22px 22px,
+      var(--bg);
+    touch-action:none;
+  }
+  .empty-hint{
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    color:var(--sub); font-size:14px; text-align:center; pointer-events:none; width:80%;
+  }
+  .sticky{
+    position:absolute; width:150px; min-height:130px;
+    border-radius:8px; padding:10px; box-shadow:0 6px 14px rgba(0,0,0,0.35);
+    display:flex; flex-direction:column; gap:6px; cursor:grab; user-select:none;
+    touch-action:none;
+  }
+  .sticky.dragging{cursor:grabbing; box-shadow:0 12px 24px rgba(0,0,0,0.5); z-index:50;}
+  .sticky .stx{
+    flex:1; width:100%; resize:none; border:none; background:transparent; outline:none;
+    font-family:inherit; font-size:14px; color:#241f0a; line-height:1.4;
+  }
+  .sticky .sdel{
+    position:absolute; top:4px; right:4px; width:24px; height:24px; border-radius:50%;
+    border:none; background:rgba(0,0,0,0.15); color:#241f0a; font-size:13px; font-weight:900;
+    cursor:pointer; display:flex; align-items:center; justify-content:center; line-height:1;
+  }
+  .colorbar{display:flex; gap:8px; padding:10px 16px; border-top:1px solid var(--line); flex:none;}
+  .colorbar .swatch{
+    width:36px; height:36px; border-radius:50%; border:2px solid transparent; cursor:pointer; flex:none;
+  }
+  .colorbar .swatch.selected{border-color:var(--text);}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>🗒️ 付箋ボード</h1>
+    <button id="addBtn">＋ 付箋を追加</button>
+  </div>
+
+  <div class="colorbar" id="colorbar"></div>
+
+  <div id="board">
+    <div class="empty-hint" id="emptyHint">付箋がありません<br>「＋ 付箋を追加」から作成しましょう</div>
+  </div>
+
+  <div id="toast" style="position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:#2a2210; color:var(--text); padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; pointer-events:none; transition:all .25s; border:1px solid var(--line);
+    max-width:90%; text-align:center; z-index:999;"></div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var STORAGE_KEY = 'notes';
+  var FALLBACK_KEY = 'guios-fallback-sticky-notes-notes';
+
+  var COLORS = ['#ffe08a', '#ffb3ba', '#bae1ff', '#baffc9', '#e0baff'];
+  var selectedColor = COLORS[0];
+
+  var notes = [];
+  var board = document.getElementById('board');
+  var saveTimer = null;
+
+  function showToast(msg){
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.opacity = '1';
+    t.style.transform = 'translateX(-50%) translateY(0)';
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(function(){
+      t.style.opacity = '0';
+      t.style.transform = 'translateX(-50%) translateY(20px)';
+    }, 1600);
+  }
+  function notify(msg, type){
+    if(window.GUIOS && window.GUIOS.notify){
+      GUIOS.notify(msg, {type: type || 'info'});
+    } else {
+      showToast(msg);
+    }
+  }
+
+  async function loadNotes(){
+    if(hasSDK){
+      var v = await GUIOS.storage.get(STORAGE_KEY);
+      return Array.isArray(v) ? v : [];
+    } else {
+      try{
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        return raw ? JSON.parse(raw) : [];
+      }catch(e){ return []; }
+    }
+  }
+  function scheduleSave(){
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(async function(){
+      if(hasSDK){
+        try{ await GUIOS.storage.set(STORAGE_KEY, notes); }catch(e){}
+      } else {
+        try{ localStorage.setItem(FALLBACK_KEY, JSON.stringify(notes)); }catch(e){}
+      }
+    }, 250);
+  }
+  async function saveNow(){
+    clearTimeout(saveTimer);
+    if(hasSDK){
+      try{ await GUIOS.storage.set(STORAGE_KEY, notes); }catch(e){}
+    } else {
+      try{ localStorage.setItem(FALLBACK_KEY, JSON.stringify(notes)); }catch(e){}
+    }
+  }
+
+  function buildColorbar(){
+    var bar = document.getElementById('colorbar');
+    bar.innerHTML = '';
+    COLORS.forEach(function(c){
+      var sw = document.createElement('button');
+      sw.className = 'swatch' + (c === selectedColor ? ' selected' : '');
+      sw.style.background = c;
+      sw.addEventListener('click', function(){
+        selectedColor = c;
+        buildColorbar();
+      });
+      bar.appendChild(sw);
+    });
+  }
+
+  function clamp(val, min, max){
+    return Math.max(min, Math.min(max, val));
+  }
+
+  function updateEmptyHint(){
+    var hint = document.getElementById('emptyHint');
+    hint.style.display = notes.length === 0 ? 'block' : 'none';
+  }
+
+  function stickySize(){ return {w:150, h:130}; }
+
+  function clampPosition(x, y){
+    var size = stickySize();
+    var maxX = Math.max(0, board.clientWidth - size.w - 8);
+    var maxY = Math.max(0, board.clientHeight - size.h - 8);
+    return { x: clamp(x, 4, maxX), y: clamp(y, 4, maxY) };
+  }
+
+  function renderAll(){
+    // remove existing sticky elements
+    board.querySelectorAll('.sticky').forEach(function(el){ el.remove(); });
+    notes.forEach(renderNote);
+    updateEmptyHint();
+  }
+
+  function renderNote(note){
+    var el = document.createElement('div');
+    el.className = 'sticky';
+    el.style.background = note.color;
+    el.style.left = note.x + 'px';
+    el.style.top = note.y + 'px';
+    el.dataset.id = note.id;
+
+    var del = document.createElement('button');
+    del.className = 'sdel';
+    del.textContent = '✕';
+    del.addEventListener('pointerdown', function(e){ e.stopPropagation(); });
+    del.addEventListener('click', function(e){
+      e.stopPropagation();
+      deleteNote(note.id);
+    });
+
+    var ta = document.createElement('textarea');
+    ta.className = 'stx';
+    ta.value = note.text || '';
+    ta.placeholder = 'メモを入力...';
+    ta.addEventListener('pointerdown', function(e){ e.stopPropagation(); });
+    ta.addEventListener('input', function(){
+      note.text = ta.value;
+      scheduleSave();
+    });
+
+    el.appendChild(del);
+    el.appendChild(ta);
+    board.appendChild(el);
+
+    attachDrag(el, note);
+  }
+
+  function attachDrag(el, note){
+    var dragging = false;
+    var startX = 0, startY = 0;
+    var origX = 0, origY = 0;
+
+    el.addEventListener('pointerdown', function(e){
+      if(e.target !== el) return; // only drag from the sticky background, not textarea/button
+      dragging = true;
+      el.classList.add('dragging');
+      startX = e.clientX;
+      startY = e.clientY;
+      origX = note.x;
+      origY = note.y;
+      try{ el.setPointerCapture(e.pointerId); }catch(err){}
+    });
+
+    el.addEventListener('pointermove', function(e){
+      if(!dragging) return;
+      var dx = e.clientX - startX;
+      var dy = e.clientY - startY;
+      var pos = clampPosition(origX + dx, origY + dy);
+      note.x = pos.x;
+      note.y = pos.y;
+      el.style.left = note.x + 'px';
+      el.style.top = note.y + 'px';
+    });
+
+    function endDrag(e){
+      if(!dragging) return;
+      dragging = false;
+      el.classList.remove('dragging');
+      scheduleSave();
+    }
+    el.addEventListener('pointerup', endDrag);
+    el.addEventListener('pointercancel', endDrag);
+  }
+
+  async function deleteNote(id){
+    if(!confirm('この付箋を削除しますか？')) return;
+    notes = notes.filter(function(n){ return n.id !== id; });
+    await saveNow();
+    renderAll();
+  }
+
+  var addCount = 0;
+  async function addNote(){
+    var size = stickySize();
+    var baseX = 20 + (addCount % 5) * 18;
+    var baseY = 20 + (addCount % 5) * 18;
+    addCount++;
+    var pos = clampPosition(baseX, baseY);
+    var note = {
+      id: 'sticky-' + Date.now() + '-' + Math.floor(Math.random()*10000),
+      text: '',
+      color: selectedColor,
+      x: pos.x,
+      y: pos.y
+    };
+    notes.push(note);
+    await saveNow();
+    renderAll();
+    if(window.GUIOS && window.GUIOS.haptic) GUIOS.haptic();
+  }
+
+  document.getElementById('addBtn').addEventListener('click', addNote);
+
+  window.addEventListener('resize', function(){
+    // re-clamp all notes within new bounds
+    var changed = false;
+    notes.forEach(function(n){
+      var pos = clampPosition(n.x, n.y);
+      if(pos.x !== n.x || pos.y !== n.y){
+        n.x = pos.x; n.y = pos.y; changed = true;
+      }
+    });
+    if(changed){
+      renderAll();
+      scheduleSave();
+    }
+  });
+
+  async function init(){
+    buildColorbar();
+    notes = await loadNotes();
+    renderAll();
+  }
+  init();
+</script>
+</body>
+</html>

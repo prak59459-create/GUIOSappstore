@@ -1,0 +1,284 @@
+<!--GUIOS-APP {"id":"coin-flip","name":"コイントス","icon":"🪙","color":"#c9971f","version":"1.0.0","author":"Claude","description":"タップでコインを投げて表裏を占うコイントスアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>コイントス</title>
+<style>
+  :root{
+    --accent:#c9971f;
+    --bg:#1c1608;
+    --card:#2a2110;
+    --text:#fbf3e2;
+    --sub:#c9b98d;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    min-height:100vh;
+    padding:16px;
+    padding-bottom:40px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  h1{
+    font-size:20px;
+    margin:4px 0 20px;
+  }
+  .stage{
+    perspective:800px;
+    width:180px;
+    height:180px;
+    margin-bottom:18px;
+  }
+  .coin{
+    width:100%;
+    height:100%;
+    border-radius:50%;
+    position:relative;
+    transform-style:preserve-3d;
+    transition:transform 1.1s cubic-bezier(.2,.6,.3,1);
+    transform:rotateY(0deg);
+  }
+  .face{
+    position:absolute;
+    inset:0;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    backface-visibility:hidden;
+    background:radial-gradient(circle at 35% 30%, #ffe8a8, var(--accent) 70%);
+    color:#3a2a05;
+    font-weight:800;
+    box-shadow:0 6px 0 rgba(0,0,0,0.35), 0 0 0 6px rgba(255,255,255,0.08) inset;
+  }
+  .face .big{ font-size:44px; }
+  .face .label{ font-size:14px; margin-top:4px; letter-spacing:2px;}
+  .back{ transform:rotateY(180deg); }
+  .result{
+    font-size:20px;
+    font-weight:700;
+    min-height:30px;
+    margin-bottom:14px;
+  }
+  .flip-btn{
+    padding:14px 40px;
+    border-radius:12px;
+    border:none;
+    background:var(--accent);
+    color:#2a1e04;
+    font-weight:800;
+    font-size:17px;
+    cursor:pointer;
+    margin-bottom:22px;
+  }
+  .flip-btn:disabled{ opacity:0.6; }
+  .stats{
+    width:100%;
+    max-width:400px;
+    background:var(--card);
+    border-radius:14px;
+    padding:14px 18px;
+    display:flex;
+    justify-content:space-around;
+    text-align:center;
+    margin-bottom:14px;
+    border:1px solid rgba(255,255,255,0.06);
+  }
+  .stat .num{ font-size:22px; font-weight:800; color:var(--accent); }
+  .stat .num.tails{ color:#9dd0c9; }
+  .stat .lbl{ font-size:12px; color:var(--sub); margin-top:2px; }
+  .reset-btn{
+    padding:9px 20px;
+    border-radius:10px;
+    border:1px solid rgba(255,255,255,0.15);
+    background:transparent;
+    color:var(--sub);
+    font-size:13px;
+    cursor:pointer;
+  }
+  .toast{
+    position:fixed;
+    bottom:24px;
+    left:50%;
+    transform:translateX(-50%) translateY(20px);
+    background:#333;
+    color:#fff;
+    padding:10px 18px;
+    border-radius:10px;
+    font-size:13px;
+    opacity:0;
+    transition:opacity 0.25s, transform 0.25s;
+    pointer-events:none;
+    max-width:80%;
+    text-align:center;
+  }
+  .toast.show{
+    opacity:1;
+    transform:translateX(-50%) translateY(0);
+  }
+</style>
+</head>
+<body>
+  <h1>🪙 コイントス</h1>
+
+  <div class="stage">
+    <div class="coin" id="coin">
+      <div class="face front">
+        <div class="big">👑</div>
+        <div class="label">表</div>
+      </div>
+      <div class="face back">
+        <div class="big">🔷</div>
+        <div class="label">裏</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="result" id="resultText">タップして占おう</div>
+  <button class="flip-btn" id="flipBtn" type="button">投げる</button>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="num" id="headsCount">0</div>
+      <div class="lbl">表</div>
+    </div>
+    <div class="stat">
+      <div class="num tails" id="tailsCount">0</div>
+      <div class="lbl">裏</div>
+    </div>
+    <div class="stat">
+      <div class="num" id="streakCount">0</div>
+      <div class="lbl">連続</div>
+    </div>
+  </div>
+
+  <button class="reset-btn" id="resetBtn" type="button">リセット</button>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var STORE_KEY = "stats";
+  var LS_KEY = "coin-flip:" + STORE_KEY;
+
+  var stats = { heads: 0, tails: 0, streak: 0, lastResult: null };
+  var flipping = false;
+  var currentRotation = 0;
+
+  var coin = document.getElementById("coin");
+  var resultText = document.getElementById("resultText");
+  var flipBtn = document.getElementById("flipBtn");
+  var headsCountEl = document.getElementById("headsCount");
+  var tailsCountEl = document.getElementById("tailsCount");
+  var streakCountEl = document.getElementById("streakCount");
+  var resetBtn = document.getElementById("resetBtn");
+  var toastEl = document.getElementById("toast");
+  var toastTimer = null;
+
+  function showToast(msg){
+    if (window.GUIOS && window.GUIOS.notify){
+      window.GUIOS.notify(msg, { type: "info" });
+      return;
+    }
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){
+      toastEl.classList.remove("show");
+    }, 1800);
+  }
+
+  function haptic(){
+    if (window.GUIOS && window.GUIOS.haptic){
+      try { window.GUIOS.haptic(); } catch(e){}
+    }
+  }
+
+  function renderStats(){
+    headsCountEl.textContent = stats.heads;
+    tailsCountEl.textContent = stats.tails;
+    streakCountEl.textContent = stats.streak;
+  }
+
+  async function loadStats(){
+    try {
+      if (hasSDK){
+        var v = await window.GUIOS.storage.get(STORE_KEY);
+        if (v && typeof v === "object") stats = Object.assign(stats, v);
+      } else {
+        var raw = localStorage.getItem(LS_KEY);
+        if (raw) stats = Object.assign(stats, JSON.parse(raw));
+      }
+    } catch(e){}
+    renderStats();
+  }
+
+  async function saveStats(){
+    try {
+      if (hasSDK){
+        await window.GUIOS.storage.set(STORE_KEY, stats);
+      } else {
+        localStorage.setItem(LS_KEY, JSON.stringify(stats));
+      }
+    } catch(e){}
+  }
+
+  flipBtn.addEventListener("click", function(){
+    if (flipping) return;
+    flipping = true;
+    flipBtn.disabled = true;
+    resultText.textContent = "回転中…";
+
+    var isHeads = Math.random() < 0.5;
+    var extraSpins = 4; // full spins
+    var targetFace = isHeads ? 0 : 180; // 0 = front visible, 180 = back visible
+    // ensure rotation always moves forward and lands on correct parity
+    var base = Math.ceil(currentRotation / 360) * 360 + extraSpins * 360;
+    var finalRotation = base + targetFace;
+    currentRotation = finalRotation;
+    coin.style.transform = "rotateY(" + finalRotation + "deg)";
+
+    setTimeout(function(){
+      var resultLabel = isHeads ? "表" : "裏";
+
+      if (stats.lastResult === resultLabel){
+        stats.streak += 1;
+      } else {
+        stats.streak = 1;
+      }
+      stats.lastResult = resultLabel;
+      if (isHeads) stats.heads += 1; else stats.tails += 1;
+
+      renderStats();
+      saveStats();
+      haptic();
+
+      resultText.textContent = isHeads ? "👑 表 が出ました！" : "🔷 裏 が出ました！";
+      showToast(resultLabel + "！ 連続 " + stats.streak + "回");
+
+      flipping = false;
+      flipBtn.disabled = false;
+    }, 1150);
+  });
+
+  resetBtn.addEventListener("click", function(){
+    if (flipping) return;
+    stats = { heads: 0, tails: 0, streak: 0, lastResult: null };
+    renderStats();
+    saveStats();
+    resultText.textContent = "タップして占おう";
+    showToast("記録をリセットしました");
+  });
+
+  loadStats();
+</script>
+</body>
+</html>

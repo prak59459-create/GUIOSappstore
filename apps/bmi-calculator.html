@@ -1,0 +1,237 @@
+<!--GUIOS-APP {"id":"bmi-calculator","name":"BMI計算機","icon":"⚖️","color":"#c0562f","version":"1.0.0","author":"Claude","description":"身長と体重からBMIを計算し、履歴を記録できるアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>BMI計算機</title>
+<style>
+  :root{
+    --accent:#c0562f;
+    --bg:#1a120d;
+    --card:#241a13;
+    --text:#f5ece3;
+    --sub:#c9b6a6;
+    --line:#3a2b20;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    padding:16px; padding-bottom:40px;
+  }
+  h1{font-size:20px; margin:4px 0 16px; display:flex; align-items:center; gap:8px;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:16px; margin-bottom:16px;
+  }
+  label{display:block; font-size:13px; color:var(--sub); margin-bottom:6px;}
+  .field{margin-bottom:14px;}
+  input[type=number]{
+    width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--line);
+    background:#150e09; color:var(--text); font-size:16px; outline:none;
+  }
+  input[type=number]:focus{border-color:var(--accent);}
+  button{
+    padding:12px 22px; border-radius:10px; border:none; background:var(--accent);
+    color:#1a0f07; font-weight:700; font-size:15px; cursor:pointer; min-height:44px;
+  }
+  button.secondary{
+    background:transparent; color:var(--sub); border:1px solid var(--line);
+    font-weight:600;
+  }
+  .btnrow{display:flex; gap:10px; flex-wrap:wrap;}
+  .btnrow button{flex:1;}
+  .result{
+    margin-top:16px; text-align:center; display:none;
+  }
+  .result.show{display:block;}
+  .bmi-value{font-size:40px; font-weight:800; color:var(--accent);}
+  .badge{
+    display:inline-block; margin-top:8px; padding:6px 16px; border-radius:999px;
+    font-size:14px; font-weight:700;
+  }
+  .b-low{background:#2f4a7a; color:#dbe6ff;}
+  .b-normal{background:#2f7a4a; color:#dcffe6;}
+  .b-over1{background:#8a6a1f; color:#fff3d6;}
+  .b-over2{background:#8a2f2f; color:#ffe0e0;}
+  .hist-title{font-size:14px; color:var(--sub); margin:0 0 10px; display:flex; justify-content:space-between; align-items:center;}
+  .hist-list{max-height:320px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;}
+  .hist-item{
+    background:#150e09; border:1px solid var(--line); border-radius:10px;
+    padding:10px 12px; display:flex; justify-content:space-between; align-items:center; font-size:13px;
+  }
+  .hist-item .meta{color:var(--sub); font-size:12px;}
+  .hist-item .val{font-weight:700; color:var(--accent);}
+  .empty{color:var(--sub); font-size:13px; text-align:center; padding:20px 0;}
+  .clearlink{background:none; border:none; color:var(--sub); font-size:12px; text-decoration:underline; padding:4px; min-height:auto;}
+  #toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:#2a2018; color:var(--text); padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; pointer-events:none; transition:all .25s; border:1px solid var(--line);
+    max-width:90%; text-align:center; z-index:999;
+  }
+  #toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+  <h1>⚖️ BMI計算機</h1>
+
+  <div class="card">
+    <div class="field">
+      <label for="height">身長 (cm)</label>
+      <input type="number" id="height" inputmode="decimal" placeholder="例: 165" min="0" step="0.1">
+    </div>
+    <div class="field">
+      <label for="weight">体重 (kg)</label>
+      <input type="number" id="weight" inputmode="decimal" placeholder="例: 60" min="0" step="0.1">
+    </div>
+    <div class="btnrow">
+      <button id="calcBtn">計算する</button>
+    </div>
+
+    <div class="result" id="result">
+      <div class="bmi-value" id="bmiValue">--</div>
+      <div><span class="badge" id="bmiBadge">-</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="hist-title">
+      <span>履歴（最新10件）</span>
+      <button class="clearlink" id="clearBtn">履歴を削除</button>
+    </div>
+    <div class="hist-list" id="histList">
+      <div class="empty">まだ記録がありません</div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var STORAGE_KEY = 'history';
+  var FALLBACK_KEY = 'guios-fallback-bmi-calculator-history';
+
+  function showToast(msg){
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(function(){ t.classList.remove('show'); }, 1800);
+  }
+
+  function notify(msg, type){
+    if(window.GUIOS && window.GUIOS.notify){
+      GUIOS.notify(msg, {type: type || 'info'});
+    } else {
+      showToast(msg);
+    }
+  }
+
+  async function loadHistory(){
+    if(hasSDK){
+      var v = await GUIOS.storage.get(STORAGE_KEY);
+      return Array.isArray(v) ? v : [];
+    } else {
+      try{
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        return raw ? JSON.parse(raw) : [];
+      }catch(e){ return []; }
+    }
+  }
+
+  async function saveHistory(list){
+    if(hasSDK){
+      await GUIOS.storage.set(STORAGE_KEY, list);
+    } else {
+      try{ localStorage.setItem(FALLBACK_KEY, JSON.stringify(list)); }catch(e){}
+    }
+  }
+
+  function categoryOf(bmi){
+    if(bmi < 18.5) return {label:'低体重', cls:'b-low'};
+    if(bmi < 25) return {label:'普通体重', cls:'b-normal'};
+    if(bmi < 30) return {label:'肥満（1度）', cls:'b-over1'};
+    return {label:'肥満（2度以上）', cls:'b-over2'};
+  }
+
+  function formatDate(iso){
+    var d = new Date(iso);
+    if(isNaN(d.getTime())) return iso;
+    var y=d.getFullYear(), m=('0'+(d.getMonth()+1)).slice(-2), day=('0'+d.getDate()).slice(-2);
+    var hh=('0'+d.getHours()).slice(-2), mm=('0'+d.getMinutes()).slice(-2);
+    return y+'/'+m+'/'+day+' '+hh+':'+mm;
+  }
+
+  function renderHistory(list){
+    var el = document.getElementById('histList');
+    if(!list || list.length===0){
+      el.innerHTML = '<div class="empty">まだ記録がありません</div>';
+      return;
+    }
+    el.innerHTML = '';
+    list.slice(0,10).forEach(function(item){
+      var div = document.createElement('div');
+      div.className = 'hist-item';
+      div.innerHTML =
+        '<div><div class="val">BMI ' + item.bmi.toFixed(1) + ' (' + item.category + ')</div>'+
+        '<div class="meta">' + formatDate(item.date) + ' ・ ' + item.height + 'cm / ' + item.weight + 'kg</div></div>';
+      el.appendChild(div);
+    });
+  }
+
+  var currentHistory = [];
+
+  async function init(){
+    currentHistory = await loadHistory();
+    renderHistory(currentHistory);
+  }
+
+  document.getElementById('calcBtn').addEventListener('click', async function(){
+    var hEl = document.getElementById('height');
+    var wEl = document.getElementById('weight');
+    var h = parseFloat(hEl.value);
+    var w = parseFloat(wEl.value);
+    if(!h || !w || h<=0 || w<=0){
+      notify('身長と体重を正しく入力してください', 'error');
+      return;
+    }
+    var hm = h/100;
+    var bmi = w/(hm*hm);
+    var cat = categoryOf(bmi);
+
+    document.getElementById('bmiValue').textContent = bmi.toFixed(1);
+    var badge = document.getElementById('bmiBadge');
+    badge.textContent = cat.label;
+    badge.className = 'badge ' + cat.cls;
+    document.getElementById('result').classList.add('show');
+
+    var entry = {
+      date: new Date().toISOString(),
+      height: h,
+      weight: w,
+      bmi: bmi,
+      category: cat.label
+    };
+    currentHistory.unshift(entry);
+    if(currentHistory.length > 50) currentHistory = currentHistory.slice(0,50);
+    await saveHistory(currentHistory);
+    renderHistory(currentHistory);
+    notify('計算結果を保存しました', 'success');
+    if(window.GUIOS && window.GUIOS.haptic) GUIOS.haptic();
+  });
+
+  document.getElementById('clearBtn').addEventListener('click', async function(){
+    if(currentHistory.length === 0) return;
+    if(!confirm('履歴をすべて削除しますか？')) return;
+    currentHistory = [];
+    await saveHistory(currentHistory);
+    renderHistory(currentHistory);
+    notify('履歴を削除しました', 'success');
+  });
+
+  init();
+</script>
+</body>
+</html>

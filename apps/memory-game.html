@@ -1,0 +1,354 @@
+<!--GUIOS-APP {"id":"memory-game","name":"神経衰弱","icon":"🃏","color":"#8e44ad","version":"1.0.0","author":"Claude","description":"同じ絵柄のカードをめくって揃える神経衰弱(カードマッチング)ゲーム。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>神経衰弱</title>
+<style>
+  :root{
+    --accent:#8e44ad;
+    --bg:#160f1c;
+    --card:#22162c;
+    --text:#f4ecf9;
+    --sub:#bda7cc;
+    --matched:#3a9d6f;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    min-height:100vh;
+    padding:16px;
+    padding-bottom:40px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  h1{
+    font-size:20px;
+    margin:4px 0 12px;
+  }
+  .info-row{
+    display:flex;
+    gap:10px;
+    margin-bottom:14px;
+    flex-wrap:wrap;
+    justify-content:center;
+  }
+  .info-chip{
+    background:var(--card);
+    border-radius:10px;
+    padding:8px 14px;
+    font-size:13px;
+    color:var(--sub);
+    border:1px solid rgba(255,255,255,0.06);
+  }
+  .info-chip b{
+    color:var(--text);
+    font-size:15px;
+  }
+  .board{
+    display:grid;
+    grid-template-columns:repeat(4, minmax(58px, 76px));
+    grid-template-rows:repeat(4, minmax(58px, 76px));
+    gap:8px;
+    margin-bottom:16px;
+  }
+  .card{
+    position:relative;
+    border-radius:12px;
+    cursor:pointer;
+    perspective:600px;
+  }
+  .card-inner{
+    width:100%;
+    height:100%;
+    position:relative;
+    transform-style:preserve-3d;
+    transition:transform 0.35s;
+  }
+  .card.flipped .card-inner, .card.matched .card-inner{
+    transform:rotateY(180deg);
+  }
+  .card-face{
+    position:absolute;
+    inset:0;
+    border-radius:12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:30px;
+    backface-visibility:hidden;
+  }
+  .card-back{
+    background:var(--accent);
+    color:#fff;
+    font-size:22px;
+  }
+  .card-front{
+    background:var(--card);
+    border:1px solid rgba(255,255,255,0.1);
+    transform:rotateY(180deg);
+  }
+  .card.matched .card-front{
+    background:var(--matched);
+    border-color:transparent;
+  }
+  .again-btn{
+    padding:12px 30px;
+    border-radius:12px;
+    border:none;
+    background:var(--accent);
+    color:#fff;
+    font-weight:800;
+    font-size:15px;
+    cursor:pointer;
+    margin-bottom:14px;
+  }
+  .best-row{
+    font-size:12px;
+    color:var(--sub);
+    margin-bottom:6px;
+    text-align:center;
+  }
+  .clear-banner{
+    display:none;
+    background:var(--card);
+    border:1px solid var(--matched);
+    border-radius:14px;
+    padding:16px 22px;
+    text-align:center;
+    margin-bottom:14px;
+    max-width:340px;
+  }
+  .clear-banner.show{ display:block; }
+  .clear-banner .title{
+    font-size:20px;
+    font-weight:800;
+    color:var(--matched);
+    margin-bottom:6px;
+  }
+  .clear-banner .detail{
+    font-size:13px;
+    color:var(--sub);
+  }
+</style>
+</head>
+<body>
+  <h1>🃏 神経衰弱</h1>
+
+  <div class="info-row">
+    <div class="info-chip">手数: <b id="movesVal">0</b></div>
+    <div class="info-chip">時間: <b id="timeVal">0.0s</b></div>
+  </div>
+  <div class="best-row" id="bestRow">ベスト記録なし</div>
+
+  <div class="clear-banner" id="clearBanner">
+    <div class="title">クリア！ 🎉</div>
+    <div class="detail" id="clearDetail"></div>
+  </div>
+
+  <div class="board" id="board"></div>
+
+  <button class="again-btn" id="againBtn" type="button">もう一度</button>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var STORE_KEY = "best";
+  var LS_KEY = "memory-game:" + STORE_KEY;
+
+  var EMOJIS = ["🍎","🍌","🍇","🍒","🍉","🍋","🍓","🥝"];
+
+  var boardEl = document.getElementById("board");
+  var movesVal = document.getElementById("movesVal");
+  var timeVal = document.getElementById("timeVal");
+  var bestRow = document.getElementById("bestRow");
+  var clearBanner = document.getElementById("clearBanner");
+  var clearDetail = document.getElementById("clearDetail");
+  var againBtn = document.getElementById("againBtn");
+
+  var cards = []; // { value, matched, flipped, el }
+  var flippedIdxs = [];
+  var moves = 0;
+  var matchedPairs = 0;
+  var lockBoard = false;
+  var startTime = null;
+  var timerId = null;
+  var best = null; // { moves, time }
+
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify){
+      window.GUIOS.notify(msg, { type: type || "info" });
+    }
+  }
+  function haptic(){
+    if (window.GUIOS && window.GUIOS.haptic){
+      try { window.GUIOS.haptic(); } catch(e){}
+    }
+  }
+
+  async function loadBest(){
+    try {
+      if (hasSDK){
+        var v = await window.GUIOS.storage.get(STORE_KEY);
+        if (v && typeof v === "object") best = v;
+      } else {
+        var raw = localStorage.getItem(LS_KEY);
+        if (raw) best = JSON.parse(raw);
+      }
+    } catch(e){}
+    renderBest();
+  }
+  async function saveBest(){
+    try {
+      if (hasSDK){
+        await window.GUIOS.storage.set(STORE_KEY, best);
+      } else {
+        localStorage.setItem(LS_KEY, JSON.stringify(best));
+      }
+    } catch(e){}
+  }
+  function renderBest(){
+    if (best){
+      bestRow.textContent = "ベスト: " + best.moves + "手 / " + best.time.toFixed(1) + "秒";
+    } else {
+      bestRow.textContent = "ベスト記録なし";
+    }
+  }
+
+  function shuffle(arr){
+    for (var i = arr.length - 1; i > 0; i--){
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+    }
+    return arr;
+  }
+
+  function stopTimer(){
+    if (timerId !== null){
+      clearInterval(timerId);
+      timerId = null;
+    }
+  }
+
+  function startTimer(){
+    stopTimer();
+    startTime = Date.now();
+    timerId = setInterval(function(){
+      var elapsed = (Date.now() - startTime) / 1000;
+      timeVal.textContent = elapsed.toFixed(1) + "s";
+    }, 100);
+  }
+
+  function buildBoard(){
+    stopTimer();
+    clearBanner.classList.remove("show");
+    boardEl.innerHTML = "";
+    cards = [];
+    flippedIdxs = [];
+    moves = 0;
+    matchedPairs = 0;
+    lockBoard = false;
+    startTime = null;
+    movesVal.textContent = "0";
+    timeVal.textContent = "0.0s";
+
+    var values = shuffle(EMOJIS.concat(EMOJIS));
+
+    values.forEach(function(val, idx){
+      var card = document.createElement("div");
+      card.className = "card";
+      card.setAttribute("data-idx", idx);
+      card.innerHTML =
+        '<div class="card-inner">' +
+          '<div class="card-face card-back">?</div>' +
+          '<div class="card-face card-front">' + val + '</div>' +
+        '</div>';
+      boardEl.appendChild(card);
+      cards.push({ value: val, matched: false, flipped: false, el: card });
+    });
+  }
+
+  function onCardClick(idx){
+    if (lockBoard) return;
+    var c = cards[idx];
+    if (c.matched || c.flipped) return;
+    if (flippedIdxs.length >= 2) return;
+
+    if (startTime === null) startTimer();
+
+    c.flipped = true;
+    c.el.classList.add("flipped");
+    flippedIdxs.push(idx);
+
+    if (flippedIdxs.length === 2){
+      moves += 1;
+      movesVal.textContent = moves;
+      lockBoard = true;
+
+      var i1 = flippedIdxs[0], i2 = flippedIdxs[1];
+      var match = cards[i1].value === cards[i2].value;
+
+      setTimeout(function(){
+        if (match){
+          cards[i1].matched = true;
+          cards[i2].matched = true;
+          cards[i1].el.classList.add("matched");
+          cards[i2].el.classList.add("matched");
+          matchedPairs += 1;
+          haptic();
+          if (matchedPairs === EMOJIS.length){
+            finishGame();
+          }
+        } else {
+          cards[i1].flipped = false;
+          cards[i2].flipped = false;
+          cards[i1].el.classList.remove("flipped");
+          cards[i2].el.classList.remove("flipped");
+        }
+        flippedIdxs = [];
+        lockBoard = false;
+      }, match ? 500 : 800);
+    }
+  }
+
+  boardEl.addEventListener("click", function(e){
+    var cardEl = e.target.closest(".card");
+    if (!cardEl) return;
+    var idx = parseInt(cardEl.getAttribute("data-idx"), 10);
+    onCardClick(idx);
+  });
+
+  function finishGame(){
+    stopTimer();
+    var elapsed = (Date.now() - startTime) / 1000;
+    timeVal.textContent = elapsed.toFixed(1) + "s";
+
+    var isNewBest = false;
+    if (!best || moves < best.moves || (moves === best.moves && elapsed < best.time)){
+      best = { moves: moves, time: elapsed };
+      saveBest();
+      isNewBest = true;
+    }
+    renderBest();
+
+    clearDetail.textContent = moves + "手 / " + elapsed.toFixed(1) + "秒" + (isNewBest ? "（新記録！）" : "");
+    clearBanner.classList.add("show");
+    notify("クリア！ " + moves + "手 / " + elapsed.toFixed(1) + "秒", "success");
+  }
+
+  againBtn.addEventListener("click", function(){
+    buildBoard();
+  });
+
+  window.addEventListener("pagehide", stopTimer);
+  window.addEventListener("beforeunload", stopTimer);
+
+  loadBest();
+  buildBoard();
+</script>
+</body>
+</html>

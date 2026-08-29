@@ -1,0 +1,269 @@
+<!--GUIOS-APP {"id":"quiz-app","name":"クイズアプリ","icon":"❓","color":"#af601a","version":"1.0.0","author":"Claude","description":"多肢選択式の雑学クイズに挑戦してスコアを競うクイズアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>クイズアプリ</title>
+<style>
+  :root{
+    --accent:#af601a;
+    --bg:#1a1208;
+    --panel:#241a0e;
+    --text:#f6ecdc;
+    --sub:#c2a483;
+    --ok:#4caf6f;
+    --ng:#e05a5a;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    display:flex; flex-direction:column; align-items:center;
+    padding:20px 14px 40px;
+  }
+  h1{ font-size:20px; margin:6px 0 2px; }
+  .sub{ color:var(--sub); font-size:13px; margin-bottom:16px; }
+  .wrap{ width:100%; max-width:440px; }
+  .card{
+    background:var(--panel); border-radius:18px; padding:20px 16px;
+    box-shadow:0 6px 24px rgba(0,0,0,.35);
+  }
+  .progress{
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:13px; color:var(--sub); margin-bottom:14px;
+  }
+  .bar{ height:6px; background:#3a2a15; border-radius:4px; overflow:hidden; margin-bottom:16px; }
+  .bar-fill{ height:100%; background:var(--accent); transition:width .3s; }
+  .question{ font-size:17px; font-weight:700; line-height:1.5; margin-bottom:18px; min-height:70px; }
+  .options{ display:flex; flex-direction:column; gap:10px; }
+  .opt{
+    text-align:left; padding:14px 16px; border-radius:12px; border:2px solid #3a2a15;
+    background:#2a1e10; color:var(--text); font-size:15px; cursor:pointer; min-height:48px;
+  }
+  .opt:active{ transform:scale(.98); }
+  .opt.correct{ background:rgba(76,175,111,.25); border-color:var(--ok); color:#bdf0cd; }
+  .opt.wrong{ background:rgba(224,90,90,.25); border-color:var(--ng); color:#ffd0d0; }
+  .opt[disabled]{ cursor:default; }
+  .nextRow{ margin-top:16px; display:flex; justify-content:flex-end; }
+  button.primary{
+    padding:12px 22px; border-radius:12px; border:none;
+    background:var(--accent); color:#1a1208; font-weight:700; font-size:14px; cursor:pointer;
+    min-height:44px;
+  }
+  button.secondary{
+    padding:12px 22px; border-radius:12px; border:none;
+    background:#3a2a15; color:var(--text); font-weight:700; font-size:14px; cursor:pointer;
+    min-height:44px;
+  }
+  button:disabled{ opacity:.4; cursor:default; }
+  .start-screen, .result-screen{
+    display:flex; flex-direction:column; align-items:center; gap:14px; text-align:center;
+    padding:10px 4px;
+  }
+  .result-score{ font-size:38px; font-weight:800; color:var(--accent); }
+  .result-best{ font-size:13px; color:var(--sub); }
+  .btnrow{ display:flex; gap:10px; width:100%; margin-top:6px; }
+  .btnrow button{ flex:1; }
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+    background:#2a1e10; color:var(--text); padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; pointer-events:none; transition:opacity .25s;
+    border:1px solid var(--accent); z-index:50; max-width:88vw; text-align:center;
+  }
+  .toast.show{ opacity:1; }
+</style>
+</head>
+<body>
+  <h1>❓ クイズアプリ</h1>
+  <div class="sub">雑学クイズ 全10問に挑戦しよう</div>
+  <div class="wrap">
+    <div class="card" id="card"></div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var STORAGE_KEY = 'bestScore';
+  var LS_KEY = 'guios-quiz-app-best';
+  var QUESTION_COUNT = 10;
+  var ADVANCE_DELAY = 1200;
+
+  var BANK = [
+    { q: '日本で一番高い山は？', a: '富士山', opts: ['富士山','北岳','立山','穂高岳'] },
+    { q: '世界で一番広い大陸は？', a: 'ユーラシア大陸', opts: ['ユーラシア大陸','アフリカ大陸','北アメリカ大陸','南極大陸'] },
+    { q: '水の化学式は？', a: 'H2O', opts: ['H2O','CO2','O2','NaCl'] },
+    { q: '人間の血液の主な成分で酸素を運ぶ細胞は？', a: '赤血球', opts: ['赤血球','白血球','血小板','血漿'] },
+    { q: '日本の首都は？', a: '東京', opts: ['東京','大阪','京都','名古屋'] },
+    { q: '1年は何日？（うるう年を除く）', a: '365日', opts: ['365日','360日','366日','364日'] },
+    { q: '太陽系で最も大きい惑星は？', a: '木星', opts: ['木星','土星','地球','海王星'] },
+    { q: '第二次世界大戦が終結した年は？', a: '1945年', opts: ['1945年','1939年','1950年','1941年'] },
+    { q: '虹の色は一般的に何色とされる？', a: '7色', opts: ['7色','5色','6色','8色'] },
+    { q: '「ONE PIECE」の主人公の名前は？', a: 'モンキー・D・ルフィ', opts: ['モンキー・D・ルフィ','ロロノア・ゾロ','うずまきナルト','孫悟空'] },
+    { q: '日本で最も長い川は？', a: '信濃川', opts: ['信濃川','利根川','石狩川','木曽川'] },
+    { q: '人体で一番大きい臓器は？', a: '皮膚', opts: ['皮膚','肝臓','肺','脳'] },
+    { q: 'オリンピックが開催される間隔は？', a: '4年に一度', opts: ['4年に一度','2年に一度','3年に一度','5年に一度'] },
+    { q: '「桃太郎」でお供として登場しない動物は？', a: 'ウサギ', opts: ['ウサギ','イヌ','サル','キジ'] },
+    { q: '1週間は何日？', a: '7日', opts: ['7日','5日','6日','8日'] },
+    { q: '光の速さはおよそ秒速何km？', a: '約30万km', opts: ['約30万km','約3万km','約300万km','約3千km'] },
+    { q: '日本の47都道府県で一番面積が小さいのは？', a: '香川県', opts: ['香川県','大阪府','東京都','沖縄県'] },
+    { q: '富士山がある都道府県の組み合わせは？', a: '静岡県と山梨県', opts: ['静岡県と山梨県','静岡県と長野県','山梨県と神奈川県','静岡県と愛知県'] },
+    { q: '人間の歯は永久歯で通常何本？', a: '32本', opts: ['32本','28本','36本','24本'] },
+    { q: '「マラソン」の正式な距離は約何km？', a: '約42.2km', opts: ['約42.2km','約30km','約50km','約26km'] }
+  ];
+
+  var round = [];
+  var idx = 0, score = 0, answered = false;
+  var card = document.getElementById('card');
+  var toastEl = document.getElementById('toast');
+  var toastTimer = null;
+
+  function showToast(msg){
+    if(toastTimer) clearTimeout(toastTimer);
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    toastTimer = setTimeout(function(){ toastEl.classList.remove('show'); }, 2200);
+  }
+  function notify(msg, type){
+    if(window.GUIOS && window.GUIOS.notify){ window.GUIOS.notify(msg, {type: type||'info'}); }
+    else{ showToast(msg); }
+  }
+  function haptic(){ if(window.GUIOS && window.GUIOS.haptic){ window.GUIOS.haptic(); } }
+
+  async function loadBest(){
+    if(hasSDK){
+      try{ var v = await window.GUIOS.storage.get(STORAGE_KEY); return (typeof v === 'number') ? v : null; }
+      catch(e){ return null; }
+    } else {
+      var raw = localStorage.getItem(LS_KEY);
+      return raw ? JSON.parse(raw) : null;
+    }
+  }
+  async function saveBest(n){
+    if(hasSDK){ try{ await window.GUIOS.storage.set(STORAGE_KEY, n); }catch(e){} }
+    else{ localStorage.setItem(LS_KEY, JSON.stringify(n)); }
+  }
+
+  function shuffle(arr){
+    var a = arr.slice();
+    for(var i = a.length - 1; i > 0; i--){
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  var advanceTimer = null;
+  function clearAdvanceTimer(){
+    if(advanceTimer){ clearTimeout(advanceTimer); advanceTimer = null; }
+  }
+
+  function renderStart(){
+    clearAdvanceTimer();
+    loadBest().then(function(best){
+      card.innerHTML =
+        '<div class="start-screen">' +
+        '<div style="font-size:44px;">🧠</div>' +
+        '<div style="font-size:15px; color:var(--sub);">全' + QUESTION_COUNT + '問のランダム雑学クイズに挑戦！</div>' +
+        (best !== null ? '<div class="result-best">自己ベスト: ' + best + '/' + QUESTION_COUNT + '問</div>' : '') +
+        '<button class="primary" id="startBtn" style="width:100%;">クイズを始める</button>' +
+        '</div>';
+      document.getElementById('startBtn').addEventListener('click', startQuiz);
+    });
+  }
+
+  function startQuiz(){
+    var picked = shuffle(BANK).slice(0, QUESTION_COUNT);
+    round = picked.map(function(item){
+      return { q: item.q, a: item.a, opts: shuffle(item.opts) };
+    });
+    idx = 0; score = 0;
+    renderQuestion();
+  }
+
+  function renderQuestion(){
+    answered = false;
+    clearAdvanceTimer();
+    var item = round[idx];
+    var pct = Math.round((idx / round.length) * 100);
+    var html = '<div class="progress"><span>第' + (idx+1) + '問 / ' + round.length + '問</span><span>スコア ' + score + '</span></div>';
+    html += '<div class="bar"><div class="bar-fill" style="width:' + pct + '%;"></div></div>';
+    html += '<div class="question">' + escapeHtml(item.q) + '</div>';
+    html += '<div class="options">';
+    item.opts.forEach(function(opt, i){
+      html += '<button class="opt" data-i="' + i + '">' + escapeHtml(opt) + '</button>';
+    });
+    html += '</div>';
+    card.innerHTML = html;
+    var buttons = card.querySelectorAll('.opt');
+    buttons.forEach(function(btn){
+      btn.addEventListener('click', function(){ handleAnswer(item, buttons, parseInt(btn.getAttribute('data-i'),10)); });
+    });
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  function handleAnswer(item, buttons, chosenIdx){
+    if(answered) return;
+    answered = true;
+    var chosen = item.opts[chosenIdx];
+    var isCorrect = chosen === item.a;
+    buttons.forEach(function(btn, i){
+      btn.disabled = true;
+      if(item.opts[i] === item.a){ btn.classList.add('correct'); }
+      else if(i === chosenIdx){ btn.classList.add('wrong'); }
+    });
+    if(isCorrect){ score++; haptic(); }
+    advanceTimer = setTimeout(function(){
+      idx++;
+      if(idx >= round.length){ finishQuiz(); }
+      else{ renderQuestion(); }
+    }, ADVANCE_DELAY);
+  }
+
+  async function finishQuiz(){
+    clearAdvanceTimer();
+    var best = await loadBest();
+    var isNewBest = (best === null || score > best);
+    if(isNewBest){ await saveBest(score); }
+    var shareText = 'クイズアプリで' + score + '/' + round.length + '問正解しました！';
+    card.innerHTML =
+      '<div class="result-screen">' +
+      '<div style="font-size:15px; color:var(--sub);">結果発表</div>' +
+      '<div class="result-score">' + score + '/' + round.length + '問正解</div>' +
+      (isNewBest ? '<div class="result-best" style="color:#4caf6f;">🎉 自己ベスト更新！</div>' :
+        '<div class="result-best">自己ベスト: ' + best + '/' + round.length + '問</div>') +
+      '<div class="btnrow">' +
+      '<button class="secondary" id="shareBtn">シェア</button>' +
+      '<button class="primary" id="retryBtn">もう一度</button>' +
+      '</div></div>';
+    document.getElementById('retryBtn').addEventListener('click', startQuiz);
+    document.getElementById('shareBtn').addEventListener('click', function(){ doShare(shareText); });
+  }
+
+  function doShare(text){
+    if(window.GUIOS && window.GUIOS.share){
+      window.GUIOS.share(text);
+    } else if(window.GUIOS && window.GUIOS.clipboard){
+      window.GUIOS.clipboard.writeText(text);
+      notify('結果をコピーしました');
+    } else if(navigator.clipboard){
+      navigator.clipboard.writeText(text).then(function(){
+        notify('結果をコピーしました');
+      }).catch(function(){ notify(text); });
+    } else {
+      notify(text);
+    }
+  }
+
+  renderStart();
+})();
+</script>
+</body>
+</html>

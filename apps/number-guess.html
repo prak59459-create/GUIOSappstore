@@ -1,0 +1,236 @@
+<!--GUIOS-APP {"id":"number-guess","name":"数当てゲーム","icon":"🔢","color":"#2a7f62","version":"1.0.0","author":"Claude","description":"1から100までの数字をヒントを頼りに当てる数当てゲーム。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>数当てゲーム</title>
+<style>
+  :root{
+    --accent:#2a7f62;
+    --bg:#0f1a16;
+    --panel:#16241f;
+    --text:#eaf5ef;
+    --sub:#9fbdb1;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    display:flex; flex-direction:column; align-items:center;
+    padding:24px 16px 40px;
+  }
+  h1{ font-size:20px; margin:8px 0 4px; }
+  .sub{ color:var(--sub); font-size:13px; margin-bottom:20px; text-align:center; }
+  .card{
+    width:100%; max-width:420px;
+    background:var(--panel); border-radius:18px;
+    padding:22px 18px; box-shadow:0 6px 24px rgba(0,0,0,.35);
+    display:flex; flex-direction:column; gap:16px;
+    align-items:center;
+  }
+  .range{ font-size:13px; color:var(--sub); }
+  .hint{
+    min-height:52px; display:flex; align-items:center; justify-content:center;
+    font-size:20px; font-weight:700; text-align:center; width:100%;
+  }
+  .hint.up{ color:#ffb454; }
+  .hint.down{ color:#7fb2ff; }
+  .hint.win{ color:#7fe0a0; }
+  .row{ display:flex; gap:10px; width:100%; }
+  input[type=number]{
+    flex:1; min-width:0; padding:14px 12px; font-size:18px; border-radius:12px;
+    border:2px solid #274036; background:#0f1a16; color:var(--text);
+    text-align:center;
+  }
+  input[type=number]:focus{ outline:none; border-color:var(--accent); }
+  button{
+    padding:14px 20px; border-radius:12px; border:none;
+    background:var(--accent); color:#06140f; font-weight:700; font-size:15px;
+    cursor:pointer; min-height:48px;
+  }
+  button.secondary{ background:#274036; color:var(--text); }
+  button:active{ transform:scale(.97); }
+  .stats{
+    display:flex; justify-content:space-between; width:100%;
+    font-size:13px; color:var(--sub); border-top:1px solid #223229; padding-top:12px;
+  }
+  .stats b{ color:var(--text); font-size:15px; display:block; }
+  .history{
+    width:100%; display:flex; flex-wrap:wrap; gap:6px; justify-content:center;
+    min-height:20px;
+  }
+  .chip{
+    padding:4px 10px; border-radius:999px; font-size:12px;
+    background:#0f1a16; border:1px solid #274036; color:var(--sub);
+  }
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+    background:#1c2f27; color:var(--text); padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; pointer-events:none; transition:opacity .25s;
+    border:1px solid var(--accent); z-index:50; max-width:88vw; text-align:center;
+  }
+  .toast.show{ opacity:1; }
+</style>
+</head>
+<body>
+  <h1>🔢 数当てゲーム</h1>
+  <div class="sub">1〜100の数字を当ててみよう</div>
+
+  <div class="card">
+    <div class="range">範囲: 1 〜 100</div>
+    <div class="hint" id="hint">数字を入力して予想してみよう</div>
+    <div class="row">
+      <input type="number" id="guessInput" min="1" max="100" placeholder="1-100" inputmode="numeric">
+      <button id="guessBtn">予想する</button>
+    </div>
+    <div class="history" id="history"></div>
+    <div class="stats">
+      <div>試行回数<b id="attempts">0</b></div>
+      <div>最少記録<b id="best">--</b></div>
+    </div>
+    <button class="secondary" id="resetBtn" style="width:100%;">もう一度</button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var STORAGE_KEY = 'bestAttempts';
+  var LS_KEY = 'guios-number-guess-best';
+
+  var target = 0, attempts = 0, finished = false, guesses = [];
+
+  var hintEl = document.getElementById('hint');
+  var inputEl = document.getElementById('guessInput');
+  var guessBtn = document.getElementById('guessBtn');
+  var resetBtn = document.getElementById('resetBtn');
+  var attemptsEl = document.getElementById('attempts');
+  var bestEl = document.getElementById('best');
+  var historyEl = document.getElementById('history');
+  var toastEl = document.getElementById('toast');
+
+  var toastTimer = null;
+  function showToast(msg){
+    if(toastTimer) clearTimeout(toastTimer);
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    toastTimer = setTimeout(function(){ toastEl.classList.remove('show'); }, 2200);
+  }
+
+  function notify(msg, type){
+    if(window.GUIOS && window.GUIOS.notify){
+      window.GUIOS.notify(msg, {type: type || 'info'});
+    } else {
+      showToast(msg);
+    }
+  }
+
+  function haptic(){
+    if(window.GUIOS && window.GUIOS.haptic){ window.GUIOS.haptic(); }
+  }
+
+  async function loadBest(){
+    if(hasSDK){
+      try{
+        var v = await window.GUIOS.storage.get(STORAGE_KEY);
+        return (typeof v === 'number') ? v : null;
+      }catch(e){ return null; }
+    } else {
+      var raw = localStorage.getItem(LS_KEY);
+      return raw ? JSON.parse(raw) : null;
+    }
+  }
+
+  async function saveBest(n){
+    if(hasSDK){
+      try{ await window.GUIOS.storage.set(STORAGE_KEY, n); }catch(e){}
+    } else {
+      localStorage.setItem(LS_KEY, JSON.stringify(n));
+    }
+  }
+
+  function renderBest(n){
+    bestEl.textContent = (n === null || n === undefined) ? '--' : (n + '回');
+  }
+
+  function newGame(){
+    target = Math.floor(Math.random() * 100) + 1;
+    attempts = 0;
+    finished = false;
+    guesses = [];
+    attemptsEl.textContent = '0';
+    hintEl.className = 'hint';
+    hintEl.textContent = '数字を入力して予想してみよう';
+    historyEl.innerHTML = '';
+    inputEl.value = '';
+    inputEl.disabled = false;
+    guessBtn.disabled = false;
+    inputEl.focus();
+  }
+
+  function addChip(n, result){
+    var chip = document.createElement('div');
+    chip.className = 'chip';
+    chip.textContent = n + (result === 'up' ? ' ↑' : result === 'down' ? ' ↓' : ' 🎯');
+    historyEl.appendChild(chip);
+  }
+
+  async function doGuess(){
+    if(finished) return;
+    var raw = inputEl.value.trim();
+    if(raw === '') { notify('数字を入力してください', 'error'); return; }
+    var n = parseInt(raw, 10);
+    if(isNaN(n) || n < 1 || n > 100){
+      notify('1〜100の数字を入力してください', 'error');
+      return;
+    }
+    attempts++;
+    attemptsEl.textContent = String(attempts);
+
+    if(n === target){
+      addChip(n, 'win');
+      hintEl.className = 'hint win';
+      hintEl.textContent = '正解！ ' + attempts + '回で当たりました🎉';
+      finished = true;
+      inputEl.disabled = true;
+      guessBtn.disabled = true;
+      haptic();
+      notify('正解です！ ' + attempts + '回で当てました', 'success');
+
+      var best = await loadBest();
+      if(best === null || attempts < best){
+        await saveBest(attempts);
+        renderBest(attempts);
+        notify('自己ベスト更新！', 'success');
+      }
+    } else if(n < target){
+      addChip(n, 'up');
+      hintEl.className = 'hint up';
+      hintEl.textContent = 'もっと大きい数字です ↑';
+    } else {
+      addChip(n, 'down');
+      hintEl.className = 'hint down';
+      hintEl.textContent = 'もっと小さい数字です ↓';
+    }
+    inputEl.value = '';
+    inputEl.focus();
+  }
+
+  guessBtn.addEventListener('click', doGuess);
+  inputEl.addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){ doGuess(); }
+  });
+  resetBtn.addEventListener('click', newGame);
+
+  (async function init(){
+    var best = await loadBest();
+    renderBest(best);
+    newGame();
+  })();
+})();
+</script>
+</body>
+</html>

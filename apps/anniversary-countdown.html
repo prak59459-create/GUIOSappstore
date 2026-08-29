@@ -1,0 +1,247 @@
+<!--GUIOS-APP {"id":"anniversary-countdown","name":"記念日カウントダウン","icon":"💝","color":"#c2185b","version":"1.0.0","author":"Claude","description":"誕生日や記念日までの残り日数を一覧できるカウントダウンアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>記念日カウントダウン</title>
+<style>
+  :root{
+    --accent:#c2185b;
+    --bg:#1a0e13;
+    --panel:#26141c;
+    --text:#f8e9ee;
+    --sub:#c79aad;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    display:flex; flex-direction:column; align-items:center;
+    padding:20px 14px 40px;
+  }
+  h1{ font-size:20px; margin:6px 0 2px; }
+  .sub{ color:var(--sub); font-size:13px; margin-bottom:16px; text-align:center; }
+  .wrap{ width:100%; max-width:440px; display:flex; flex-direction:column; gap:14px; }
+  .add-card{
+    background:var(--panel); border-radius:16px; padding:16px; display:flex; flex-direction:column; gap:10px;
+  }
+  .field label{ font-size:12px; color:var(--sub); display:block; margin-bottom:4px; }
+  input[type=text], input[type=date]{
+    width:100%; padding:12px; border-radius:10px; border:2px solid #3a212c;
+    background:#1a0e13; color:var(--text); font-size:15px;
+  }
+  input:focus{ outline:none; border-color:var(--accent); }
+  .checkrow{ display:flex; align-items:center; gap:8px; font-size:13px; color:var(--sub); }
+  .checkrow input{ width:20px; height:20px; }
+  button{
+    padding:13px 18px; border-radius:12px; border:none;
+    font-weight:700; font-size:14px; cursor:pointer; min-height:46px;
+  }
+  button.primary{ background:var(--accent); color:#fff; width:100%; }
+  button:active{ transform:scale(.98); }
+  .list{ display:flex; flex-direction:column; gap:10px; }
+  .item{
+    background:var(--panel); border-radius:14px; padding:14px 16px;
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+  }
+  .item .info{ min-width:0; flex:1; }
+  .item .name{ font-size:15px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .item .date{ font-size:12px; color:var(--sub); margin-top:2px; }
+  .item .days{ font-size:20px; font-weight:800; color:var(--accent); white-space:nowrap; text-align:right; }
+  .item .days small{ display:block; font-size:11px; color:var(--sub); font-weight:400; }
+  .item.today .days{ color:#ffd54d; }
+  .del{
+    background:none; border:none; color:var(--sub); font-size:18px; cursor:pointer;
+    padding:4px 6px; min-height:auto; min-width:auto;
+  }
+  .empty{ text-align:center; color:var(--sub); font-size:13px; padding:24px 0; }
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+    background:#26141c; color:var(--text); padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; pointer-events:none; transition:opacity .25s;
+    border:1px solid var(--accent); z-index:50; max-width:88vw; text-align:center;
+  }
+  .toast.show{ opacity:1; }
+</style>
+</head>
+<body>
+  <h1>💝 記念日カウントダウン</h1>
+  <div class="sub">大切な記念日までの日数を一覧表示</div>
+  <div class="wrap">
+    <div class="add-card">
+      <div class="field">
+        <label>名前</label>
+        <input type="text" id="nameInput" placeholder="例: 〇〇さんの誕生日" maxlength="40">
+      </div>
+      <div class="field">
+        <label>日付</label>
+        <input type="date" id="dateInput">
+      </div>
+      <div class="checkrow">
+        <input type="checkbox" id="repeatInput" checked>
+        <label for="repeatInput" style="margin:0;">毎年繰り返す（誕生日など）</label>
+      </div>
+      <button class="primary" id="addBtn">追加する</button>
+    </div>
+    <div class="list" id="list"></div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var STORAGE_KEY = 'entries';
+  var LS_KEY = 'guios-anniversary-countdown-entries';
+
+  var entries = [];
+
+  var nameInput = document.getElementById('nameInput');
+  var dateInput = document.getElementById('dateInput');
+  var repeatInput = document.getElementById('repeatInput');
+  var addBtn = document.getElementById('addBtn');
+  var listEl = document.getElementById('list');
+  var toastEl = document.getElementById('toast');
+  var toastTimer = null;
+
+  function showToast(msg){
+    if(toastTimer) clearTimeout(toastTimer);
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    toastTimer = setTimeout(function(){ toastEl.classList.remove('show'); }, 2200);
+  }
+  function notify(msg, type){
+    if(window.GUIOS && window.GUIOS.notify){ window.GUIOS.notify(msg, {type: type||'info'}); }
+    else{ showToast(msg); }
+  }
+  function haptic(){ if(window.GUIOS && window.GUIOS.haptic){ window.GUIOS.haptic(); } }
+
+  async function loadEntries(){
+    if(hasSDK){
+      try{ var v = await window.GUIOS.storage.get(STORAGE_KEY); return Array.isArray(v) ? v : []; }
+      catch(e){ return []; }
+    } else {
+      var raw = localStorage.getItem(LS_KEY);
+      return raw ? JSON.parse(raw) : [];
+    }
+  }
+  async function saveEntries(list){
+    if(hasSDK){ try{ await window.GUIOS.storage.set(STORAGE_KEY, list); }catch(e){} }
+    else{ localStorage.setItem(LS_KEY, JSON.stringify(list)); }
+  }
+
+  function startOfToday(){
+    var d = new Date();
+    d.setHours(0,0,0,0);
+    return d;
+  }
+
+  function daysUntilNext(entry){
+    var today = startOfToday();
+    var parts = entry.date.split('-').map(function(n){ return parseInt(n,10); });
+    var y = parts[0], m = parts[1]-1, d = parts[2];
+
+    if(!entry.repeat){
+      var target = new Date(y, m, d);
+      target.setHours(0,0,0,0);
+      var diff = Math.round((target - today) / 86400000);
+      return { days: diff, next: target };
+    } else {
+      var thisYear = today.getFullYear();
+      var target = new Date(thisYear, m, d);
+      target.setHours(0,0,0,0);
+      if(target < today){
+        target = new Date(thisYear + 1, m, d);
+        target.setHours(0,0,0,0);
+      }
+      var diff = Math.round((target - today) / 86400000);
+      return { days: diff, next: target };
+    }
+  }
+
+  function formatDate(d){
+    return d.getFullYear() + '/' + (d.getMonth()+1) + '/' + d.getDate();
+  }
+
+  function render(){
+    if(entries.length === 0){
+      listEl.innerHTML = '<div class="empty">記念日を追加してみましょう</div>';
+      return;
+    }
+    var withDays = entries.map(function(e){
+      var r = daysUntilNext(e);
+      return { entry: e, days: r.days, next: r.next };
+    });
+    withDays.sort(function(a,b){ return a.days - b.days; });
+
+    var html = '';
+    withDays.forEach(function(w){
+      var e = w.entry;
+      var daysLabel;
+      var isToday = w.days === 0;
+      if(w.days < 0){
+        daysLabel = Math.abs(w.days) + '日前';
+      } else if(w.days === 0){
+        daysLabel = '今日🎉';
+      } else {
+        daysLabel = 'あと' + w.days + '日';
+      }
+      html += '<div class="item' + (isToday ? ' today' : '') + '">' +
+        '<div class="info">' +
+        '<div class="name">' + escapeHtml(e.name) + '</div>' +
+        '<div class="date">' + formatDate(w.next) + (e.repeat ? '（毎年）' : '') + '</div>' +
+        '</div>' +
+        '<div class="days">' + daysLabel + '</div>' +
+        '<button class="del" data-id="' + e.id + '">✕</button>' +
+        '</div>';
+    });
+    listEl.innerHTML = html;
+    listEl.querySelectorAll('.del').forEach(function(btn){
+      btn.addEventListener('click', function(){ removeEntry(btn.getAttribute('data-id')); });
+    });
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  async function addEntry(){
+    var name = nameInput.value.trim();
+    var dateVal = dateInput.value;
+    if(!name){ notify('名前を入力してください', 'error'); return; }
+    if(!dateVal){ notify('日付を選択してください', 'error'); return; }
+    var entry = {
+      id: 'e' + Date.now() + Math.random().toString(36).slice(2,7),
+      name: name,
+      date: dateVal,
+      repeat: repeatInput.checked
+    };
+    entries.push(entry);
+    await saveEntries(entries);
+    nameInput.value = '';
+    dateInput.value = '';
+    repeatInput.checked = true;
+    haptic();
+    notify('記念日を追加しました', 'success');
+    render();
+  }
+
+  async function removeEntry(id){
+    entries = entries.filter(function(e){ return e.id !== id; });
+    await saveEntries(entries);
+    render();
+  }
+
+  addBtn.addEventListener('click', addEntry);
+
+  (async function init(){
+    entries = await loadEntries();
+    render();
+  })();
+})();
+</script>
+</body>
+</html>

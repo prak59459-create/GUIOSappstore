@@ -1,0 +1,261 @@
+<!--GUIOS-APP {"id":"metronome","name":"メトロノーム","icon":"🎵","color":"#37474f","version":"1.0.0","author":"Claude","description":"BPMを設定してリズム練習ができるメトロノームアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>メトロノーム</title>
+<style>
+  :root{
+    --accent:#607d8b;
+    --bg:#10161a;
+    --panel:#1a232a;
+    --text:#eef3f5;
+    --sub:#93a5ad;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    display:flex; flex-direction:column; align-items:center;
+    padding:22px 16px 40px;
+  }
+  h1{ font-size:20px; margin:6px 0 2px; }
+  .sub{ color:var(--sub); font-size:13px; margin-bottom:18px; }
+  .wrap{ width:100%; max-width:420px; display:flex; flex-direction:column; gap:16px; align-items:center; }
+  .pulse-area{
+    width:100%; display:flex; align-items:center; justify-content:center; gap:10px;
+    height:52px;
+  }
+  .dot{
+    width:16px; height:16px; border-radius:50%; background:#2a343a;
+    transition:background .06s, transform .06s;
+  }
+  .dot.active{ background:var(--accent); transform:scale(1.3); }
+  .dot.accent.active{ background:#ffb74d; }
+  .bpm-display{
+    font-size:56px; font-weight:800; text-align:center; line-height:1;
+  }
+  .bpm-unit{ font-size:14px; color:var(--sub); text-align:center; margin-top:2px; }
+  input[type=range]{ width:100%; accent-color:var(--accent); height:34px; }
+  .adjust-row{ display:flex; align-items:center; gap:10px; width:100%; justify-content:center; }
+  .adjust-row button{
+    width:48px; height:48px; border-radius:50%; border:none; background:var(--panel);
+    color:var(--text); font-size:20px; font-weight:700; cursor:pointer;
+  }
+  .presets{ display:flex; gap:8px; width:100%; flex-wrap:wrap; justify-content:center; }
+  .presets button{
+    flex:1; min-width:64px; padding:10px 6px; border-radius:10px; border:none;
+    background:var(--panel); color:var(--text); font-size:13px; cursor:pointer; min-height:44px;
+  }
+  .main-btn{
+    width:100%; padding:16px; border-radius:14px; border:none;
+    background:var(--accent); color:#0a0f12; font-weight:800; font-size:16px; cursor:pointer;
+    min-height:52px;
+  }
+  .main-btn.running{ background:#e05a5a; color:#fff; }
+  .tap-btn{
+    width:100%; padding:14px; border-radius:14px; border:2px solid var(--accent);
+    background:transparent; color:var(--text); font-weight:700; font-size:14px; cursor:pointer;
+    min-height:48px;
+  }
+  button:active{ transform:scale(.97); }
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+    background:var(--panel); color:var(--text); padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; pointer-events:none; transition:opacity .25s;
+    border:1px solid var(--accent); z-index:50; max-width:88vw; text-align:center;
+  }
+  .toast.show{ opacity:1; }
+</style>
+</head>
+<body>
+  <h1>🎵 メトロノーム</h1>
+  <div class="sub">BPMを設定してリズム練習</div>
+  <div class="wrap">
+    <div class="pulse-area" id="pulseArea">
+      <div class="dot accent" data-beat="0"></div>
+      <div class="dot" data-beat="1"></div>
+      <div class="dot" data-beat="2"></div>
+      <div class="dot" data-beat="3"></div>
+    </div>
+    <div>
+      <div class="bpm-display" id="bpmDisplay">120</div>
+      <div class="bpm-unit">BPM</div>
+    </div>
+    <input type="range" id="bpmSlider" min="40" max="240" value="120">
+    <div class="adjust-row">
+      <button id="minusBtn">−</button>
+      <span style="color:var(--sub); font-size:13px;">1刻み</span>
+      <button id="plusBtn">＋</button>
+    </div>
+    <div class="presets">
+      <button data-bpm="60">60</button>
+      <button data-bpm="90">90</button>
+      <button data-bpm="120">120</button>
+      <button data-bpm="160">160</button>
+    </div>
+    <button class="main-btn" id="mainBtn">開始</button>
+    <button class="tap-btn" id="tapBtn">タップでBPM測定</button>
+  </div>
+  <div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  var MIN_BPM = 40, MAX_BPM = 240;
+  var bpm = 120;
+  var running = false;
+
+  var audioCtx = null;
+  var schedulerTimer = null;
+  var nextNoteTime = 0;
+  var beatIndex = 0;
+  var currentBeatInBar = 0;
+  var lookahead = 25.0;      // ms, scheduler interval
+  var scheduleAheadTime = 0.12; // seconds
+
+  var bpmDisplay = document.getElementById('bpmDisplay');
+  var bpmSlider = document.getElementById('bpmSlider');
+  var minusBtn = document.getElementById('minusBtn');
+  var plusBtn = document.getElementById('plusBtn');
+  var mainBtn = document.getElementById('mainBtn');
+  var tapBtn = document.getElementById('tapBtn');
+  var dots = Array.prototype.slice.call(document.querySelectorAll('.dot'));
+  var toastEl = document.getElementById('toast');
+  var toastTimer = null;
+
+  function showToast(msg){
+    if(toastTimer) clearTimeout(toastTimer);
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    toastTimer = setTimeout(function(){ toastEl.classList.remove('show'); }, 2000);
+  }
+  function notify(msg, type){
+    if(window.GUIOS && window.GUIOS.notify){ window.GUIOS.notify(msg, {type: type||'info'}); }
+    else{ showToast(msg); }
+  }
+  function haptic(){ if(window.GUIOS && window.GUIOS.haptic){ window.GUIOS.haptic(); } }
+
+  function setBpm(v){
+    v = Math.max(MIN_BPM, Math.min(MAX_BPM, Math.round(v)));
+    bpm = v;
+    bpmDisplay.textContent = String(v);
+    bpmSlider.value = String(v);
+  }
+
+  bpmSlider.addEventListener('input', function(){ setBpm(parseInt(bpmSlider.value,10)); });
+  minusBtn.addEventListener('click', function(){ setBpm(bpm - 1); });
+  plusBtn.addEventListener('click', function(){ setBpm(bpm + 1); });
+  document.querySelectorAll('.presets button').forEach(function(btn){
+    btn.addEventListener('click', function(){ setBpm(parseInt(btn.getAttribute('data-bpm'),10)); });
+  });
+
+  // ---- visual pulse scheduling (separate from audio scheduling but driven by same clock) ----
+  var visualTimers = [];
+  function clearVisualTimers(){
+    visualTimers.forEach(function(t){ clearTimeout(t); });
+    visualTimers = [];
+  }
+  function flashDot(beatInBar, delaySec){
+    var ms = Math.max(0, delaySec * 1000);
+    var t = setTimeout(function(){
+      dots.forEach(function(d){ d.classList.remove('active'); });
+      dots[beatInBar].classList.add('active');
+      setTimeout(function(){ dots[beatInBar].classList.remove('active'); }, 90);
+    }, ms);
+    visualTimers.push(t);
+  }
+
+  function playClick(time, isAccent){
+    if(!audioCtx) return;
+    var osc = audioCtx.createOscillator();
+    var gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = isAccent ? 1400 : 900;
+    gain.gain.setValueAtTime(0.0001, time);
+    gain.gain.exponentialRampToValueAtTime(isAccent ? 0.9 : 0.6, time + 0.002);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.06);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(time);
+    osc.stop(time + 0.08);
+    osc.onended = function(){
+      try{ osc.disconnect(); gain.disconnect(); }catch(e){}
+    };
+  }
+
+  function scheduler(){
+    while(nextNoteTime < audioCtx.currentTime + scheduleAheadTime){
+      var isAccent = currentBeatInBar === 0;
+      playClick(nextNoteTime, isAccent);
+      var delay = nextNoteTime - audioCtx.currentTime;
+      flashDot(currentBeatInBar, delay);
+      var secondsPerBeat = 60.0 / bpm;
+      nextNoteTime += secondsPerBeat;
+      currentBeatInBar = (currentBeatInBar + 1) % 4;
+    }
+  }
+
+  function start(){
+    if(running) return;
+    if(!audioCtx){
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new Ctx();
+    }
+    if(audioCtx.state === 'suspended'){ audioCtx.resume(); }
+    running = true;
+    currentBeatInBar = 0;
+    nextNoteTime = audioCtx.currentTime + 0.05;
+    mainBtn.textContent = '停止';
+    mainBtn.classList.add('running');
+    schedulerTimer = setInterval(scheduler, lookahead);
+  }
+
+  function stop(){
+    running = false;
+    if(schedulerTimer){ clearInterval(schedulerTimer); schedulerTimer = null; }
+    clearVisualTimers();
+    dots.forEach(function(d){ d.classList.remove('active'); });
+    mainBtn.textContent = '開始';
+    mainBtn.classList.remove('running');
+  }
+
+  mainBtn.addEventListener('click', function(){
+    if(running){ stop(); } else { start(); }
+  });
+
+  // ---- tap tempo ----
+  var tapTimes = [];
+  var tapResetTimer = null;
+  tapBtn.addEventListener('click', function(){
+    var now = performance.now();
+    if(tapResetTimer) clearTimeout(tapResetTimer);
+    if(tapTimes.length > 0 && now - tapTimes[tapTimes.length-1] > 2200){
+      tapTimes = [];
+    }
+    tapTimes.push(now);
+    if(tapTimes.length > 6){ tapTimes.shift(); }
+    if(tapTimes.length >= 2){
+      var intervals = [];
+      for(var i=1;i<tapTimes.length;i++){ intervals.push(tapTimes[i]-tapTimes[i-1]); }
+      var avg = intervals.reduce(function(a,b){return a+b;},0) / intervals.length;
+      var computedBpm = 60000 / avg;
+      setBpm(computedBpm);
+      notify('BPM: ' + bpm + ' に設定しました');
+    }
+    haptic();
+    tapResetTimer = setTimeout(function(){ tapTimes = []; }, 2200);
+  });
+
+  window.addEventListener('beforeunload', function(){
+    if(schedulerTimer) clearInterval(schedulerTimer);
+    clearVisualTimers();
+    if(audioCtx){ try{ audioCtx.close(); }catch(e){} }
+  });
+
+  setBpm(120);
+})();
+</script>
+</body>
+</html>

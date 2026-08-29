@@ -1,0 +1,356 @@
+<!--GUIOS-APP {"id":"whack-a-mole","name":"もぐらたたき","icon":"🔨","color":"#6b4226","version":"1.0.0","author":"Claude","description":"制限時間内にモグラをタップしてスコアを競うもぐらたたきゲーム。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>もぐらたたき</title>
+<style>
+  :root{
+    --accent:#6b4226;
+    --bg:#1a130c;
+    --card:#241a10;
+    --text:#f7ecdd;
+    --sub:#c9ae91;
+    --hole:#0f0a06;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    min-height:100vh;
+    padding:16px;
+    padding-bottom:40px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  h1{
+    font-size:20px;
+    margin:4px 0 14px;
+  }
+  .info-row{
+    display:flex;
+    gap:10px;
+    margin-bottom:14px;
+    flex-wrap:wrap;
+    justify-content:center;
+  }
+  .info-chip{
+    background:var(--card);
+    border-radius:10px;
+    padding:8px 14px;
+    font-size:13px;
+    color:var(--sub);
+    border:1px solid rgba(255,255,255,0.06);
+    min-width:88px;
+    text-align:center;
+  }
+  .info-chip b{
+    color:var(--text);
+    font-size:16px;
+    display:block;
+  }
+  .board{
+    display:grid;
+    grid-template-columns:repeat(3, minmax(72px, 92px));
+    grid-template-rows:repeat(3, minmax(72px, 92px));
+    gap:10px;
+    margin-bottom:16px;
+  }
+  .hole{
+    background:var(--hole);
+    border-radius:50%;
+    border:4px solid #2e2013;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:36px;
+    position:relative;
+    overflow:hidden;
+    cursor:pointer;
+  }
+  .mole{
+    transform:translateY(120%);
+    transition:transform 0.15s ease-out;
+    line-height:1;
+  }
+  .hole.up .mole{
+    transform:translateY(0%);
+  }
+  .hole.whacked .mole{
+    transform:translateY(20%) scale(0.85);
+  }
+  .start-btn{
+    padding:14px 34px;
+    border-radius:12px;
+    border:none;
+    background:var(--accent);
+    color:#fff2e2;
+    font-weight:800;
+    font-size:16px;
+    cursor:pointer;
+    margin-bottom:14px;
+  }
+  .result{
+    display:none;
+    background:var(--card);
+    border:1px solid var(--accent);
+    border-radius:14px;
+    padding:16px 22px;
+    text-align:center;
+    margin-bottom:14px;
+    max-width:340px;
+  }
+  .result.show{ display:block; }
+  .result .title{
+    font-size:20px;
+    font-weight:800;
+    margin-bottom:6px;
+  }
+  .result .detail{
+    font-size:13px;
+    color:var(--sub);
+  }
+</style>
+</head>
+<body>
+  <h1>🔨 もぐらたたき</h1>
+
+  <div class="info-row">
+    <div class="info-chip">スコア<b id="scoreVal">0</b></div>
+    <div class="info-chip">残り時間<b id="timeVal">30</b></div>
+    <div class="info-chip">ハイスコア<b id="highVal">0</b></div>
+  </div>
+
+  <div class="result" id="resultBox">
+    <div class="title" id="resultTitle"></div>
+    <div class="detail" id="resultDetail"></div>
+  </div>
+
+  <div class="board" id="board"></div>
+
+  <button class="start-btn" id="startBtn" type="button">スタート</button>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var STORE_KEY = "highscore";
+  var LS_KEY = "whack-a-mole:" + STORE_KEY;
+
+  var HOLE_COUNT = 9;
+  var ROUND_SECONDS = 30;
+
+  var boardEl = document.getElementById("board");
+  var scoreVal = document.getElementById("scoreVal");
+  var timeVal = document.getElementById("timeVal");
+  var highVal = document.getElementById("highVal");
+  var startBtn = document.getElementById("startBtn");
+  var resultBox = document.getElementById("resultBox");
+  var resultTitle = document.getElementById("resultTitle");
+  var resultDetail = document.getElementById("resultDetail");
+
+  var holes = []; // { el, moleEl, up, hideTimer }
+  var score = 0;
+  var timeLeft = ROUND_SECONDS;
+  var highScore = 0;
+  var playing = false;
+
+  var countdownId = null;
+  var spawnTimer = null;
+
+  for (var i = 0; i < HOLE_COUNT; i++){
+    var hole = document.createElement("div");
+    hole.className = "hole";
+    hole.setAttribute("data-idx", i);
+    var mole = document.createElement("div");
+    mole.className = "mole";
+    mole.textContent = "🐹";
+    hole.appendChild(mole);
+    boardEl.appendChild(hole);
+    holes.push({ el: hole, moleEl: mole, up: false, hideTimer: null });
+  }
+
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify){
+      window.GUIOS.notify(msg, { type: type || "info" });
+    }
+  }
+  function haptic(){
+    if (window.GUIOS && window.GUIOS.haptic){
+      try { window.GUIOS.haptic(); } catch(e){}
+    }
+  }
+
+  async function loadHigh(){
+    try {
+      if (hasSDK){
+        var v = await window.GUIOS.storage.get(STORE_KEY);
+        if (typeof v === "number") highScore = v;
+      } else {
+        var raw = localStorage.getItem(LS_KEY);
+        if (raw) highScore = parseInt(raw, 10) || 0;
+      }
+    } catch(e){}
+    highVal.textContent = highScore;
+  }
+  async function saveHigh(){
+    try {
+      if (hasSDK){
+        await window.GUIOS.storage.set(STORE_KEY, highScore);
+      } else {
+        localStorage.setItem(LS_KEY, String(highScore));
+      }
+    } catch(e){}
+  }
+
+  function clearHoleTimer(h){
+    if (h.hideTimer !== null){
+      clearTimeout(h.hideTimer);
+      h.hideTimer = null;
+    }
+  }
+
+  function hideHole(h){
+    clearHoleTimer(h);
+    h.up = false;
+    h.el.classList.remove("up");
+    h.el.classList.remove("whacked");
+  }
+
+  function hideAllHoles(){
+    holes.forEach(hideHole);
+  }
+
+  function popRandomMole(){
+    if (!playing) return;
+    var downHoles = holes.filter(function(h){ return !h.up; });
+    if (downHoles.length === 0) return;
+    var h = downHoles[Math.floor(Math.random() * downHoles.length)];
+
+    h.up = true;
+    h.el.classList.add("up");
+    h.el.classList.remove("whacked");
+
+    // difficulty ramps slightly as time runs down: shorter show duration
+    var progress = 1 - (timeLeft / ROUND_SECONDS); // 0 -> 1
+    var minShow = 550 - Math.floor(progress * 250);
+    var maxShow = 1100 - Math.floor(progress * 400);
+    var showDuration = minShow + Math.random() * (maxShow - minShow);
+
+    h.hideTimer = setTimeout(function(){
+      hideHole(h);
+    }, showDuration);
+  }
+
+  function scheduleNextSpawn(){
+    if (!playing) return;
+    var progress = 1 - (timeLeft / ROUND_SECONDS);
+    var minGap = 550 - Math.floor(progress * 200);
+    var maxGap = 950 - Math.floor(progress * 300);
+    var gap = minGap + Math.random() * (maxGap - minGap);
+    spawnTimer = setTimeout(function(){
+      popRandomMole();
+      scheduleNextSpawn();
+    }, gap);
+  }
+
+  function stopSpawning(){
+    if (spawnTimer !== null){
+      clearTimeout(spawnTimer);
+      spawnTimer = null;
+    }
+  }
+
+  function stopCountdown(){
+    if (countdownId !== null){
+      clearInterval(countdownId);
+      countdownId = null;
+    }
+  }
+
+  function startGame(){
+    if (playing) return;
+    playing = true;
+    score = 0;
+    timeLeft = ROUND_SECONDS;
+    scoreVal.textContent = "0";
+    timeVal.textContent = String(timeLeft);
+    resultBox.classList.remove("show");
+    startBtn.disabled = true;
+    startBtn.textContent = "プレイ中…";
+    hideAllHoles();
+
+    scheduleNextSpawn();
+
+    countdownId = setInterval(function(){
+      timeLeft -= 1;
+      timeVal.textContent = String(Math.max(0, timeLeft));
+      if (timeLeft <= 0){
+        endGame();
+      }
+    }, 1000);
+  }
+
+  function endGame(){
+    playing = false;
+    stopCountdown();
+    stopSpawning();
+    hideAllHoles();
+    startBtn.disabled = false;
+    startBtn.textContent = "もう一度";
+
+    var isNewHigh = false;
+    if (score > highScore){
+      highScore = score;
+      saveHigh();
+      isNewHigh = true;
+    }
+    highVal.textContent = highScore;
+
+    resultTitle.textContent = "タイムアップ！ スコア: " + score;
+    resultDetail.textContent = isNewHigh ? "新しいハイスコアです！ 🎉" : "ハイスコア: " + highScore;
+    resultBox.classList.add("show");
+    notify("スコア " + score + (isNewHigh ? "（新記録！）" : ""), isNewHigh ? "success" : "info");
+  }
+
+  boardEl.addEventListener("click", function(e){
+    var holeEl = e.target.closest(".hole");
+    if (!holeEl) return;
+    if (!playing) return;
+    var idx = parseInt(holeEl.getAttribute("data-idx"), 10);
+    var h = holes[idx];
+    if (!h.up) return;
+
+    score += 1;
+    scoreVal.textContent = String(score);
+    clearHoleTimer(h);
+    h.up = false;
+    h.el.classList.remove("up");
+    h.el.classList.add("whacked");
+    haptic();
+    setTimeout(function(){
+      h.el.classList.remove("whacked");
+    }, 200);
+  });
+
+  startBtn.addEventListener("click", function(){
+    startGame();
+  });
+
+  window.addEventListener("pagehide", function(){
+    stopCountdown();
+    stopSpawning();
+    holes.forEach(clearHoleTimer);
+  });
+  window.addEventListener("beforeunload", function(){
+    stopCountdown();
+    stopSpawning();
+    holes.forEach(clearHoleTimer);
+  });
+
+  loadHigh();
+</script>
+</body>
+</html>

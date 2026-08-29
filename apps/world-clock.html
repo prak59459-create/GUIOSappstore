@@ -1,0 +1,188 @@
+<!--GUIOS-APP {"id":"world-clock","name":"世界時計","icon":"🌍","color":"#2e8b7a","version":"1.0.0","author":"Claude","description":"世界各地の現在時刻を一覧できる世界時計アプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>世界時計</title>
+<style>
+  :root{
+    --accent:#2e8b7a;
+    --bg:#0f1a18;
+    --card:#152623;
+    --text:#eef7f4;
+    --sub:#9db8b2;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    min-height:100vh;
+    padding:16px;
+    padding-bottom:40px;
+  }
+  h1{
+    font-size:20px;
+    margin:4px 0 16px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .grid{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:12px;
+    max-width:520px;
+    margin:0 auto;
+  }
+  .card{
+    background:var(--card);
+    border:1px solid rgba(255,255,255,0.06);
+    border-left:4px solid var(--accent);
+    border-radius:14px;
+    padding:14px 18px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+  }
+  .city{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+  }
+  .city-name{
+    font-size:16px;
+    font-weight:700;
+  }
+  .city-sub{
+    font-size:12px;
+    color:var(--sub);
+  }
+  .time-wrap{
+    text-align:right;
+  }
+  .time{
+    font-size:26px;
+    font-weight:700;
+    font-variant-numeric:tabular-nums;
+    letter-spacing:1px;
+  }
+  .date{
+    font-size:11px;
+    color:var(--sub);
+    margin-top:2px;
+  }
+  .diff{
+    font-size:11px;
+    color:var(--accent);
+    margin-top:2px;
+    font-weight:600;
+  }
+  .foot{
+    max-width:520px;
+    margin:20px auto 0;
+    text-align:center;
+    font-size:11px;
+    color:var(--sub);
+  }
+</style>
+</head>
+<body>
+  <h1>🌍 世界時計</h1>
+  <div class="grid" id="grid"></div>
+  <div class="foot">1秒ごとに自動更新されます</div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+
+  var CITIES = [
+    { name: "東京", sub: "日本", tz: "Asia/Tokyo" },
+    { name: "ニューヨーク", sub: "アメリカ", tz: "America/New_York" },
+    { name: "ロサンゼルス", sub: "アメリカ", tz: "America/Los_Angeles" },
+    { name: "ロンドン", sub: "イギリス", tz: "Europe/London" },
+    { name: "パリ", sub: "フランス", tz: "Europe/Paris" },
+    { name: "シドニー", sub: "オーストラリア", tz: "Australia/Sydney" },
+    { name: "ドバイ", sub: "UAE", tz: "Asia/Dubai" },
+    { name: "シンガポール", sub: "シンガポール", tz: "Asia/Singapore" }
+  ];
+
+  var grid = document.getElementById("grid");
+  var els = [];
+
+  CITIES.forEach(function(c, i){
+    var card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML =
+      '<div class="city">' +
+        '<div class="city-name">' + c.name + '</div>' +
+        '<div class="city-sub">' + c.sub + '</div>' +
+      '</div>' +
+      '<div class="time-wrap">' +
+        '<div class="time" id="time-' + i + '">--:--:--</div>' +
+        '<div class="date" id="date-' + i + '">----/--/--</div>' +
+      '</div>';
+    grid.appendChild(card);
+    els.push({
+      time: card.querySelector("#time-" + i),
+      date: card.querySelector("#date-" + i)
+    });
+  });
+
+  var timeFmts = CITIES.map(function(c){
+    return new Intl.DateTimeFormat("ja-JP", {
+      timeZone: c.tz,
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false
+    });
+  });
+  var dateFmts = CITIES.map(function(c){
+    return new Intl.DateTimeFormat("ja-JP", {
+      timeZone: c.tz,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      weekday: "short"
+    });
+  });
+
+  function tick(){
+    var now = new Date();
+    for (var i = 0; i < CITIES.length; i++){
+      els[i].time.textContent = timeFmts[i].format(now);
+      els[i].date.textContent = dateFmts[i].format(now);
+    }
+  }
+
+  var intervalId = null;
+  function startClock(){
+    if (intervalId !== null) return;
+    tick();
+    intervalId = setInterval(tick, 1000);
+  }
+  function stopClock(){
+    if (intervalId !== null){
+      clearInterval(intervalId);
+      intervalId = null;
+    }
+  }
+
+  document.addEventListener("visibilitychange", function(){
+    if (document.hidden){
+      stopClock();
+    } else {
+      startClock();
+    }
+  });
+
+  window.addEventListener("pagehide", stopClock);
+  window.addEventListener("beforeunload", stopClock);
+
+  startClock();
+</script>
+</body>
+</html>

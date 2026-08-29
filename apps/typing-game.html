@@ -1,0 +1,284 @@
+<!--GUIOS-APP {"id":"typing-game","name":"タイピング練習","icon":"⌨️","color":"#2c5f8a","version":"1.0.0","author":"Claude","description":"制限時間内に表示された文章を正確に入力するタイピング練習アプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>タイピング練習</title>
+<style>
+  :root{
+    --accent:#2c5f8a;
+    --bg:#0d151d;
+    --panel:#152331;
+    --text:#e9f1f8;
+    --sub:#8fa9bd;
+    --ok:#4caf6f;
+    --ng:#e05a5a;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    display:flex; flex-direction:column; align-items:center;
+    padding:20px 14px 40px;
+  }
+  h1{ font-size:20px; margin:6px 0 2px; }
+  .sub{ color:var(--sub); font-size:13px; margin-bottom:16px; text-align:center; }
+  .wrap{ width:100%; max-width:480px; }
+  .card{
+    background:var(--panel); border-radius:18px; padding:20px 18px;
+    box-shadow:0 6px 24px rgba(0,0,0,.35);
+  }
+  .hud{
+    display:flex; justify-content:space-between; font-size:13px; color:var(--sub); margin-bottom:14px;
+  }
+  .hud b{ color:var(--text); font-size:16px; }
+  .target{
+    font-size:19px; line-height:1.7; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    letter-spacing:.5px; margin-bottom:16px; min-height:60px; word-break:break-word;
+  }
+  .ch-correct{ color:var(--ok); }
+  .ch-wrong{ color:var(--ng); background:rgba(224,90,90,.25); border-radius:3px; }
+  .ch-current{ color:var(--text); border-bottom:2px solid var(--accent); }
+  .ch-pending{ color:var(--sub); }
+  input[type=text]{
+    width:100%; padding:14px; font-size:17px; border-radius:12px;
+    border:2px solid #223247; background:#0d151d; color:var(--text);
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  input:focus{ outline:none; border-color:var(--accent); }
+  .start-screen, .result-screen{
+    display:flex; flex-direction:column; align-items:center; gap:12px; text-align:center; padding:6px 2px;
+  }
+  button{
+    padding:14px 20px; border-radius:12px; border:none;
+    background:var(--accent); color:#fff; font-weight:700; font-size:15px; cursor:pointer;
+    min-height:48px;
+  }
+  button:active{ transform:scale(.98); }
+  .result-big{ font-size:34px; font-weight:800; color:var(--accent); }
+  .result-row{ display:flex; gap:24px; justify-content:center; margin:6px 0; }
+  .result-row div{ font-size:13px; color:var(--sub); }
+  .result-row b{ display:block; font-size:22px; color:var(--text); }
+  .best-note{ font-size:13px; color:var(--sub); }
+</style>
+</head>
+<body>
+  <h1>⌨️ タイピング練習</h1>
+  <div class="sub">60秒間でできるだけ正確に速く入力しよう</div>
+  <div class="wrap">
+    <div class="card" id="card"></div>
+  </div>
+
+<script>
+(function(){
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var STORAGE_KEY = 'bestWpm';
+  var LS_KEY = 'guios-typing-game-best';
+  var SESSION_SECONDS = 60;
+
+  var TEXTS = [
+    'the quick brown fox jumps over the lazy dog',
+    'practice makes perfect every single day',
+    'she sells seashells by the seashore',
+    'a journey of a thousand miles begins with one step',
+    'time flies when you are having fun',
+    'never put off until tomorrow what you can do today',
+    'actions speak louder than words',
+    'better late than never my friend',
+    'the early bird catches the worm',
+    'knowledge is power and practice is key',
+    'simplicity is the ultimate sophistication',
+    'good things come to those who wait',
+    'every cloud has a silver lining',
+    'honesty is always the best policy',
+    'where there is a will there is a way',
+    'small steps lead to big changes over time',
+    'the pen is mightier than the sword',
+    'success is not final failure is not fatal',
+    'keep your friends close and your goals closer',
+    'hard work always beats talent when talent stops working'
+  ];
+
+  var card = document.getElementById('card');
+  var current = '';
+  var lastIndex = -1;
+  var totalTyped = 0;
+  var totalCorrect = 0;
+  var textsCompleted = 0;
+  var startTime = 0;
+  var timerInterval = null;
+  var timeLeft = SESSION_SECONDS;
+  var started = false;
+  var inputEl = null;
+
+  function haptic(){ if(window.GUIOS && window.GUIOS.haptic){ window.GUIOS.haptic(); } }
+  function notify(msg, type){ if(window.GUIOS && window.GUIOS.notify){ window.GUIOS.notify(msg, {type: type||'info'}); } }
+
+  async function loadBest(){
+    if(hasSDK){
+      try{ var v = await window.GUIOS.storage.get(STORAGE_KEY); return (typeof v === 'number') ? v : null; }
+      catch(e){ return null; }
+    } else {
+      var raw = localStorage.getItem(LS_KEY);
+      return raw ? JSON.parse(raw) : null;
+    }
+  }
+  async function saveBest(n){
+    if(hasSDK){ try{ await window.GUIOS.storage.set(STORAGE_KEY, n); }catch(e){} }
+    else{ localStorage.setItem(LS_KEY, JSON.stringify(n)); }
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  function pickNextText(){
+    if(TEXTS.length === 1){ return TEXTS[0]; }
+    var idx;
+    do{ idx = Math.floor(Math.random() * TEXTS.length); } while(idx === lastIndex);
+    lastIndex = idx;
+    return TEXTS[idx];
+  }
+
+  function clearTimer(){
+    if(timerInterval){ clearInterval(timerInterval); timerInterval = null; }
+  }
+
+  function renderStart(best){
+    clearTimer();
+    started = false;
+    card.innerHTML =
+      '<div class="start-screen">' +
+      '<div style="font-size:44px;">⌨️</div>' +
+      '<div style="font-size:14px; color:var(--sub);">制限時間' + SESSION_SECONDS + '秒。表示された英文を正確に入力しよう。</div>' +
+      (best !== null ? '<div class="best-note">自己ベストWPM: ' + best + '</div>' : '') +
+      '<button id="startBtn">練習を始める</button>' +
+      '</div>';
+    document.getElementById('startBtn').addEventListener('click', beginSession);
+  }
+
+  function beginSession(){
+    totalTyped = 0;
+    totalCorrect = 0;
+    textsCompleted = 0;
+    timeLeft = SESSION_SECONDS;
+    started = false;
+    lastIndex = -1;
+    current = pickNextText();
+    renderPlay();
+  }
+
+  function renderPlay(){
+    card.innerHTML =
+      '<div class="hud"><span>残り時間 <b id="timeLeft">' + timeLeft + '</b>秒</span><span>完了 <b id="doneCount">' + textsCompleted + '</b>問</span></div>' +
+      '<div class="target" id="target"></div>' +
+      '<input type="text" id="typingInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="ここに入力">';
+    inputEl = document.getElementById('typingInput');
+    renderTarget('');
+    inputEl.addEventListener('input', onInput);
+    inputEl.focus();
+  }
+
+  function renderTarget(typed){
+    var html = '';
+    for(var i = 0; i < current.length; i++){
+      var ch = current[i];
+      var display = ch === ' ' ? ' ' : escapeHtml(ch);
+      if(i < typed.length){
+        html += '<span class="' + (typed[i] === ch ? 'ch-correct' : 'ch-wrong') + '">' + display + '</span>';
+      } else if(i === typed.length){
+        html += '<span class="ch-current">' + display + '</span>';
+      } else {
+        html += '<span class="ch-pending">' + display + '</span>';
+      }
+    }
+    document.getElementById('target').innerHTML = html;
+  }
+
+  function onInput(e){
+    if(!started){
+      started = true;
+      startTime = performance.now();
+      timerInterval = setInterval(tick, 1000);
+    }
+    var typed = inputEl.value;
+
+    // count this keystroke's correctness against previous typed length
+    var prevLen = onInput._prevLen || 0;
+    if(typed.length > prevLen){
+      // characters added: check each newly added char
+      for(var i = prevLen; i < typed.length && i < current.length; i++){
+        totalTyped++;
+        if(typed[i] === current[i]) totalCorrect++;
+      }
+    }
+    onInput._prevLen = typed.length;
+
+    renderTarget(typed);
+
+    if(typed.length >= current.length){
+      var isMatch = typed === current;
+      if(isMatch){
+        haptic();
+        textsCompleted++;
+        onInput._prevLen = 0;
+        current = pickNextText();
+        inputEl.value = '';
+        var doneEl = document.getElementById('doneCount');
+        if(doneEl) doneEl.textContent = String(textsCompleted);
+        renderTarget('');
+      }
+    }
+  }
+
+  function tick(){
+    timeLeft--;
+    var el = document.getElementById('timeLeft');
+    if(el) el.textContent = String(timeLeft);
+    if(timeLeft <= 0){
+      finishSession();
+    }
+  }
+
+  async function finishSession(){
+    clearTimer();
+    var elapsedMinutes = SESSION_SECONDS / 60;
+    var wpm = Math.round((totalCorrect / 5) / elapsedMinutes);
+    var accuracy = totalTyped > 0 ? Math.round((totalCorrect / totalTyped) * 100) : 100;
+
+    var best = await loadBest();
+    var isNewBest = (best === null || wpm > best);
+    if(isNewBest){ await saveBest(wpm); }
+    notify('WPM: ' + wpm + ' / 正確率: ' + accuracy + '%', 'success');
+
+    card.innerHTML =
+      '<div class="result-screen">' +
+      '<div style="font-size:14px; color:var(--sub);">結果発表</div>' +
+      '<div class="result-big">' + wpm + ' WPM</div>' +
+      '<div class="result-row">' +
+      '<div>正確率<b>' + accuracy + '%</b></div>' +
+      '<div>完了数<b>' + textsCompleted + '問</b></div>' +
+      '</div>' +
+      (isNewBest ? '<div class="best-note" style="color:#4caf6f;">🎉 自己ベスト更新！</div>' :
+        '<div class="best-note">自己ベストWPM: ' + best + '</div>') +
+      '<button id="retryBtn">もう一度</button>' +
+      '</div>';
+    document.getElementById('retryBtn').addEventListener('click', function(){
+      loadBest().then(renderStart);
+    });
+  }
+
+  window.addEventListener('beforeunload', clearTimer);
+
+  (async function init(){
+    var best = await loadBest();
+    renderStart(best);
+  })();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,283 @@
+<!--GUIOS-APP {"id":"notepad","name":"メモ帳","icon":"📝","color":"#caa14b","version":"1.0.0","author":"Claude","description":"複数のメモを作成・編集・削除できるシンプルなメモ帳アプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>メモ帳</title>
+<style>
+  :root{
+    --accent:#caa14b;
+    --bg:#181510;
+    --card:#221d15;
+    --text:#f4eee1;
+    --sub:#c2b49a;
+    --line:#3a3222;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    display:flex; flex-direction:column;
+  }
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 16px; border-bottom:1px solid var(--line); flex:none;
+  }
+  .topbar h1{font-size:18px; margin:0; display:flex; align-items:center; gap:8px;}
+  button{
+    padding:10px 16px; border-radius:10px; border:none; background:var(--accent);
+    color:#1f1704; font-weight:700; font-size:14px; cursor:pointer; min-height:44px;
+  }
+  button.ghost{
+    background:transparent; color:var(--sub); border:1px solid var(--line);
+  }
+  button.danger{
+    background:#7a2f2f; color:#ffe4e4;
+  }
+  #listView, #editView{
+    flex:1; display:flex; flex-direction:column; min-height:0;
+  }
+  [hidden]{display:none!important;}
+  .list-wrap{
+    flex:1; overflow-y:auto; padding:12px 16px;
+  }
+  .note-card{
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:14px; margin-bottom:10px; cursor:pointer;
+  }
+  .note-card .ntitle{font-size:16px; font-weight:700; margin-bottom:4px; word-break:break-word;}
+  .note-card .npreview{font-size:13px; color:var(--sub); margin-bottom:6px; white-space:pre-wrap; word-break:break-word;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
+  .note-card .nmeta{font-size:11px; color:var(--sub); opacity:.8;}
+  .empty{color:var(--sub); text-align:center; padding:60px 20px; font-size:14px;}
+  .fab-wrap{padding:12px 16px; border-top:1px solid var(--line); flex:none;}
+
+  .edit-inner{flex:1; display:flex; flex-direction:column; min-height:0; padding:12px 16px;}
+  #titleInput{
+    width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--line);
+    background:#120f0a; color:var(--text); font-size:16px; font-weight:700; outline:none; margin-bottom:10px;
+  }
+  #titleInput:focus{border-color:var(--accent);}
+  #bodyInput{
+    flex:1; width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--line);
+    background:#120f0a; color:var(--text); font-size:15px; outline:none; resize:none;
+    font-family:inherit; line-height:1.6; min-height:200px;
+  }
+  #bodyInput:focus{border-color:var(--accent);}
+  .edit-actions{
+    display:flex; gap:10px; padding:12px 16px; border-top:1px solid var(--line); flex:none;
+  }
+  .edit-actions button{flex:1;}
+</style>
+</head>
+<body>
+
+  <div id="listView">
+    <div class="topbar">
+      <h1>📝 メモ帳</h1>
+    </div>
+    <div class="list-wrap" id="listWrap">
+      <div class="empty">まだメモがありません<br>「＋ 新規メモ」から作成しましょう</div>
+    </div>
+    <div class="fab-wrap">
+      <button id="newNoteBtn" style="width:100%;">＋ 新規メモ</button>
+    </div>
+  </div>
+
+  <div id="editView" hidden>
+    <div class="topbar">
+      <button class="ghost" id="backBtn">← 一覧に戻る</button>
+      <span id="editStatus" style="font-size:12px; color:var(--sub);"></span>
+    </div>
+    <div class="edit-inner">
+      <input type="text" id="titleInput" placeholder="タイトル（省略可）">
+      <textarea id="bodyInput" placeholder="ここにメモを入力..."></textarea>
+    </div>
+    <div class="edit-actions">
+      <button class="danger" id="deleteBtn">削除</button>
+      <button id="saveBtn">保存</button>
+    </div>
+  </div>
+
+  <div id="toast" style="position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:#2a2418; color:var(--text); padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; pointer-events:none; transition:all .25s; border:1px solid var(--line);
+    max-width:90%; text-align:center; z-index:999;"></div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var STORAGE_KEY = 'notes';
+  var FALLBACK_KEY = 'guios-fallback-notepad-notes';
+
+  var notes = [];
+  var currentId = null;
+
+  function showToast(msg){
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    t.style.opacity = '1';
+    t.style.transform = 'translateX(-50%) translateY(0)';
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(function(){
+      t.style.opacity = '0';
+      t.style.transform = 'translateX(-50%) translateY(20px)';
+    }, 1800);
+  }
+  function notify(msg, type){
+    if(window.GUIOS && window.GUIOS.notify){
+      GUIOS.notify(msg, {type: type || 'info'});
+    } else {
+      showToast(msg);
+    }
+  }
+
+  async function loadNotes(){
+    if(hasSDK){
+      var v = await GUIOS.storage.get(STORAGE_KEY);
+      return Array.isArray(v) ? v : [];
+    } else {
+      try{
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        return raw ? JSON.parse(raw) : [];
+      }catch(e){ return []; }
+    }
+  }
+  async function saveNotes(list){
+    if(hasSDK){
+      await GUIOS.storage.set(STORAGE_KEY, list);
+    } else {
+      try{ localStorage.setItem(FALLBACK_KEY, JSON.stringify(list)); }catch(e){}
+    }
+  }
+
+  function firstLine(text){
+    if(!text) return '';
+    var idx = text.indexOf('\n');
+    return idx === -1 ? text : text.slice(0, idx);
+  }
+
+  function formatDate(ts){
+    var d = new Date(ts);
+    if(isNaN(d.getTime())) return '';
+    var y=d.getFullYear(), m=('0'+(d.getMonth()+1)).slice(-2), day=('0'+d.getDate()).slice(-2);
+    var hh=('0'+d.getHours()).slice(-2), mm=('0'+d.getMinutes()).slice(-2);
+    return y+'/'+m+'/'+day+' '+hh+':'+mm;
+  }
+
+  function renderList(){
+    var wrap = document.getElementById('listWrap');
+    if(notes.length === 0){
+      wrap.innerHTML = '<div class="empty">まだメモがありません<br>「＋ 新規メモ」から作成しましょう</div>';
+      return;
+    }
+    var sorted = notes.slice().sort(function(a,b){ return (b.updatedAt||0) - (a.updatedAt||0); });
+    wrap.innerHTML = '';
+    sorted.forEach(function(note){
+      var displayTitle = (note.title && note.title.trim()) ? note.title.trim() : (firstLine(note.body) || '(無題)');
+      var preview = note.body || '';
+      var card = document.createElement('div');
+      card.className = 'note-card';
+      card.innerHTML =
+        '<div class="ntitle"></div>'+
+        '<div class="npreview"></div>'+
+        '<div class="nmeta"></div>';
+      card.querySelector('.ntitle').textContent = displayTitle;
+      card.querySelector('.npreview').textContent = preview;
+      card.querySelector('.nmeta').textContent = formatDate(note.updatedAt);
+      card.addEventListener('click', function(){ openEdit(note.id); });
+      wrap.appendChild(card);
+    });
+  }
+
+  function showList(){
+    document.getElementById('listView').hidden = false;
+    document.getElementById('editView').hidden = true;
+    currentId = null;
+    renderList();
+  }
+
+  function showEdit(){
+    document.getElementById('listView').hidden = true;
+    document.getElementById('editView').hidden = false;
+  }
+
+  function openEdit(id){
+    var note = notes.find(function(n){ return n.id === id; });
+    if(!note) return;
+    currentId = id;
+    document.getElementById('titleInput').value = note.title || '';
+    document.getElementById('bodyInput').value = note.body || '';
+    document.getElementById('editStatus').textContent = '編集中';
+    showEdit();
+  }
+
+  function openNew(){
+    currentId = null;
+    document.getElementById('titleInput').value = '';
+    document.getElementById('bodyInput').value = '';
+    document.getElementById('editStatus').textContent = '新規メモ';
+    showEdit();
+    setTimeout(function(){ document.getElementById('bodyInput').focus(); }, 50);
+  }
+
+  document.getElementById('newNoteBtn').addEventListener('click', openNew);
+  document.getElementById('backBtn').addEventListener('click', showList);
+
+  document.getElementById('saveBtn').addEventListener('click', async function(){
+    var title = document.getElementById('titleInput').value;
+    var body = document.getElementById('bodyInput').value;
+
+    if(!title.trim() && !body.trim()){
+      notify('メモが空です', 'error');
+      return;
+    }
+
+    var now = Date.now();
+    if(currentId){
+      var note = notes.find(function(n){ return n.id === currentId; });
+      if(note){
+        note.title = title;
+        note.body = body;
+        note.updatedAt = now;
+      }
+    } else {
+      var newNote = {
+        id: 'note-' + now + '-' + Math.floor(Math.random()*10000),
+        title: title,
+        body: body,
+        createdAt: now,
+        updatedAt: now
+      };
+      notes.push(newNote);
+      currentId = newNote.id;
+    }
+    await saveNotes(notes);
+    notify('保存しました', 'success');
+    if(window.GUIOS && window.GUIOS.haptic) GUIOS.haptic();
+    showList();
+  });
+
+  document.getElementById('deleteBtn').addEventListener('click', async function(){
+    if(!currentId){
+      showList();
+      return;
+    }
+    if(!confirm('このメモを削除しますか？')) return;
+    notes = notes.filter(function(n){ return n.id !== currentId; });
+    await saveNotes(notes);
+    notify('削除しました', 'success');
+    showList();
+  });
+
+  async function init(){
+    notes = await loadNotes();
+    renderList();
+  }
+  init();
+</script>
+</body>
+</html>

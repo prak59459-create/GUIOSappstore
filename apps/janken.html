@@ -1,0 +1,331 @@
+<!--GUIOS-APP {"id":"janken","name":"じゃんけん","icon":"✊","color":"#d9534f","version":"1.0.0","author":"Claude","description":"CPUと対戦できるじゃんけん(グー・チョキ・パー)ゲーム。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>じゃんけん</title>
+<style>
+  :root{
+    --accent:#d9534f;
+    --bg:#1c1010;
+    --card:#2b1616;
+    --text:#fbeceb;
+    --sub:#d1a6a4;
+    --win:#4caf7d;
+    --lose:#d9534f;
+    --draw:#e0a63a;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    min-height:100vh;
+    padding:16px;
+    padding-bottom:40px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  h1{
+    font-size:20px;
+    margin:4px 0 16px;
+  }
+  .arena{
+    width:100%;
+    max-width:420px;
+    background:var(--card);
+    border-radius:16px;
+    padding:20px 16px;
+    border:1px solid rgba(255,255,255,0.06);
+    margin-bottom:16px;
+  }
+  .versus{
+    display:flex;
+    align-items:center;
+    justify-content:space-around;
+    margin-bottom:14px;
+  }
+  .side{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+    width:40%;
+  }
+  .side .lbl{
+    font-size:12px;
+    color:var(--sub);
+  }
+  .hand{
+    font-size:56px;
+    height:72px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transition:transform 0.15s;
+  }
+  .hand.shake{
+    animation:shake 0.3s ease-in-out infinite;
+  }
+  @keyframes shake{
+    0%{ transform:translateY(0); }
+    50%{ transform:translateY(-8px); }
+    100%{ transform:translateY(0); }
+  }
+  .vs-text{
+    font-size:15px;
+    color:var(--sub);
+    font-weight:700;
+  }
+  .status{
+    text-align:center;
+    font-size:18px;
+    font-weight:800;
+    min-height:26px;
+    margin-bottom:6px;
+  }
+  .status.win{ color:var(--win); }
+  .status.lose{ color:var(--lose); }
+  .status.draw{ color:var(--draw); }
+  .sub-status{
+    text-align:center;
+    font-size:13px;
+    color:var(--sub);
+    min-height:18px;
+    margin-bottom:12px;
+  }
+  .hands-row{
+    display:flex;
+    gap:12px;
+    justify-content:center;
+  }
+  .hand-btn{
+    width:78px;
+    height:78px;
+    border-radius:16px;
+    border:none;
+    background:#3a1c1c;
+    color:var(--text);
+    font-size:32px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    box-shadow:0 3px 0 rgba(0,0,0,0.3);
+  }
+  .hand-btn:active{ transform:translateY(2px); box-shadow:none; }
+  .hand-btn:disabled{ opacity:0.5; }
+  .stats{
+    width:100%;
+    max-width:420px;
+    background:var(--card);
+    border-radius:14px;
+    padding:14px 18px;
+    display:flex;
+    justify-content:space-around;
+    text-align:center;
+    margin-bottom:14px;
+    border:1px solid rgba(255,255,255,0.06);
+  }
+  .stat .num{ font-size:22px; font-weight:800; }
+  .stat .num.win{ color:var(--win); }
+  .stat .num.lose{ color:var(--lose); }
+  .stat .num.draw{ color:var(--draw); }
+  .stat .lbl{ font-size:12px; color:var(--sub); margin-top:2px; }
+  .reset-btn{
+    padding:9px 20px;
+    border-radius:10px;
+    border:1px solid rgba(255,255,255,0.15);
+    background:transparent;
+    color:var(--sub);
+    font-size:13px;
+    cursor:pointer;
+  }
+</style>
+</head>
+<body>
+  <h1>✊ じゃんけん</h1>
+
+  <div class="arena">
+    <div class="versus">
+      <div class="side">
+        <div class="lbl">あなた</div>
+        <div class="hand" id="playerHand">❓</div>
+      </div>
+      <div class="vs-text">VS</div>
+      <div class="side">
+        <div class="lbl">CPU</div>
+        <div class="hand" id="cpuHand">❓</div>
+      </div>
+    </div>
+    <div class="status" id="statusText">手を選んでね</div>
+    <div class="sub-status" id="subStatus">&nbsp;</div>
+    <div class="hands-row">
+      <button class="hand-btn" data-hand="rock" type="button">✊</button>
+      <button class="hand-btn" data-hand="scissors" type="button">✌️</button>
+      <button class="hand-btn" data-hand="paper" type="button">✋</button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="num win" id="winCount">0</div>
+      <div class="lbl">勝ち</div>
+    </div>
+    <div class="stat">
+      <div class="num lose" id="loseCount">0</div>
+      <div class="lbl">負け</div>
+    </div>
+    <div class="stat">
+      <div class="num draw" id="drawCount">0</div>
+      <div class="lbl">あいこ</div>
+    </div>
+  </div>
+
+  <button class="reset-btn" id="resetBtn" type="button">リセット</button>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var STORE_KEY = "stats";
+  var LS_KEY = "janken:" + STORE_KEY;
+
+  var HANDS = {
+    rock: { emoji: "✊", name: "グー", beats: "scissors" },
+    scissors: { emoji: "✌️", name: "チョキ", beats: "paper" },
+    paper: { emoji: "✋", name: "パー", beats: "rock" }
+  };
+
+  var stats = { win: 0, lose: 0, draw: 0 };
+  var busy = false;
+
+  var playerHandEl = document.getElementById("playerHand");
+  var cpuHandEl = document.getElementById("cpuHand");
+  var statusText = document.getElementById("statusText");
+  var subStatus = document.getElementById("subStatus");
+  var winCountEl = document.getElementById("winCount");
+  var loseCountEl = document.getElementById("loseCount");
+  var drawCountEl = document.getElementById("drawCount");
+  var resetBtn = document.getElementById("resetBtn");
+  var handBtns = document.querySelectorAll(".hand-btn");
+
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify){
+      window.GUIOS.notify(msg, { type: type || "info" });
+    }
+  }
+  function haptic(){
+    if (window.GUIOS && window.GUIOS.haptic){
+      try { window.GUIOS.haptic(); } catch(e){}
+    }
+  }
+
+  function renderStats(){
+    winCountEl.textContent = stats.win;
+    loseCountEl.textContent = stats.lose;
+    drawCountEl.textContent = stats.draw;
+  }
+
+  async function loadStats(){
+    try {
+      if (hasSDK){
+        var v = await window.GUIOS.storage.get(STORE_KEY);
+        if (v && typeof v === "object") stats = Object.assign(stats, v);
+      } else {
+        var raw = localStorage.getItem(LS_KEY);
+        if (raw) stats = Object.assign(stats, JSON.parse(raw));
+      }
+    } catch(e){}
+    renderStats();
+  }
+
+  async function saveStats(){
+    try {
+      if (hasSDK){
+        await window.GUIOS.storage.set(STORE_KEY, stats);
+      } else {
+        localStorage.setItem(LS_KEY, JSON.stringify(stats));
+      }
+    } catch(e){}
+  }
+
+  function judge(player, cpu){
+    if (player === cpu) return "draw";
+    if (HANDS[player].beats === cpu) return "win";
+    return "lose";
+  }
+
+  var shakeTimer = null;
+  var revealTimer = null;
+
+  function setBtnsDisabled(disabled){
+    handBtns.forEach(function(b){ b.disabled = disabled; });
+  }
+
+  handBtns.forEach(function(btn){
+    btn.addEventListener("click", function(){
+      if (busy) return;
+      busy = true;
+      setBtnsDisabled(true);
+
+      var playerHand = btn.getAttribute("data-hand");
+      var choices = Object.keys(HANDS);
+      var cpuHand = choices[Math.floor(Math.random() * choices.length)];
+
+      playerHandEl.textContent = HANDS[playerHand].emoji;
+      playerHandEl.classList.remove("shake");
+      cpuHandEl.textContent = "✊";
+      cpuHandEl.classList.add("shake");
+      statusText.className = "status";
+      statusText.textContent = "せーの…";
+      subStatus.textContent = " ";
+
+      if (shakeTimer) clearTimeout(shakeTimer);
+      if (revealTimer) clearTimeout(revealTimer);
+
+      shakeTimer = setTimeout(function(){
+        cpuHandEl.classList.remove("shake");
+        cpuHandEl.textContent = HANDS[cpuHand].emoji;
+
+        var result = judge(playerHand, cpuHand);
+        var resultLabelMap = { win: "勝ち！", lose: "負け…", draw: "あいこ" };
+        var classMap = { win: "win", lose: "lose", draw: "draw" };
+
+        statusText.className = "status " + classMap[result];
+        statusText.textContent = resultLabelMap[result];
+        subStatus.textContent = "あなた: " + HANDS[playerHand].name + " / CPU: " + HANDS[cpuHand].name;
+
+        if (result === "win") stats.win += 1;
+        else if (result === "lose") stats.lose += 1;
+        else stats.draw += 1;
+
+        renderStats();
+        saveStats();
+        haptic();
+        notify(resultLabelMap[result], result === "win" ? "success" : (result === "lose" ? "error" : "info"));
+
+        busy = false;
+        setBtnsDisabled(false);
+      }, 700);
+    });
+  });
+
+  resetBtn.addEventListener("click", function(){
+    if (busy) return;
+    stats = { win: 0, lose: 0, draw: 0 };
+    renderStats();
+    saveStats();
+    statusText.className = "status";
+    statusText.textContent = "手を選んでね";
+    subStatus.textContent = " ";
+    playerHandEl.textContent = "❓";
+    cpuHandEl.textContent = "❓";
+    notify("記録をリセットしました", "info");
+  });
+
+  loadStats();
+</script>
+</body>
+</html>

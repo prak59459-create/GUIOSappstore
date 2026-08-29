@@ -249,7 +249,6 @@
       currentSetId = id;
       openEditScreen();
     } else if (btn.dataset.act === 'del') {
-      if (!confirm) { /* no-op fallback */ }
       sets = sets.filter(function(s){ return s.id !== id; });
       await saveSets(sets);
       renderSetList();

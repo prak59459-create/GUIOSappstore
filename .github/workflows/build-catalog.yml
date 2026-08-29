@@ -1,1 +1,39 @@
+name: Build app catalog
 
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**.html'
+      - '**.htm'
+      - 'scripts/build-catalog.js'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-catalog-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-catalog:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build catalog.json
+        run: node scripts/build-catalog.js
+
+      - name: Commit catalog.json if changed
+        run: |
+          if git diff --quiet -- catalog.json; then
+            echo "catalog.json is already up to date, nothing to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add catalog.json
+          git commit -m "chore: rebuild catalog.json [skip ci]"
+          git push

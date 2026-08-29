@@ -1,0 +1,12 @@
+[
+  {
+    "id": "mini-games-50",
+    "name": "50in1ミニゲーム",
+    "version": "3.0.0",
+    "icon": "🎮",
+    "color": "#e94560",
+    "description": "50種類のミニゲームが遊べる究極アプリ。ブロック崩しから物理シミュレーションまで、HTML5ゲームを一つにまとめました。",
+    "author": "あなた",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/50Games.html"
+  }
+]

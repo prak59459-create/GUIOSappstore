@@ -1,0 +1,412 @@
+<!--GUIOS-APP {"id":"tic-tac-toe","name":"三目並べ","icon":"⭕","color":"#4a90a4","version":"1.0.0","author":"Claude","description":"2人対戦またはCPU対戦で遊べる三目並べ(マルバツゲーム)。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>三目並べ</title>
+<style>
+  :root{
+    --accent:#4a90a4;
+    --bg:#0f191c;
+    --card:#16262a;
+    --text:#eaf5f7;
+    --sub:#9dbec5;
+    --o-color:#4ac0e0;
+    --x-color:#e08a4a;
+    --win-bg:#2d6b4a;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    min-height:100vh;
+    padding:16px;
+    padding-bottom:40px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  h1{
+    font-size:20px;
+    margin:4px 0 14px;
+  }
+  .mode-toggle{
+    display:flex;
+    background:var(--card);
+    border-radius:12px;
+    padding:4px;
+    margin-bottom:14px;
+    border:1px solid rgba(255,255,255,0.08);
+  }
+  .mode-btn{
+    padding:9px 16px;
+    border-radius:9px;
+    border:none;
+    background:transparent;
+    color:var(--sub);
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+  }
+  .mode-btn.active{
+    background:var(--accent);
+    color:#062126;
+  }
+  .status{
+    font-size:16px;
+    font-weight:700;
+    min-height:24px;
+    margin-bottom:14px;
+    text-align:center;
+  }
+  .board{
+    display:grid;
+    grid-template-columns:repeat(3, minmax(72px, 96px));
+    grid-template-rows:repeat(3, minmax(72px, 96px));
+    gap:8px;
+    margin-bottom:16px;
+  }
+  .cell{
+    background:var(--card);
+    border-radius:14px;
+    border:1px solid rgba(255,255,255,0.08);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:40px;
+    font-weight:800;
+    cursor:pointer;
+    color:var(--text);
+    user-select:none;
+  }
+  .cell.o{ color:var(--o-color); }
+  .cell.x{ color:var(--x-color); }
+  .cell.win{ background:var(--win-bg); }
+  .cell.disabled{ cursor:default; }
+  .again-btn{
+    padding:12px 30px;
+    border-radius:12px;
+    border:none;
+    background:var(--accent);
+    color:#062126;
+    font-weight:800;
+    font-size:15px;
+    cursor:pointer;
+    margin-bottom:16px;
+  }
+  .stats{
+    width:100%;
+    max-width:360px;
+    background:var(--card);
+    border-radius:14px;
+    padding:14px 18px;
+    display:flex;
+    justify-content:space-around;
+    text-align:center;
+    margin-bottom:14px;
+    border:1px solid rgba(255,255,255,0.06);
+  }
+  .stat .num{ font-size:22px; font-weight:800; color:var(--accent); }
+  .stat .lbl{ font-size:12px; color:var(--sub); margin-top:2px; }
+  .reset-btn{
+    padding:9px 20px;
+    border-radius:10px;
+    border:1px solid rgba(255,255,255,0.15);
+    background:transparent;
+    color:var(--sub);
+    font-size:13px;
+    cursor:pointer;
+  }
+</style>
+</head>
+<body>
+  <h1>⭕ 三目並べ</h1>
+
+  <div class="mode-toggle">
+    <button class="mode-btn active" id="mode2p" type="button">2人対戦</button>
+    <button class="mode-btn" id="modeCpu" type="button">CPU対戦</button>
+  </div>
+
+  <div class="status" id="statusText">○ のばん</div>
+
+  <div class="board" id="board"></div>
+
+  <button class="again-btn" id="againBtn" type="button">もう一度</button>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="num" id="winCount">0</div>
+      <div class="lbl">勝ち</div>
+    </div>
+    <div class="stat">
+      <div class="num" id="loseCount">0</div>
+      <div class="lbl">負け</div>
+    </div>
+    <div class="stat">
+      <div class="num" id="drawCount">0</div>
+      <div class="lbl">引き分け</div>
+    </div>
+  </div>
+  <button class="reset-btn" id="resetStatsBtn" type="button">記録リセット</button>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var STORE_KEY = "stats";
+  var LS_KEY = "tic-tac-toe:" + STORE_KEY;
+
+  var WIN_LINES = [
+    [0,1,2],[3,4,5],[6,7,8],
+    [0,3,6],[1,4,7],[2,5,8],
+    [0,4,8],[2,4,6]
+  ];
+
+  var mode = "2p"; // "2p" or "cpu"
+  var board = new Array(9).fill(null);
+  var current = "O"; // O goes first always
+  var gameOver = false;
+  var stats = { win: 0, lose: 0, draw: 0 };
+  var cpuThinking = false;
+
+  var boardEl = document.getElementById("board");
+  var statusText = document.getElementById("statusText");
+  var mode2pBtn = document.getElementById("mode2p");
+  var modeCpuBtn = document.getElementById("modeCpu");
+  var againBtn = document.getElementById("againBtn");
+  var winCountEl = document.getElementById("winCount");
+  var loseCountEl = document.getElementById("loseCount");
+  var drawCountEl = document.getElementById("drawCount");
+  var resetStatsBtn = document.getElementById("resetStatsBtn");
+
+  var cells = [];
+  for (var i = 0; i < 9; i++){
+    var c = document.createElement("div");
+    c.className = "cell";
+    c.setAttribute("data-idx", i);
+    boardEl.appendChild(c);
+    cells.push(c);
+  }
+
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify){
+      window.GUIOS.notify(msg, { type: type || "info" });
+    }
+  }
+  function haptic(){
+    if (window.GUIOS && window.GUIOS.haptic){
+      try { window.GUIOS.haptic(); } catch(e){}
+    }
+  }
+
+  function renderStats(){
+    winCountEl.textContent = stats.win;
+    loseCountEl.textContent = stats.lose;
+    drawCountEl.textContent = stats.draw;
+  }
+
+  async function loadStats(){
+    try {
+      if (hasSDK){
+        var v = await window.GUIOS.storage.get(STORE_KEY);
+        if (v && typeof v === "object") stats = Object.assign(stats, v);
+      } else {
+        var raw = localStorage.getItem(LS_KEY);
+        if (raw) stats = Object.assign(stats, JSON.parse(raw));
+      }
+    } catch(e){}
+    renderStats();
+  }
+  async function saveStats(){
+    try {
+      if (hasSDK){
+        await window.GUIOS.storage.set(STORE_KEY, stats);
+      } else {
+        localStorage.setItem(LS_KEY, JSON.stringify(stats));
+      }
+    } catch(e){}
+  }
+
+  function checkWinner(b){
+    for (var i = 0; i < WIN_LINES.length; i++){
+      var line = WIN_LINES[i];
+      var a = b[line[0]], b2 = b[line[1]], c2 = b[line[2]];
+      if (a && a === b2 && a === c2){
+        return { winner: a, line: line };
+      }
+    }
+    if (b.every(function(x){ return x !== null; })){
+      return { winner: "draw", line: null };
+    }
+    return null;
+  }
+
+  function renderBoard(winInfo){
+    for (var i = 0; i < 9; i++){
+      var cell = cells[i];
+      var v = board[i];
+      cell.textContent = v ? v : "";
+      cell.className = "cell" + (v === "O" ? " o" : v === "X" ? " x" : "");
+      if (winInfo && winInfo.line && winInfo.line.indexOf(i) !== -1){
+        cell.classList.add("win");
+      }
+      if (gameOver || v){
+        cell.classList.add("disabled");
+      }
+    }
+  }
+
+  function setMode(newMode){
+    mode = newMode;
+    mode2pBtn.classList.toggle("active", mode === "2p");
+    modeCpuBtn.classList.toggle("active", mode === "cpu");
+    resetBoard();
+  }
+
+  mode2pBtn.addEventListener("click", function(){ setMode("2p"); });
+  modeCpuBtn.addEventListener("click", function(){ setMode("cpu"); });
+
+  function resetBoard(){
+    board = new Array(9).fill(null);
+    current = "O";
+    gameOver = false;
+    cpuThinking = false;
+    renderBoard(null);
+    updateStatus();
+  }
+
+  function updateStatus(msg){
+    if (msg){
+      statusText.textContent = msg;
+      return;
+    }
+    if (mode === "cpu"){
+      statusText.textContent = current === "O" ? "あなたのばん (○)" : "CPU考え中…";
+    } else {
+      statusText.textContent = (current === "O" ? "○" : "×") + " のばん";
+    }
+  }
+
+  function finishGame(winInfo){
+    gameOver = true;
+    renderBoard(winInfo);
+    haptic();
+    if (winInfo.winner === "draw"){
+      updateStatus("すべて埋まって引き分け");
+      stats.draw += 1;
+      notify("引き分け！", "info");
+    } else if (mode === "cpu"){
+      if (winInfo.winner === "O"){
+        updateStatus("あなたの勝ち！ 🎉");
+        stats.win += 1;
+        notify("勝ちました！", "success");
+      } else {
+        updateStatus("CPUの勝ち…");
+        stats.lose += 1;
+        notify("負けました…", "error");
+      }
+    } else {
+      updateStatus((winInfo.winner === "O" ? "○" : "×") + " の勝ち！");
+      stats.win += 1;
+      notify((winInfo.winner === "O" ? "○" : "×") + " の勝ち！", "success");
+    }
+    renderStats();
+    saveStats();
+  }
+
+  function playAt(idx, mark){
+    if (board[idx] || gameOver) return false;
+    board[idx] = mark;
+    var winInfo = checkWinner(board);
+    if (winInfo){
+      finishGame(winInfo);
+    } else {
+      current = current === "O" ? "X" : "O";
+      renderBoard(null);
+      updateStatus();
+    }
+    return true;
+  }
+
+  function cpuMove(){
+    // 1. win if possible
+    var move = findWinningMove("X");
+    if (move === -1) move = findWinningMove("O"); // block
+    if (move === -1 && board[4] === null) move = 4; // center
+    if (move === -1){
+      var corners = [0,2,6,8].filter(function(i){ return board[i] === null; });
+      if (corners.length){
+        move = corners[Math.floor(Math.random() * corners.length)];
+      }
+    }
+    if (move === -1 || move === undefined){
+      var free = [];
+      for (var i = 0; i < 9; i++){ if (board[i] === null) free.push(i); }
+      if (free.length){
+        move = free[Math.floor(Math.random() * free.length)];
+      }
+    }
+    if (move !== undefined && move !== -1 && move !== null){
+      playAt(move, "X");
+    }
+    cpuThinking = false;
+  }
+
+  function findWinningMove(mark){
+    for (var i = 0; i < WIN_LINES.length; i++){
+      var line = WIN_LINES[i];
+      var vals = [board[line[0]], board[line[1]], board[line[2]]];
+      var markCount = vals.filter(function(v){ return v === mark; }).length;
+      var emptyCount = vals.filter(function(v){ return v === null; }).length;
+      if (markCount === 2 && emptyCount === 1){
+        var emptyIdx = line[vals.indexOf(null)];
+        return emptyIdx;
+      }
+    }
+    return -1;
+  }
+
+  var cpuTimer = null;
+
+  boardEl.addEventListener("click", function(e){
+    var cellEl = e.target.closest(".cell");
+    if (!cellEl) return;
+    if (gameOver || cpuThinking) return;
+    var idx = parseInt(cellEl.getAttribute("data-idx"), 10);
+    if (board[idx]) return;
+
+    if (mode === "cpu"){
+      if (current !== "O") return; // only player's turn
+      var moved = playAt(idx, "O");
+      if (moved && !gameOver){
+        cpuThinking = true;
+        updateStatus();
+        if (cpuTimer) clearTimeout(cpuTimer);
+        cpuTimer = setTimeout(function(){
+          cpuMove();
+          updateStatus();
+        }, 500);
+      }
+    } else {
+      playAt(idx, current === "O" ? "O" : "X");
+    }
+  });
+
+  againBtn.addEventListener("click", function(){
+    if (cpuTimer) { clearTimeout(cpuTimer); cpuTimer = null; }
+    resetBoard();
+  });
+
+  resetStatsBtn.addEventListener("click", function(){
+    stats = { win: 0, lose: 0, draw: 0 };
+    renderStats();
+    saveStats();
+    notify("記録をリセットしました", "info");
+  });
+
+  loadStats();
+  resetBoard();
+</script>
+</body>
+</html>

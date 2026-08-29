@@ -1,0 +1,263 @@
+<!--GUIOS-APP {"id":"omikuji","name":"おみくじ","icon":"🎋","color":"#b03060","version":"1.0.0","author":"Claude","description":"タップして今日の運勢を占うおみくじアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>おみくじ</title>
+<style>
+  :root{
+    --accent:#b03060;
+    --bg:#1a0e14;
+    --panel:#26141d;
+    --text:#f7e9ee;
+    --sub:#c79aab;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    display:flex; flex-direction:column; align-items:center;
+    padding:24px 16px 40px;
+  }
+  h1{ font-size:20px; margin:6px 0 2px; }
+  .sub{ color:var(--sub); font-size:13px; margin-bottom:20px; text-align:center; }
+  .wrap{ width:100%; max-width:420px; display:flex; flex-direction:column; align-items:center; gap:18px; }
+  .box{
+    width:180px; height:180px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #d1447a, var(--accent) 70%);
+    display:flex; align-items:center; justify-content:center;
+    font-size:70px; cursor:pointer; user-select:none;
+    box-shadow:0 8px 30px rgba(176,48,96,.4);
+    transition:transform .08s;
+  }
+  .box:active{ transform:scale(.95); }
+  .box.shaking{ animation:shake .5s ease-in-out; }
+  @keyframes shake{
+    0%,100%{ transform:rotate(0deg); }
+    20%{ transform:rotate(-12deg); }
+    40%{ transform:rotate(10deg); }
+    60%{ transform:rotate(-8deg); }
+    80%{ transform:rotate(6deg); }
+  }
+  .hint{ color:var(--sub); font-size:13px; text-align:center; min-height:18px; }
+  .result-card{
+    width:100%; background:var(--panel); border-radius:18px;
+    padding:26px 20px; text-align:center; display:none;
+    box-shadow:0 6px 24px rgba(0,0,0,.35);
+  }
+  .result-card.show{ display:block; }
+  .level{
+    font-size:44px; font-weight:800; margin-bottom:10px; letter-spacing:2px;
+  }
+  .level.great{ color:#ffcf4d; }
+  .level.mid{ color:#ff9ecb; }
+  .level.small{ color:#ffb1d1; }
+  .level.good{ color:#e888ac; }
+  .level.later{ color:#c79aab; }
+  .level.bad{ color:#9098c9; }
+  .msg{ font-size:14px; line-height:1.7; color:var(--text); margin-bottom:6px; }
+  .again-note{ font-size:12px; color:var(--sub); margin-top:14px; }
+  .btnrow{ display:flex; gap:10px; width:100%; margin-top:16px; }
+  button{
+    flex:1; padding:12px 18px; border-radius:12px; border:none;
+    font-weight:700; font-size:14px; cursor:pointer; min-height:46px;
+  }
+  button.primary{ background:var(--accent); color:#fff; }
+  button.secondary{ background:#382230; color:var(--text); }
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+    background:#26141d; color:var(--text); padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; pointer-events:none; transition:opacity .25s;
+    border:1px solid var(--accent); z-index:50; max-width:88vw; text-align:center;
+  }
+  .toast.show{ opacity:1; }
+</style>
+</head>
+<body>
+  <h1>🎋 おみくじ</h1>
+  <div class="sub">今日の運勢を占ってみよう</div>
+  <div class="wrap">
+    <div class="box" id="box">🎋</div>
+    <div class="hint" id="hint">タップしておみくじを引く</div>
+    <div class="result-card" id="resultCard"></div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var STORAGE_KEY = 'todaysFortune';
+  var LS_KEY = 'guios-omikuji-today';
+
+  var LEVELS = [
+    { key: 'great', label: '大吉', cls: 'great', weight: 8 },
+    { key: 'mid',   label: '中吉', cls: 'mid',   weight: 20 },
+    { key: 'small',   label: '小吉', cls: 'small', weight: 22 },
+    { key: 'good',  label: '吉',   cls: 'good',  weight: 25 },
+    { key: 'later', label: '末吉', cls: 'later', weight: 17 },
+    { key: 'bad',   label: '凶',   cls: 'bad',   weight: 8 }
+  ];
+
+  var MESSAGES = {
+    great: [
+      '恋愛: 運命的な出会いが近づいています。/ 仕事: 大きなチャンスが舞い込む予感。/ 健康: 絶好調、新しいことに挑戦しよう。',
+      '恋愛: 二人の距離がぐっと縮まる日。/ 仕事: 努力がしっかり実を結びます。/ 健康: エネルギーに満ちた一日に。',
+      '恋愛: 告白するなら今がチャンス。/ 仕事: 評価が大きく上がる兆し。/ 健康: 絶好調、無理せず楽しもう。'
+    ],
+    mid: [
+      '恋愛: 素直な気持ちが良い方向へ。/ 仕事: コツコツ続けた成果が見え始める。/ 健康: バランスの取れた良い状態です。',
+      '恋愛: 相手を思いやる気持ちが大切に。/ 仕事: 周囲との協力がカギになります。/ 健康: 睡眠をしっかり取りましょう。',
+      '恋愛: 何気ない会話から縁が育ちます。/ 仕事: 新しい提案が歓迎されそう。/ 健康: 適度な運動が吉。'
+    ],
+    small: [
+      '恋愛: 焦らずマイペースが吉。/ 仕事: 小さな成功を積み重ねよう。/ 健康: 軽い運動で気分転換を。',
+      '恋愛: 相手の話をよく聞くと良いことが。/ 仕事: 地道な作業が評価されます。/ 健康: 水分補給を忘れずに。',
+      '恋愛: 自然体でいるのが一番。/ 仕事: 丁寧な仕事ぶりが信頼を生む。/ 健康: 早めの休息を心がけて。'
+    ],
+    good: [
+      '恋愛: 穏やかな日々が続きます。/ 仕事: 安定した成果が期待できます。/ 健康: 大きな問題はなさそうです。',
+      '恋愛: 友人からの紹介に注目。/ 仕事: 計画通りに物事が進みます。/ 健康: リラックスする時間を大切に。',
+      '恋愛: さりげない優しさが好印象。/ 仕事: 落ち着いて取り組めば順調。/ 健康: 気分転換の外出がおすすめ。'
+    ],
+    later: [
+      '恋愛: 今はゆっくり育てる時期。/ 仕事: 焦らず着実に進めましょう。/ 健康: 無理をせず様子を見て。',
+      '恋愛: 時間が解決してくれることも。/ 仕事: 準備を整える良い機会です。/ 健康: 生活リズムを整えましょう。',
+      '恋愛: 良い変化はこれから訪れます。/ 仕事: 下積みが後で活きてきます。/ 健康: 軽めのストレッチが効果的。'
+    ],
+    bad: [
+      '恋愛: すれ違いに注意、言葉を選んで。/ 仕事: 慎重な確認作業を忘れずに。/ 健康: 無理は禁物、休息を優先して。',
+      '恋愛: 一歩引いて冷静になる時。/ 仕事: 大きな決断は先延ばしにしよう。/ 健康: 体調の変化に気をつけて。',
+      '恋愛: 焦った行動は控えめに。/ 仕事: ミスが増えやすいので再確認を。/ 健康: 早寝早起きを心がけて。'
+    ]
+  };
+
+  var box = document.getElementById('box');
+  var hint = document.getElementById('hint');
+  var resultCard = document.getElementById('resultCard');
+  var toastEl = document.getElementById('toast');
+  var toastTimer = null;
+  var shakeTimer = null;
+
+  function showToast(msg){
+    if(toastTimer) clearTimeout(toastTimer);
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    toastTimer = setTimeout(function(){ toastEl.classList.remove('show'); }, 2200);
+  }
+  function notify(msg, type){
+    if(window.GUIOS && window.GUIOS.notify){ window.GUIOS.notify(msg, {type: type||'info'}); }
+    else{ showToast(msg); }
+  }
+  function haptic(){ if(window.GUIOS && window.GUIOS.haptic){ window.GUIOS.haptic(); } }
+
+  function todayStr(){
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+
+  async function loadRecord(){
+    if(hasSDK){
+      try{ var v = await window.GUIOS.storage.get(STORAGE_KEY); return v || null; }
+      catch(e){ return null; }
+    } else {
+      var raw = localStorage.getItem(LS_KEY);
+      return raw ? JSON.parse(raw) : null;
+    }
+  }
+  async function saveRecord(rec){
+    if(hasSDK){ try{ await window.GUIOS.storage.set(STORAGE_KEY, rec); }catch(e){} }
+    else{ localStorage.setItem(LS_KEY, JSON.stringify(rec)); }
+  }
+
+  function pickWeighted(){
+    var total = LEVELS.reduce(function(s,l){ return s + l.weight; }, 0);
+    var r = Math.random() * total;
+    for(var i=0;i<LEVELS.length;i++){
+      r -= LEVELS[i].weight;
+      if(r <= 0) return LEVELS[i];
+    }
+    return LEVELS[LEVELS.length-1];
+  }
+
+  function levelByKey(key){
+    for(var i=0;i<LEVELS.length;i++){ if(LEVELS[i].key === key) return LEVELS[i]; }
+    return LEVELS[3];
+  }
+
+  function pickMessage(key){
+    var arr = MESSAGES[key];
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+
+  function shareText(level, msg){
+    return '本日のおみくじ結果は「' + level.label + '」でした🎋\n' + msg;
+  }
+
+  function renderResult(rec, alreadyDrawn){
+    var level = levelByKey(rec.levelKey);
+    resultCard.className = 'result-card show';
+    resultCard.innerHTML =
+      '<div class="level ' + level.cls + '">' + level.label + '</div>' +
+      '<div class="msg">' + rec.message.replace(/\//g, '<br>') + '</div>' +
+      (alreadyDrawn ? '<div class="again-note">今日の運勢はもう出ています。また明日引いてね。</div>' : '') +
+      '<div class="btnrow">' +
+      '<button class="secondary" id="shareBtn">シェア</button>' +
+      (alreadyDrawn ? '' : '<button class="primary" id="okBtn">OK</button>') +
+      '</div>';
+    document.getElementById('shareBtn').addEventListener('click', function(){
+      doShare(shareText(level, rec.message));
+    });
+    var okBtn = document.getElementById('okBtn');
+    if(okBtn){ okBtn.addEventListener('click', function(){}); }
+    hint.textContent = alreadyDrawn ? '今日はもう引きました' : '';
+    box.style.display = alreadyDrawn ? 'none' : 'none';
+  }
+
+  function doShare(text){
+    if(window.GUIOS && window.GUIOS.share){
+      window.GUIOS.share(text);
+    } else if(window.GUIOS && window.GUIOS.clipboard){
+      window.GUIOS.clipboard.writeText(text);
+      notify('結果をコピーしました');
+    } else if(navigator.clipboard){
+      navigator.clipboard.writeText(text).then(function(){ notify('結果をコピーしました'); }).catch(function(){ notify(text); });
+    } else {
+      notify(text);
+    }
+  }
+
+  function drawNew(){
+    box.classList.add('shaking');
+    box.style.pointerEvents = 'none';
+    hint.textContent = '運勢を占っています...';
+    if(shakeTimer) clearTimeout(shakeTimer);
+    shakeTimer = setTimeout(async function(){
+      box.classList.remove('shaking');
+      var level = pickWeighted();
+      var message = pickMessage(level.key);
+      var rec = { date: todayStr(), levelKey: level.key, message: message };
+      await saveRecord(rec);
+      haptic();
+      notify('「' + level.label + '」が出ました', 'success');
+      renderResult(rec, false);
+    }, 650);
+  }
+
+  box.addEventListener('click', function(){
+    if(box.style.pointerEvents === 'none') return;
+    drawNew();
+  });
+
+  (async function init(){
+    var rec = await loadRecord();
+    if(rec && rec.date === todayStr()){
+      box.style.pointerEvents = 'none';
+      renderResult(rec, true);
+    }
+  })();
+})();
+</script>
+</body>
+</html>

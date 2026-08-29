@@ -1,5 +1,185 @@
 [
   {
+    "id": "age-calculator",
+    "name": "年齢計算機",
+    "version": "1.0.0",
+    "icon": "🎂",
+    "color": "#b5548a",
+    "description": "生年月日から現在の年齢や次の誕生日までの日数を計算するアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/age-calculator.html"
+  },
+  {
+    "id": "anniversary-countdown",
+    "name": "記念日カウントダウン",
+    "version": "1.0.0",
+    "icon": "💝",
+    "color": "#c2185b",
+    "description": "誕生日や記念日までの残り日数を一覧できるカウントダウンアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/anniversary-countdown.html"
+  },
+  {
+    "id": "base64-tool",
+    "name": "Base64変換",
+    "version": "1.0.0",
+    "icon": "🔡",
+    "color": "#6b7a8f",
+    "description": "テキストをBase64にエンコード・デコードできるツール。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/base64-tool.html"
+  },
+  {
+    "id": "bmi-calculator",
+    "name": "BMI計算機",
+    "version": "1.0.0",
+    "icon": "⚖️",
+    "color": "#c0562f",
+    "description": "身長と体重からBMIを計算し、履歴を記録できるアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/bmi-calculator.html"
+  },
+  {
+    "id": "calculator",
+    "name": "電卓",
+    "version": "1.0.0",
+    "icon": "🧮",
+    "color": "#2e7d6b",
+    "description": "四則演算ができるシンプルな電卓アプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/calculator.html"
+  },
+  {
+    "id": "calendar-view",
+    "name": "カレンダー",
+    "version": "1.0.0",
+    "icon": "📅",
+    "color": "#3b8686",
+    "description": "月表示のカレンダーで日付ごとに短いメモを記録できるアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/calendar-view.html"
+  },
+  {
+    "id": "char-counter",
+    "name": "文字数カウント",
+    "version": "1.0.0",
+    "icon": "🔤",
+    "color": "#3d8bbd",
+    "description": "文章の文字数・単語数・行数をリアルタイムでカウントするツール。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/char-counter.html"
+  },
+  {
+    "id": "coin-flip",
+    "name": "コイントス",
+    "version": "1.0.0",
+    "icon": "🪙",
+    "color": "#c9971f",
+    "description": "タップでコインを投げて表裏を占うコイントスアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/coin-flip.html"
+  },
+  {
+    "id": "color-picker",
+    "name": "カラーピッカー",
+    "version": "1.0.0",
+    "icon": "🎨",
+    "color": "#d46a9f",
+    "description": "色を選んでHEX・RGB・HSLに変換し、お気に入り登録できるアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/color-picker.html"
+  },
+  {
+    "id": "countdown-timer",
+    "name": "カウントダウンタイマー",
+    "version": "1.0.0",
+    "icon": "⏳",
+    "color": "#8a4b6b",
+    "description": "指定した時間からカウントダウンし、終了を知らせてくれるタイマー。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/countdown-timer.html"
+  },
+  {
+    "id": "dice-roller",
+    "name": "サイコロ",
+    "version": "1.0.0",
+    "icon": "🎲",
+    "color": "#7d5ba6",
+    "description": "個数と面数を指定してサイコロを振れるダイスローラーアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/dice-roller.html"
+  },
+  {
+    "id": "expense-tracker",
+    "name": "家計簿",
+    "version": "1.0.0",
+    "icon": "💰",
+    "color": "#d9a441",
+    "description": "日々の支出を記録し、カテゴリ別・月別に集計できる家計簿アプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/expense-tracker.html"
+  },
+  {
+    "id": "flashcards",
+    "name": "暗記カード",
+    "version": "1.0.0",
+    "icon": "🗂",
+    "color": "#7a5cc0",
+    "description": "表と裏のあるカードを作って暗記学習できるフラッシュカードアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/flashcards.html"
+  },
+  {
+    "id": "habit-tracker",
+    "name": "習慣トラッカー",
+    "version": "1.0.0",
+    "icon": "📊",
+    "color": "#4472c4",
+    "description": "毎日の習慣を記録し、継続日数を確認できるトラッカーアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/habit-tracker.html"
+  },
+  {
+    "id": "janken",
+    "name": "じゃんけん",
+    "version": "1.0.0",
+    "icon": "✊",
+    "color": "#d9534f",
+    "description": "CPUと対戦できるじゃんけん(グー・チョキ・パー)ゲーム。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/janken.html"
+  },
+  {
+    "id": "json-formatter",
+    "name": "JSON整形ツール",
+    "version": "1.0.0",
+    "icon": "🧾",
+    "color": "#4d7c4d",
+    "description": "JSONデータを見やすく整形・圧縮できるツール。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/json-formatter.html"
+  },
+  {
+    "id": "memory-game",
+    "name": "神経衰弱",
+    "version": "1.0.0",
+    "icon": "🃏",
+    "color": "#8e44ad",
+    "description": "同じ絵柄のカードをめくって揃える神経衰弱(カードマッチング)ゲーム。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/memory-game.html"
+  },
+  {
+    "id": "metronome",
+    "name": "メトロノーム",
+    "version": "1.0.0",
+    "icon": "🎵",
+    "color": "#37474f",
+    "description": "BPMを設定してリズム練習ができるメトロノームアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/metronome.html"
+  },
+  {
     "id": "mini-games-50",
     "name": "50in1ミニゲーム",
     "version": "3.0.0",
@@ -8,5 +188,175 @@
     "description": "50種類のミニゲームが遊べる究極アプリ。ブロック崩しから物理シミュレーションまで、HTML5ゲームを一つにまとめました。",
     "author": "あなた",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/50Games.html"
+  },
+  {
+    "id": "multi-timer",
+    "name": "マルチタイマー",
+    "version": "1.0.0",
+    "icon": "⏰",
+    "color": "#4b6b8a",
+    "description": "複数のタイマーを同時に設定して管理できるマルチタイマーアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/multi-timer.html"
+  },
+  {
+    "id": "notepad",
+    "name": "メモ帳",
+    "version": "1.0.0",
+    "icon": "📝",
+    "color": "#caa14b",
+    "description": "複数のメモを作成・編集・削除できるシンプルなメモ帳アプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/notepad.html"
+  },
+  {
+    "id": "number-guess",
+    "name": "数当てゲーム",
+    "version": "1.0.0",
+    "icon": "🔢",
+    "color": "#2a7f62",
+    "description": "1から100までの数字をヒントを頼りに当てる数当てゲーム。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/number-guess.html"
+  },
+  {
+    "id": "omikuji",
+    "name": "おみくじ",
+    "version": "1.0.0",
+    "icon": "🎋",
+    "color": "#b03060",
+    "description": "タップして今日の運勢を占うおみくじアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/omikuji.html"
+  },
+  {
+    "id": "password-generator",
+    "name": "パスワード生成",
+    "version": "1.0.0",
+    "icon": "🔐",
+    "color": "#5b4b8a",
+    "description": "条件を指定して安全なランダムパスワードを生成できるツール。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/password-generator.html"
+  },
+  {
+    "id": "pomodoro-timer",
+    "name": "ポモドーロタイマー",
+    "version": "1.0.0",
+    "icon": "🍅",
+    "color": "#d64545",
+    "description": "25分集中+5分休憩のサイクルで作業を管理するポモドーロタイマー。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/pomodoro-timer.html"
+  },
+  {
+    "id": "quiz-app",
+    "name": "クイズアプリ",
+    "version": "1.0.0",
+    "icon": "❓",
+    "color": "#af601a",
+    "description": "多肢選択式の雑学クイズに挑戦してスコアを競うクイズアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/quiz-app.html"
+  },
+  {
+    "id": "reaction-test",
+    "name": "反応速度テスト",
+    "version": "1.0.0",
+    "icon": "⚡",
+    "color": "#f0a500",
+    "description": "画面の色が変わった瞬間にタップして反応速度を計測するテスト。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/reaction-test.html"
+  },
+  {
+    "id": "sticky-notes",
+    "name": "付箋ボード",
+    "version": "1.0.0",
+    "icon": "🗒️",
+    "color": "#e0a72c",
+    "description": "自由に配置できる付箋を貼って管理できる付箋ボードアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/sticky-notes.html"
+  },
+  {
+    "id": "stopwatch",
+    "name": "ストップウォッチ",
+    "version": "1.0.0",
+    "icon": "⏱️",
+    "color": "#375a7f",
+    "description": "計測とラップタイムの記録ができるストップウォッチアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/stopwatch.html"
+  },
+  {
+    "id": "tic-tac-toe",
+    "name": "三目並べ",
+    "version": "1.0.0",
+    "icon": "⭕",
+    "color": "#4a90a4",
+    "description": "2人対戦またはCPU対戦で遊べる三目並べ(マルバツゲーム)。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/tic-tac-toe.html"
+  },
+  {
+    "id": "tip-calculator",
+    "name": "割り勘計算機",
+    "version": "1.0.0",
+    "icon": "💴",
+    "color": "#2f8f6f",
+    "description": "合計金額と人数、チップ率から割り勘の金額を計算するツール。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/tip-calculator.html"
+  },
+  {
+    "id": "todo-list",
+    "name": "Todoリスト",
+    "version": "1.0.0",
+    "icon": "✅",
+    "color": "#3f9142",
+    "description": "タスクを追加・完了・削除できるシンプルなToDoリストアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/todo-list.html"
+  },
+  {
+    "id": "typing-game",
+    "name": "タイピング練習",
+    "version": "1.0.0",
+    "icon": "⌨️",
+    "color": "#2c5f8a",
+    "description": "制限時間内に表示された文章を正確に入力するタイピング練習アプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/typing-game.html"
+  },
+  {
+    "id": "unit-converter",
+    "name": "単位変換",
+    "version": "1.0.0",
+    "icon": "📐",
+    "color": "#4a6fa5",
+    "description": "長さ・重さ・温度をまとめて変換できる単位変換ツール。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/unit-converter.html"
+  },
+  {
+    "id": "whack-a-mole",
+    "name": "もぐらたたき",
+    "version": "1.0.0",
+    "icon": "🔨",
+    "color": "#6b4226",
+    "description": "制限時間内にモグラをタップしてスコアを競うもぐらたたきゲーム。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/whack-a-mole.html"
+  },
+  {
+    "id": "world-clock",
+    "name": "世界時計",
+    "version": "1.0.0",
+    "icon": "🌍",
+    "color": "#2e8b7a",
+    "description": "世界各地の現在時刻を一覧できる世界時計アプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/world-clock.html"
   }
 ]

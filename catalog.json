@@ -50,6 +50,16 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/base64-tool.html"
   },
   {
+    "id": "blackjack",
+    "name": "ブラックジャック",
+    "version": "1.0.0",
+    "icon": "🃏",
+    "color": "#1b5e20",
+    "description": "プレイヤーとディーラーで21を目指すトランプゲーム(賭け金なし)。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/blackjack.html"
+  },
+  {
     "id": "blood-pressure-log",
     "name": "血圧記録",
     "version": "1.0.0",
@@ -278,6 +288,16 @@
     "description": "元の価格と割引率から割引後の価格・割引額を計算するツール。",
     "author": "Claude",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/discount-calculator.html"
+  },
+  {
+    "id": "dodge-game",
+    "name": "障害物避けゲーム",
+    "version": "1.0.0",
+    "icon": "🏃",
+    "color": "#d84315",
+    "description": "落ちてくる障害物を左右に避け続けるシンプルなアクションゲーム。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/dodge-game.html"
   },
   {
     "id": "drawing-pad",
@@ -688,6 +708,16 @@
     "description": "25分集中+5分休憩のサイクルで作業を管理するポモドーロタイマー。",
     "author": "Claude",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/pomodoro-timer.html"
+  },
+  {
+    "id": "pong-game",
+    "name": "ポンゲーム",
+    "version": "1.0.0",
+    "icon": "🏓",
+    "color": "#37474f",
+    "description": "自分のパドルでボールを打ち返す1人用ポン(卓球)ゲーム。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/pong-game.html"
   },
   {
     "id": "profit-margin-calculator",

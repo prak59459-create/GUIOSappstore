@@ -150,6 +150,16 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/calendar-view.html"
   },
   {
+    "id": "calorie-counter",
+    "name": "カロリー計算機",
+    "version": "1.0.0",
+    "icon": "🍽️",
+    "color": "#e65100",
+    "description": "食べたものとカロリーを記録して1日の合計を確認できるアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/calorie-counter.html"
+  },
+  {
     "id": "char-counter",
     "name": "文字数カウント",
     "version": "1.0.0",
@@ -158,6 +168,16 @@
     "description": "文章の文字数・単語数・行数をリアルタイムでカウントするツール。",
     "author": "Claude",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/char-counter.html"
+  },
+  {
+    "id": "checkers",
+    "name": "チェッカー",
+    "version": "1.0.0",
+    "icon": "⚫",
+    "color": "#4e342e",
+    "description": "対角線に駒を進めて相手の駒を取り合うチェッカー(西洋碁)ゲーム。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/checkers.html"
   },
   {
     "id": "chore-tracker",
@@ -258,6 +278,16 @@
     "description": "CSVファイルを表として表示・編集し、書き出しできるツール。",
     "author": "Claude",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/csv-viewer.html"
+  },
+  {
+    "id": "dart-game",
+    "name": "ダーツゲーム",
+    "version": "1.0.0",
+    "icon": "🎯",
+    "color": "#c62828",
+    "description": "タイミングよくタップしてダーツを的の中心に当てるゲーム。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/dart-game.html"
   },
   {
     "id": "decision-wheel",
@@ -680,6 +710,16 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/password-generator.html"
   },
   {
+    "id": "password-strength-checker",
+    "name": "パスワード強度チェック",
+    "version": "1.0.0",
+    "icon": "🔍",
+    "color": "#4a4a6a",
+    "description": "入力したパスワードの強度を判定し、改善点を教えてくれるツール。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/password-strength-checker.html"
+  },
+  {
     "id": "password-vault",
     "name": "パスワード保管庫",
     "version": "1.0.0",
@@ -698,6 +738,16 @@
     "description": "様々なパターンの割合(パーセント)計算ができる多機能計算機。",
     "author": "Claude",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/percentage-calculator.html"
+  },
+  {
+    "id": "plant-watering-tracker",
+    "name": "植物の水やり管理",
+    "version": "1.0.0",
+    "icon": "🪴",
+    "color": "#33691e",
+    "description": "観葉植物ごとの水やり間隔を管理し、タイミングを知らせるアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/plant-watering-tracker.html"
   },
   {
     "id": "pomodoro-timer",
@@ -898,6 +948,16 @@
     "description": "光る順番を覚えて再現する記憶力ゲーム(Simon風)。",
     "author": "Claude",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/simon-says.html"
+  },
+  {
+    "id": "sleep-tracker",
+    "name": "睡眠記録",
+    "version": "1.0.0",
+    "icon": "😴",
+    "color": "#3949ab",
+    "description": "就寝・起床時刻を記録して睡眠時間を確認できる睡眠記録アプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/sleep-tracker.html"
   },
   {
     "id": "snake-game",
@@ -1128,6 +1188,16 @@
     "description": "ページ同士を [[リンク]] でつなげて自由に行き来できるメモ帳型Wikiアプリ。",
     "author": "Claude",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/wiki-notes.html"
+  },
+  {
+    "id": "word-scramble",
+    "name": "アナグラムゲーム",
+    "version": "1.0.0",
+    "icon": "🔤",
+    "color": "#6a1b9a",
+    "description": "文字がバラバラになった単語を元に戻して当てるアナグラムゲーム。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/word-scramble.html"
   },
   {
     "id": "world-clock",

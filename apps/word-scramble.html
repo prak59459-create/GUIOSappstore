@@ -1,0 +1,276 @@
+<!--GUIOS-APP {"id":"word-scramble","name":"アナグラムゲーム","icon":"🔤","color":"#6a1b9a","version":"1.0.0","author":"Claude","description":"文字がバラバラになった単語を元に戻して当てるアナグラムゲーム。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>アナグラムゲーム</title>
+<style>
+  :root{
+    --accent:#8e24aa;
+    --bg:#150f18;
+    --card:#211a26;
+    --card2:#1b1520;
+    --text:#f2f2f2;
+    --sub:#af9db8;
+    --line:rgba(255,255,255,0.09);
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text); min-height:100vh; padding:14px; padding-bottom:40px;
+  }
+  .wrap{ max-width:480px; margin:0 auto; display:flex; flex-direction:column; gap:12px; }
+  h1{ font-size:19px; margin:2px 0 0; display:flex; align-items:center; gap:8px; }
+
+  .stat-row{ display:flex; gap:8px; }
+  .stat-card{ flex:1; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:8px 10px; text-align:center; font-size:11px; color:var(--sub); }
+  .stat-card b{ display:block; font-size:16px; color:var(--text); margin-top:2px; }
+
+  .puzzle-card{ background:var(--card); border:1px solid var(--line); border-radius:16px; padding:22px 16px; text-align:center; }
+  .scrambled{ font-size:34px; font-weight:800; letter-spacing:6px; color:#e2c6ee; word-break:break-all; }
+  .hint-row{ margin-top:14px; display:flex; justify-content:center; gap:5px; flex-wrap:wrap; }
+  .hint-box{ width:26px; height:32px; border-bottom:3px solid var(--sub); display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:700; }
+
+  .status{ text-align:center; font-size:13px; color:var(--sub); min-height:18px; font-weight:600; }
+  .status.ok{ color:#8bd98f; }
+  .status.ng{ color:#ff8a8a; }
+
+  .input-row{ display:flex; gap:8px; }
+  .input-row input{
+    flex:1; padding:14px; border-radius:12px; border:1px solid var(--line); background:var(--card2);
+    color:var(--text); font-size:16px; min-height:50px;
+  }
+  .input-row input:focus{ outline:2px solid var(--accent); }
+
+  .btn-row{ display:flex; gap:10px; }
+  .btn{
+    flex:1; padding:14px; border-radius:12px; border:1px solid var(--line); font-size:15px; font-weight:700;
+    cursor:pointer; min-height:50px; background:var(--card2); color:var(--text);
+  }
+  .btn.primary{ background:var(--accent); color:#fff; border-color:var(--accent); }
+  .btn.danger{ color:#ff8a8a; }
+  .btn:active{ filter:brightness(1.2); }
+  .btn:disabled{ opacity:0.4; cursor:default; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🔤 アナグラムゲーム</h1>
+
+    <div class="stat-row">
+      <div class="stat-card">正解数<b id="totalCorrect">0</b></div>
+      <div class="stat-card">現在の連続正解<b id="curStreak">0</b></div>
+      <div class="stat-card">ベスト連続正解<b id="bestStreak">0</b></div>
+    </div>
+
+    <div class="puzzle-card">
+      <div class="scrambled" id="scrambledWord">------</div>
+      <div class="hint-row" id="hintRow"></div>
+    </div>
+
+    <div class="status" id="statusMsg">単語を並び替えて元の英単語を当ててください</div>
+
+    <div class="input-row">
+      <input type="text" id="guessInput" placeholder="答えを入力" autocomplete="off" autocapitalize="off" spellcheck="false">
+    </div>
+
+    <div class="btn-row">
+      <button class="btn primary" id="answerBtn">答える</button>
+      <button class="btn" id="hintBtn">ヒント</button>
+    </div>
+    <div class="btn-row">
+      <button class="btn" id="skipBtn">スキップ</button>
+      <button class="btn danger" id="resetRecordBtn">記録リセット</button>
+    </div>
+  </div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var APP_ID = 'word-scramble';
+  var FALLBACK_KEY = 'guios-fallback-' + APP_ID + '-record';
+
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify) {
+      try { window.GUIOS.notify(msg, { type: type || 'info' }); return; } catch(e){}
+    }
+    var t = document.createElement('div');
+    t.textContent = msg;
+    t.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1f1f1f;color:#f2f2f2;padding:10px 18px;border-radius:10px;font-size:13px;z-index:200;box-shadow:0 6px 18px rgba(0,0,0,.4);';
+    document.body.appendChild(t);
+    setTimeout(function(){ t.remove(); }, 2500);
+  }
+  function haptic(){
+    if (window.GUIOS && window.GUIOS.haptic) {
+      try { window.GUIOS.haptic(); } catch(e){}
+    }
+  }
+
+  async function loadRecord(){
+    var def = { totalCorrect:0, bestStreak:0 };
+    if (hasSDK) {
+      try {
+        var v = await window.GUIOS.storage.get('record');
+        return (v && typeof v === 'object') ? Object.assign(def, v) : def;
+      } catch(e){ return def; }
+    } else {
+      try {
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        return raw ? Object.assign(def, JSON.parse(raw)) : def;
+      } catch(e){ return def; }
+    }
+  }
+  async function saveRecord(r){
+    if (hasSDK) {
+      try { await window.GUIOS.storage.set('record', r); } catch(e){}
+    } else {
+      try { localStorage.setItem(FALLBACK_KEY, JSON.stringify(r)); } catch(e){}
+    }
+  }
+
+  var WORDS = [
+    'apple','orange','banana','purple','yellow','guitar','pencil','window',
+    'garden','bridge','castle','dragon','forest','island','jacket','kitchen',
+    'ladder','magnet','monkey','notebook','ocean','pillow','rocket','sunset',
+    'tiger','umbrella','violet','wallet','yogurt','zebra','planet','coffee',
+    'candle','dolphin','engine','feather','harvest'
+  ];
+
+  var record = { totalCorrect:0, bestStreak:0 };
+  var curStreak = 0;
+  var currentWord = '';
+  var scrambledLetters = [];
+  var revealed = [];
+  var lastWord = '';
+
+  function shuffleWord(word){
+    var letters = word.split('');
+    var attempts = 0;
+    var scrambled = letters.slice();
+    do {
+      for (var i = scrambled.length - 1; i > 0; i--){
+        var j = Math.floor(Math.random() * (i+1));
+        var tmp = scrambled[i]; scrambled[i] = scrambled[j]; scrambled[j] = tmp;
+      }
+      attempts++;
+    } while (scrambled.join('') === word && attempts < 12);
+    return scrambled;
+  }
+
+  function pickWord(){
+    var pool = WORDS.filter(function(w){ return w !== lastWord; });
+    var w = pool[Math.floor(Math.random() * pool.length)];
+    lastWord = w;
+    return w;
+  }
+
+  function renderScrambled(){
+    document.getElementById('scrambledWord').textContent = scrambledLetters.join(' ').toUpperCase();
+  }
+
+  function renderHints(){
+    var row = document.getElementById('hintRow');
+    row.innerHTML = '';
+    for (var i = 0; i < currentWord.length; i++){
+      var box = document.createElement('div');
+      box.className = 'hint-box';
+      box.textContent = revealed[i] ? currentWord[i].toUpperCase() : '';
+      row.appendChild(box);
+    }
+  }
+
+  function setStatus(msg, cls){
+    var el = document.getElementById('statusMsg');
+    el.textContent = msg;
+    el.className = 'status' + (cls ? (' ' + cls) : '');
+  }
+
+  function renderStats(){
+    document.getElementById('totalCorrect').textContent = record.totalCorrect;
+    document.getElementById('curStreak').textContent = curStreak;
+    document.getElementById('bestStreak').textContent = record.bestStreak;
+  }
+
+  function newRound(){
+    currentWord = pickWord();
+    scrambledLetters = shuffleWord(currentWord);
+    revealed = currentWord.split('').map(function(){ return false; });
+    renderScrambled();
+    renderHints();
+    var input = document.getElementById('guessInput');
+    input.value = '';
+    input.disabled = false;
+    document.getElementById('answerBtn').disabled = false;
+    document.getElementById('hintBtn').disabled = false;
+    setStatus('単語を並び替えて元の英単語を当ててください');
+    input.focus();
+  }
+
+  async function checkAnswer(){
+    var input = document.getElementById('guessInput');
+    var guess = input.value.trim().toLowerCase();
+    if (!guess) return;
+    if (guess === currentWord) {
+      curStreak++;
+      record.totalCorrect++;
+      if (curStreak > record.bestStreak) record.bestStreak = curStreak;
+      setStatus('正解！ 「' + currentWord.toUpperCase() + '」でした', 'ok');
+      haptic();
+      renderStats();
+      await saveRecord(record);
+      document.getElementById('answerBtn').disabled = true;
+      document.getElementById('hintBtn').disabled = true;
+      input.disabled = true;
+      setTimeout(newRound, 900);
+    } else {
+      curStreak = 0;
+      renderStats();
+      setStatus('不正解、もう一度試してください', 'ng');
+      haptic();
+      input.select();
+    }
+  }
+
+  function useHint(){
+    var idxs = [];
+    for (var i = 0; i < revealed.length; i++) if (!revealed[i]) idxs.push(i);
+    if (idxs.length === 0) return;
+    var idx = idxs[0];
+    revealed[idx] = true;
+    renderHints();
+    if (idxs.length === 1) {
+      setStatus('これが最後のヒントです！', null);
+    }
+  }
+
+  document.getElementById('answerBtn').addEventListener('click', checkAnswer);
+  document.getElementById('hintBtn').addEventListener('click', useHint);
+  document.getElementById('skipBtn').addEventListener('click', function(){
+    curStreak = 0;
+    renderStats();
+    setStatus('スキップしました。正解は「' + currentWord.toUpperCase() + '」でした');
+    setTimeout(newRound, 700);
+  });
+  document.getElementById('guessInput').addEventListener('keydown', function(e){
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      checkAnswer();
+    }
+  });
+  document.getElementById('resetRecordBtn').addEventListener('click', async function(){
+    if (!confirm('記録をリセットしますか？')) return;
+    record = { totalCorrect:0, bestStreak:0 };
+    curStreak = 0;
+    await saveRecord(record);
+    renderStats();
+    notify('記録をリセットしました', 'success');
+  });
+
+  (async function init(){
+    record = await loadRecord();
+    renderStats();
+    newRound();
+  })();
+</script>
+</body>
+</html>

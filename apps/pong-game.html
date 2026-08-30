@@ -171,28 +171,31 @@
 
   var WIN_SCORE = 5;
   var record = { win:0, lose:0 };
+  // Classic left/right pong layout: CPU paddle on the left edge, player paddle on the right edge.
+  // Paddles are vertical bars that move up/down (Y axis). Ball travels mainly along the X axis.
   var player, cpu, ball, playerScore, cpuScore, gameRunning, rafId, lastTime;
-  var paddleW, paddleH, ballR;
+  var paddleThick, paddleLen, ballR, margin;
 
   function layoutEntities(){
-    paddleW = Math.max(8, W*0.035);
-    paddleH = Math.min(90, H*0.18);
-    ballR = Math.max(6, Math.min(W,H)*0.018);
-    if (!player) player = { y: H/2 - paddleH/2, targetY: H/2 - paddleH/2 };
-    if (!cpu) cpu = { y: H/2 - paddleH/2 };
-    player.y = clamp(player.y, 0, H-paddleH);
-    cpu.y = clamp(cpu.y, 0, H-paddleH);
+    paddleThick = Math.max(8, W*0.035);
+    paddleLen = Math.min(110, H*0.2);
+    ballR = Math.max(6, Math.min(W,H)*0.02);
+    margin = 6;
+    if (!player) player = { y: H/2 - paddleLen/2, targetY: H/2 - paddleLen/2 };
+    if (!cpu) cpu = { y: H/2 - paddleLen/2 };
+    player.y = clamp(player.y, 0, H-paddleLen);
+    cpu.y = clamp(cpu.y, 0, H-paddleLen);
     if (!ball) ball = { x: W/2, y: H/2, vx: 0, vy: 0 };
   }
 
   function clamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
 
-  function resetBall(dirTowardPlayer){
+  function resetBall(towardPlayer){
     ball.x = W/2;
     ball.y = H/2;
-    var speed = Math.max(3, Math.min(W,H)*0.006) * 60; // px/sec baseline
+    var speed = Math.max(3, Math.min(W,H)*0.007) * 60; // px/sec baseline
     var angle = (Math.random()*0.6 - 0.3); // slight vertical variance
-    var dir = dirTowardPlayer ? 1 : -1;
+    var dir = towardPlayer ? 1 : -1;
     ball.vx = Math.cos(angle) * speed * dir;
     ball.vy = Math.sin(angle) * speed * (Math.random() < 0.5 ? 1 : -1);
   }
@@ -202,8 +205,9 @@
     cpuScore = 0;
     gameRunning = false;
     layoutEntities();
-    player.y = H/2 - paddleH/2;
-    cpu.y = H/2 - paddleH/2;
+    player.y = H/2 - paddleLen/2;
+    player.targetY = player.y;
+    cpu.y = H/2 - paddleLen/2;
     resetBall(Math.random() < 0.5);
     updateHud();
   }
@@ -218,24 +222,24 @@
     ctx.fillStyle = '#0c1013';
     ctx.fillRect(0,0,W,H);
 
-    // center dashed line (horizontal court, player at bottom, cpu at top)
+    // center dashed line (net)
     ctx.strokeStyle = 'rgba(255,255,255,0.12)';
     ctx.lineWidth = 2;
     ctx.setLineDash([8,8]);
     ctx.beginPath();
-    ctx.moveTo(0, H/2);
-    ctx.lineTo(W, H/2);
+    ctx.moveTo(W/2, 0);
+    ctx.lineTo(W/2, H);
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // cpu paddle (top)
+    // cpu paddle (left edge)
     ctx.fillStyle = '#ff8a65';
-    roundRect(W/2 - paddleH/2, 6, paddleH, paddleW, 6);
+    roundRect(margin, cpu.y, paddleThick, paddleLen, 6);
     ctx.fill();
 
-    // player paddle (bottom) - horizontal orientation? Keep vertical layout: paddles horizontal bars top/bottom
+    // player paddle (right edge)
     ctx.fillStyle = '#4fc3f7';
-    roundRect(player.y, H-6-paddleW, paddleH, paddleW, 6);
+    roundRect(W - margin - paddleThick, player.y, paddleThick, paddleLen, 6);
     ctx.fill();
 
     // ball
@@ -255,74 +259,73 @@
     ctx.closePath();
   }
 
-  // NOTE: for a mobile-friendly vertical screen, player paddle is at bottom (horizontal bar),
-  // cpu paddle at top (horizontal bar). Ball moves vertically primarily.
-  // player.y / cpu.y represent the X position of the paddle center-left along the horizontal axis.
-
-  function movePlayerTo(px){
-    player.targetY = clamp(px - paddleH/2, 0, W - paddleH);
+  function movePlayerTo(py){
+    player.targetY = clamp(py - paddleLen/2, 0, H - paddleLen);
   }
   function nudgePlayer(dir){
-    var step = paddleH * 0.5;
-    player.targetY = clamp((player.targetY!==undefined?player.targetY:player.y) + dir*step, 0, W - paddleH);
+    var step = paddleLen * 0.5;
+    var base = (player.targetY !== undefined) ? player.targetY : player.y;
+    player.targetY = clamp(base + dir*step, 0, H - paddleLen);
   }
 
   function update(dt){
     var dtS = dt/1000;
 
-    // smooth player movement toward target
+    // smooth player movement toward target (drag/keys/buttons all set targetY)
     if (player.targetY === undefined) player.targetY = player.y;
     player.y += (player.targetY - player.y) * Math.min(1, dt/60);
-    player.y = clamp(player.y, 0, W - paddleH);
+    player.y = clamp(player.y, 0, H - paddleLen);
 
-    // cpu AI: track ball x with capped speed
-    var cpuCenter = cpu.y + paddleH/2;
-    var diff = ball.x - cpuCenter;
-    var cpuSpeed = Math.max(2, Math.min(W,H)*0.0045) * 60; // px/sec, capped (beatable)
+    // cpu AI: track ball y with capped speed (beatable, not perfect)
+    var cpuCenter = cpu.y + paddleLen/2;
+    var diff = ball.y - cpuCenter;
+    var cpuSpeed = Math.max(2, Math.min(W,H)*0.0055) * 60; // px/sec, capped
     var maxMove = cpuSpeed * dtS;
-    if (Math.abs(diff) < maxMove) cpu.y = ball.x - paddleH/2;
+    if (Math.abs(diff) < maxMove) cpu.y = ball.y - paddleLen/2;
     else cpu.y += Math.sign(diff) * maxMove;
-    cpu.y = clamp(cpu.y, 0, W - paddleH);
+    cpu.y = clamp(cpu.y, 0, H - paddleLen);
 
     ball.x += ball.vx * dtS;
     ball.y += ball.vy * dtS;
 
-    // bounce off left/right walls
-    if (ball.x - ballR < 0){ ball.x = ballR; ball.vx *= -1; }
-    else if (ball.x + ballR > W){ ball.x = W - ballR; ball.vx *= -1; }
+    // bounce off top/bottom walls
+    if (ball.y - ballR < 0){ ball.y = ballR; ball.vy *= -1; }
+    else if (ball.y + ballR > H){ ball.y = H - ballR; ball.vy *= -1; }
 
-    // cpu paddle collision (top)
-    if (ball.vy < 0 && ball.y - ballR <= 6 + paddleW){
-      if (ball.x >= cpu.y && ball.x <= cpu.y + paddleH && ball.y - ballR >= 6){
-        var hitPos = (ball.x - (cpu.y + paddleH/2)) / (paddleH/2); // -1..1
-        var speed = Math.hypot(ball.vx, ball.vy) * 1.03;
+    // cpu paddle collision (left)
+    var cpuFace = margin + paddleThick;
+    if (ball.vx < 0 && ball.x - ballR <= cpuFace && ball.x - ballR >= margin){
+      if (ball.y >= cpu.y && ball.y <= cpu.y + paddleLen){
+        var hitPos = (ball.y - (cpu.y + paddleLen/2)) / (paddleLen/2); // -1..1
+        var speed = Math.hypot(ball.vx, ball.vy) * 1.05;
         var angle = hitPos * (Math.PI/3); // up to 60deg
-        ball.vx = Math.sin(angle) * speed;
-        ball.vy = Math.abs(Math.cos(angle) * speed);
-        ball.y = 6 + paddleW + ballR;
+        ball.vx = Math.abs(Math.cos(angle) * speed);
+        ball.vy = Math.sin(angle) * speed;
+        ball.x = cpuFace + ballR;
       }
     }
 
-    // player paddle collision (bottom)
-    if (ball.vy > 0 && ball.y + ballR >= H - 6 - paddleW){
-      if (ball.x >= player.y && ball.x <= player.y + paddleH && ball.y + ballR <= H){
-        var hitPos2 = (ball.x - (player.y + paddleH/2)) / (paddleH/2);
-        var speed2 = Math.hypot(ball.vx, ball.vy) * 1.03;
+    // player paddle collision (right)
+    var playerFace = W - margin - paddleThick;
+    if (ball.vx > 0 && ball.x + ballR >= playerFace && ball.x + ballR <= W - margin){
+      if (ball.y >= player.y && ball.y <= player.y + paddleLen){
+        var hitPos2 = (ball.y - (player.y + paddleLen/2)) / (paddleLen/2);
+        var speed2 = Math.hypot(ball.vx, ball.vy) * 1.05;
         var angle2 = hitPos2 * (Math.PI/3);
-        ball.vx = Math.sin(angle2) * speed2;
-        ball.vy = -Math.abs(Math.cos(angle2) * speed2);
-        ball.y = H - 6 - paddleW - ballR;
+        ball.vx = -Math.abs(Math.cos(angle2) * speed2);
+        ball.vy = Math.sin(angle2) * speed2;
+        ball.x = playerFace - ballR;
         haptic();
       }
     }
 
-    // scoring: ball passes top (cpu missed) -> player scores; passes bottom (player missed) -> cpu scores
-    if (ball.y < -ballR*2){
+    // scoring: ball passes left edge (cpu missed) -> player scores; passes right edge (player missed) -> cpu scores
+    if (ball.x < -ballR*2){
       playerScore += 1;
       updateHud();
       if (playerScore >= WIN_SCORE){ finishGame(true); return; }
       resetBall(false);
-    } else if (ball.y > H + ballR*2){
+    } else if (ball.x > W + ballR*2){
       cpuScore += 1;
       updateHud();
       if (cpuScore >= WIN_SCORE){ finishGame(false); return; }
@@ -392,29 +395,28 @@
 
   window.addEventListener('keydown', function(e){
     if (!gameRunning) return;
-    // player paddle moves along horizontal axis (left/right), mapped from up/down arrows for a natural feel
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp'){ e.preventDefault(); nudgePlayer(-1); }
-    else if (e.key === 'ArrowRight' || e.key === 'ArrowDown'){ e.preventDefault(); nudgePlayer(1); }
+    if (e.key === 'ArrowUp'){ e.preventDefault(); nudgePlayer(-1); }
+    else if (e.key === 'ArrowDown'){ e.preventDefault(); nudgePlayer(1); }
   }, { passive:false });
 
-  // drag/touch on canvas to move paddle to touch x position
-  function handlePointer(clientX){
+  // vertical drag/touch on canvas moves the paddle to the touch Y position
+  function handlePointer(clientY){
     var rect = canvas.getBoundingClientRect();
-    var relX = clientX - rect.left;
-    movePlayerTo(relX);
+    var relY = clientY - rect.top;
+    movePlayerTo(relY);
   }
   canvas.addEventListener('touchstart', function(e){
     if (!gameRunning || !e.touches || !e.touches.length) return;
-    handlePointer(e.touches[0].clientX);
+    handlePointer(e.touches[0].clientY);
   }, { passive:true });
   canvas.addEventListener('touchmove', function(e){
     if (!gameRunning || !e.touches || !e.touches.length) return;
-    handlePointer(e.touches[0].clientX);
+    handlePointer(e.touches[0].clientY);
   }, { passive:true });
 
   var mouseDown = false;
-  canvas.addEventListener('mousedown', function(e){ mouseDown = true; if (gameRunning) handlePointer(e.clientX); });
-  window.addEventListener('mousemove', function(e){ if (mouseDown && gameRunning) handlePointer(e.clientX); });
+  canvas.addEventListener('mousedown', function(e){ mouseDown = true; if (gameRunning) handlePointer(e.clientY); });
+  window.addEventListener('mousemove', function(e){ if (mouseDown && gameRunning) handlePointer(e.clientY); });
   window.addEventListener('mouseup', function(){ mouseDown = false; });
 
   window.addEventListener('resize', resizeCanvas);

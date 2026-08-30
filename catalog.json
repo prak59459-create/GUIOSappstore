@@ -360,6 +360,16 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/dodge-game.html"
   },
   {
+    "id": "dots-and-boxes",
+    "name": "点と箱取りゲーム",
+    "version": "1.0.0",
+    "icon": "⬜",
+    "color": "#2e7d32",
+    "description": "線を引いて箱を完成させ、より多く箱を取り合う対戦ゲーム。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/dots-and-boxes.html"
+  },
+  {
     "id": "drawing-pad",
     "name": "お絵かき帳",
     "version": "1.0.0",

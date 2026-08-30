@@ -1,0 +1,2282 @@
+<!--GUIOS-APP {"id":"web-browser","name":"ウェブブラウザ","icon":"🌐","color":"#2f6fed","version":"1.0.0","author":"Claude","description":"タブ・拡張機能・ブックマークを備えた本格的なタブ型ウェブブラウザアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>ウェブブラウザ</title>
+<style>
+:root{
+  --chrome-bg:#1a1d24;
+  --chrome-bg2:#20242e;
+  --tab-bg:#262b36;
+  --tab-active-bg:#323847;
+  --text:#e9ecf3;
+  --text-dim:#9aa3b8;
+  --border:#363c4b;
+  --accent:#2f6fed;
+  --accent-soft:rgba(47,111,237,.18);
+  --danger:#e5484d;
+  --ok:#2fbf71;
+  --page-bg:#ffffff;
+  --page-text:#1c2028;
+  --page-text-dim:#666f80;
+  --page-border:#e3e6ec;
+  --page-card:#f5f6f9;
+  --page-accent:#2f6fed;
+}
+:root.ext-darkmode-on{
+  --page-bg:#181b22;
+  --page-text:#e7e9f0;
+  --page-text-dim:#a2a9b8;
+  --page-border:#333947;
+  --page-card:#232733;
+  --page-accent:#6fa2ff;
+}
+*{box-sizing:border-box;}
+html,body{height:100%;}
+body{margin:0;background:var(--chrome-bg);color:var(--text);font-family:"Hiragino Sans","Yu Gothic",system-ui,sans-serif;font-size:14px;overflow:hidden;}
+button{font-family:inherit;}
+.browser-root{display:flex;flex-direction:column;height:100%;width:100%;}
+
+/* ---- tab strip ---- */
+.tabstrip-row{display:flex;align-items:stretch;background:var(--chrome-bg);border-bottom:1px solid var(--border);flex-shrink:0;}
+.tabstrip{display:flex;flex:1;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;}
+.tabstrip::-webkit-scrollbar{height:5px;}
+.tabstrip::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+.tab-item{display:flex;align-items:center;gap:6px;padding:8px 8px 8px 12px;background:var(--tab-bg);border-right:1px solid var(--border);cursor:pointer;min-width:110px;max-width:180px;flex-shrink:0;position:relative;top:1px;}
+.tab-item.active{background:var(--tab-active-bg);border-bottom:2px solid var(--accent);}
+.tab-icon{font-size:15px;flex-shrink:0;}
+.tab-title{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12.5px;color:var(--text);}
+.tab-close{width:22px;height:22px;flex-shrink:0;border:none;background:transparent;color:var(--text-dim);border-radius:5px;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;}
+.tab-close:hover{background:rgba(255,255,255,.12);color:var(--text);}
+.newtab-btn{width:42px;flex-shrink:0;border:none;background:transparent;color:var(--text-dim);font-size:19px;cursor:pointer;border-right:1px solid var(--border);}
+.newtab-btn:hover{background:rgba(255,255,255,.06);color:var(--text);}
+.newtab-menu-wrap{position:relative;flex-shrink:0;}
+.newtab-menu{position:absolute;top:100%;left:0;background:var(--chrome-bg2);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.4);min-width:180px;z-index:60;padding:6px;}
+.newtab-menu button{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:9px 10px;background:transparent;border:none;color:var(--text);border-radius:6px;cursor:pointer;font-size:13px;}
+.newtab-menu button:hover{background:var(--accent-soft);}
+.win-actions{display:flex;align-items:center;gap:2px;padding:0 6px;flex-shrink:0;}
+.icon-btn{width:36px;height:36px;border:none;background:transparent;color:var(--text-dim);border-radius:7px;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.icon-btn:hover{background:rgba(255,255,255,.08);color:var(--text);}
+.icon-btn.active-state{color:var(--accent);background:var(--accent-soft);}
+
+/* ---- nav bar ---- */
+.navbar{display:flex;align-items:center;gap:4px;padding:7px 8px;background:var(--chrome-bg2);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:nowrap;}
+.nav-btn{width:34px;height:34px;border:none;background:transparent;color:var(--text-dim);border-radius:8px;cursor:pointer;font-size:15px;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.nav-btn:hover:not(:disabled){background:rgba(255,255,255,.08);color:var(--text);}
+.nav-btn:disabled{opacity:.3;cursor:default;}
+.addressbar-wrap{flex:1;position:relative;min-width:0;}
+.addressbar{width:100%;height:34px;border-radius:17px;border:1px solid var(--border);background:#12141a;color:var(--text);padding:0 40px 0 14px;font-size:13px;outline:none;}
+.addressbar:focus{border-color:var(--accent);}
+.star-btn{position:absolute;right:3px;top:3px;width:28px;height:28px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;font-size:15px;border-radius:50%;display:flex;align-items:center;justify-content:center;}
+.star-btn.starred{color:#f5b942;}
+.suggest-list{position:absolute;top:38px;left:0;right:0;background:var(--chrome-bg2);border:1px solid var(--border);border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,.45);z-index:70;overflow:hidden;}
+.suggest-item{display:flex;flex-direction:column;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);}
+.suggest-item:last-child{border-bottom:none;}
+.suggest-item:hover{background:var(--accent-soft);}
+.suggest-title{font-size:12.5px;color:var(--text);}
+.suggest-url{font-size:11px;color:var(--text-dim);}
+.ext-toolbar{display:flex;align-items:center;gap:2px;overflow-x:auto;max-width:38vw;flex-shrink:1;}
+.ext-toolbar::-webkit-scrollbar{height:4px;}
+
+/* ---- bookmarks bar ---- */
+.bookmarks-bar{display:flex;align-items:center;gap:6px;padding:5px 10px;background:var(--chrome-bg2);border-bottom:1px solid var(--border);overflow-x:auto;flex-shrink:0;}
+.bookmarks-bar[hidden]{display:none;}
+.bookmark-chip{display:flex;align-items:center;gap:5px;padding:4px 10px;background:var(--tab-bg);border:1px solid var(--border);border-radius:14px;font-size:11.5px;color:var(--text-dim);cursor:pointer;white-space:nowrap;flex-shrink:0;}
+.bookmark-chip:hover{color:var(--text);border-color:var(--accent);}
+.bookmarks-empty{font-size:11.5px;color:var(--text-dim);padding:2px 4px;}
+
+/* ---- content area ---- */
+.content-area{position:relative;flex:1;overflow:hidden;background:#0e1015;}
+.tab-panel{position:absolute;inset:0;overflow-y:auto;display:none;background:var(--page-bg);}
+.tab-panel.active{display:block;}
+.page-inner{min-height:100%;background:var(--page-bg);color:var(--page-text);transform-origin:top left;}
+.scrolltop-btn{position:fixed;right:18px;bottom:20px;z-index:55;padding:10px 14px;border-radius:22px;border:none;background:var(--accent);color:#fff;font-size:12.5px;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .15s;}
+.scrolltop-btn.show{opacity:1;pointer-events:auto;}
+
+/* ---- generic page content styling ---- */
+.pg{max-width:760px;margin:0 auto;padding:26px 22px 60px;}
+.pg h1{font-size:22px;margin:0 0 6px;color:var(--page-text);}
+.pg h2{font-size:17px;margin:24px 0 8px;color:var(--page-text);border-bottom:1px solid var(--page-border);padding-bottom:6px;}
+.pg p{line-height:1.85;color:var(--page-text);margin:0 0 12px;font-size:14px;}
+.pg .meta{color:var(--page-text-dim);font-size:12px;margin-bottom:14px;}
+.url-chip{display:inline-block;font-size:11px;color:var(--page-text-dim);background:var(--page-card);border-radius:5px;padding:2px 7px;font-family:monospace;}
+.link{background:none;border:none;color:var(--page-accent);text-decoration:underline;cursor:pointer;padding:0;font:inherit;font-size:inherit;}
+.link:hover{opacity:.75;}
+.inline-link{background:none;border:none;color:var(--page-accent);text-decoration:underline;cursor:pointer;padding:0;font:inherit;font-weight:600;}
+.card{background:var(--page-card);border:1px solid var(--page-border);border-radius:10px;padding:14px 16px;margin-bottom:12px;}
+.searchbox-row{display:flex;gap:8px;margin:18px 0;}
+.searchbox-row input[type=text]{flex:1;height:42px;border-radius:22px;border:1px solid var(--page-border);padding:0 18px;font-size:14px;background:var(--page-bg);color:var(--page-text);outline:none;}
+.searchbox-row input[type=text]:focus{border-color:var(--page-accent);}
+.searchbox-row button{height:42px;padding:0 20px;border-radius:22px;border:none;background:var(--page-accent);color:#fff;font-size:13.5px;cursor:pointer;}
+.quicklinks{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:12px;margin-top:22px;}
+.quicklink-tile{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 8px;background:var(--page-card);border:1px solid var(--page-border);border-radius:12px;cursor:pointer;color:var(--page-text);font-size:12px;border:none;}
+.quicklink-tile:hover{outline:2px solid var(--page-accent);}
+.quicklink-tile .em{font-size:26px;}
+.ad-block{margin:14px 0;padding:14px;background:repeating-linear-gradient(45deg,#fff3cd,#fff3cd 10px,#ffe9a8 10px,#ffe9a8 20px);border:1px dashed #d8a13a;border-radius:8px;color:#6b4d00;font-size:12.5px;text-align:center;}
+.adblock-on .ad-block{display:none;}
+.search-result{padding:10px 0;border-bottom:1px solid var(--page-border);}
+.search-result:last-child{border-bottom:none;}
+.search-result .r-title{font-size:15px;}
+.search-result .r-url{font-size:11.5px;color:var(--page-accent);font-family:monospace;}
+.search-result .r-snip{font-size:12.5px;color:var(--page-text-dim);margin-top:3px;}
+.product-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-top:14px;}
+.product-card{background:var(--page-card);border:1px solid var(--page-border);border-radius:10px;padding:12px;text-align:center;}
+.product-card .em{font-size:34px;}
+.product-card .pname{font-size:12.5px;margin:6px 0 2px;}
+.product-card .pprice{color:var(--page-accent);font-weight:700;font-size:13px;}
+.btn-mini{margin-top:8px;padding:6px 10px;border-radius:7px;border:none;background:var(--page-accent);color:#fff;font-size:11.5px;cursor:pointer;width:100%;}
+.btn-outline{padding:6px 10px;border-radius:7px;border:1px solid var(--page-border);background:transparent;color:var(--page-text);font-size:11.5px;cursor:pointer;}
+.cart-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--page-border);}
+.thread-row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--page-border);cursor:pointer;}
+.thread-row:hover{color:var(--page-accent);}
+.post{background:var(--page-card);border-radius:9px;padding:10px 13px;margin-bottom:9px;}
+.post .pa{font-size:12px;font-weight:700;color:var(--page-accent);}
+.post .pt{font-size:13px;margin-top:3px;white-space:pre-wrap;}
+.reply-box textarea{width:100%;min-height:70px;border-radius:8px;border:1px solid var(--page-border);padding:9px;font-family:inherit;font-size:13px;background:var(--page-bg);color:var(--page-text);resize:vertical;}
+.popup-blocked-note{margin-top:10px;padding:9px 12px;background:#e7f7ee;color:#1a7a45;border-radius:8px;font-size:12.5px;}
+.popup-demo-banner{margin-top:10px;padding:9px 12px;background:#fdeeee;color:#a3242c;border-radius:8px;font-size:12.5px;}
+.reader-mode .pg{max-width:600px;font-family:Georgia,"Hiragino Mincho ProN",serif;}
+.reader-mode .pg h1{font-size:26px;text-align:center;}
+.reader-mode .pg p{font-size:16px;line-height:2.1;}
+.history-row,.bm-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 0;border-bottom:1px solid var(--page-border);}
+.history-row .hinfo,.bm-row .bminfo{min-width:0;flex:1;}
+.history-row .htitle,.bm-row .bmtitle{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.history-row .hurl,.bm-row .bmurl{font-size:11px;color:var(--page-text-dim);font-family:monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.filter-input{width:100%;height:38px;border-radius:8px;border:1px solid var(--page-border);padding:0 12px;font-size:13px;margin-bottom:14px;background:var(--page-bg);color:var(--page-text);}
+.tag-row{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0;}
+.tag{font-size:11px;background:var(--page-card);border-radius:10px;padding:2px 9px;color:var(--page-text-dim);}
+.settings-btn{display:block;width:100%;text-align:left;padding:12px 14px;margin-bottom:10px;border-radius:9px;border:1px solid var(--page-border);background:var(--page-card);color:var(--page-text);cursor:pointer;font-size:13.5px;}
+.settings-btn.danger{color:#c8353b;}
+
+/* ---- code preview tab ---- */
+.code-tab-wrap{display:flex;flex-direction:column;height:100%;}
+.code-editor-tabs{display:flex;gap:4px;padding:8px 8px 0;background:var(--chrome-bg2);flex-shrink:0;}
+.code-editor-tabs button{padding:7px 16px;border:none;background:var(--tab-bg);color:var(--text-dim);border-radius:8px 8px 0 0;cursor:pointer;font-size:12.5px;}
+.code-editor-tabs button.active{background:#12141a;color:var(--text);}
+.code-editor-body{flex:1;display:flex;min-height:0;background:var(--chrome-bg2);}
+.code-editor-panes{flex:1;display:flex;flex-direction:column;min-width:0;border-right:1px solid var(--border);}
+.code-editor-panes textarea{flex:1;width:100%;border:none;background:#12141a;color:#d8dee9;font-family:"SFMono-Regular",Menlo,Consolas,monospace;font-size:12.5px;padding:12px;resize:none;outline:none;box-sizing:border-box;}
+.code-editor-actions{display:flex;gap:8px;padding:8px;background:var(--chrome-bg2);flex-shrink:0;align-items:center;}
+.run-btn{padding:8px 18px;border:none;background:var(--accent);color:#fff;border-radius:8px;cursor:pointer;font-size:13px;}
+.code-note{font-size:11px;color:var(--text-dim);}
+.code-preview-pane{flex:1;min-width:0;background:#fff;}
+.code-preview-pane iframe{width:100%;height:100%;border:none;display:block;}
+@media (max-width:760px){
+  .code-editor-body{flex-direction:column;}
+  .code-editor-panes{border-right:none;border-bottom:1px solid var(--border);height:45%;}
+  .code-preview-pane{height:55%;}
+}
+
+/* ---- popovers ---- */
+.popover-root{position:fixed;top:78px;right:14px;width:308px;max-width:92vw;max-height:78vh;overflow-y:auto;background:var(--chrome-bg2);border:1px solid var(--border);border-radius:12px;box-shadow:0 14px 40px rgba(0,0,0,.5);z-index:200;display:none;}
+.popover-root.open{display:block;}
+.popover-hd{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid var(--border);}
+.popover-hd b{font-size:13.5px;}
+.popover-body{padding:14px;font-size:12.5px;color:var(--text);}
+.popover-body label{display:block;margin:8px 0 4px;color:var(--text-dim);font-size:12px;}
+.popover-body input[type=range]{width:100%;}
+.popover-body input[type=text],.popover-body textarea{width:100%;border-radius:7px;border:1px solid var(--border);background:#12141a;color:var(--text);padding:7px 9px;font-size:12.5px;box-sizing:border-box;}
+.popover-body textarea{min-height:80px;resize:vertical;font-family:monospace;}
+.popover-body button.act{margin-top:8px;padding:8px 12px;border:none;background:var(--accent);color:#fff;border-radius:7px;cursor:pointer;font-size:12.5px;}
+.popover-body button.act.secondary{background:var(--tab-bg);color:var(--text);border:1px solid var(--border);}
+.pw-opts label{display:flex;align-items:center;gap:6px;color:var(--text);font-size:12px;margin:4px 0;}
+.pw-result{display:flex;gap:6px;margin-top:8px;}
+.pw-result input{flex:1;}
+.chk-row{display:flex;align-items:center;justify-content:space-between;padding:8px 4px;}
+.qr-canvas-wrap{display:flex;justify-content:center;padding:8px 0;background:#fff;border-radius:8px;}
+.tab-search-item{padding:8px 6px;border-radius:6px;cursor:pointer;display:flex;gap:8px;align-items:center;font-size:12.5px;}
+.tab-search-item:hover{background:var(--accent-soft);}
+.ext-list{display:flex;flex-direction:column;gap:8px;}
+.ext-card{display:flex;align-items:center;gap:10px;background:var(--tab-bg);border:1px solid var(--border);border-radius:10px;padding:10px 12px;}
+.ext-card .eicon{font-size:20px;width:26px;text-align:center;}
+.ext-card .einfo{flex:1;min-width:0;}
+.ext-card .ename{font-size:13px;}
+.ext-card .edesc{font-size:11px;color:var(--text-dim);margin-top:2px;}
+.switch{position:relative;width:38px;height:22px;flex-shrink:0;}
+.switch input{opacity:0;width:0;height:0;position:absolute;}
+.switch .slider{position:absolute;inset:0;background:#444b5c;border-radius:12px;cursor:pointer;transition:.15s;}
+.switch .slider:before{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.15s;}
+.switch input:checked + .slider{background:var(--accent);}
+.switch input:checked + .slider:before{transform:translateX(16px);}
+.ext-panel-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;display:none;align-items:flex-start;justify-content:center;padding:40px 14px;overflow-y:auto;}
+.ext-panel-overlay.open{display:flex;}
+.ext-panel{width:420px;max-width:100%;background:var(--chrome-bg2);border:1px solid var(--border);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+.ext-panel-hd{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border);}
+.ext-panel-hd b{font-size:15px;}
+.ext-panel-body{padding:14px 16px;max-height:70vh;overflow-y:auto;}
+
+/* ---- notes side panel ---- */
+.notes-panel{position:fixed;top:0;right:0;bottom:0;width:280px;max-width:88vw;background:var(--chrome-bg2);border-left:1px solid var(--border);z-index:250;transform:translateX(100%);transition:transform .18s;display:flex;flex-direction:column;box-shadow:-8px 0 30px rgba(0,0,0,.4);}
+.notes-panel.open{transform:translateX(0);}
+.notes-hd{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);}
+.notes-panel textarea{flex:1;border:none;background:#12141a;color:var(--text);padding:14px;font-size:13px;resize:none;outline:none;font-family:inherit;}
+.notes-hint{font-size:10.5px;color:var(--text-dim);padding:0 16px 12px;}
+
+/* ---- magnifier / translate tip / toast ---- */
+.magnifier-lens{position:fixed;width:150px;height:150px;border-radius:50%;border:3px solid var(--accent);overflow:hidden;pointer-events:none;z-index:400;background:#fff;display:none;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(0,0,0,.4);}
+.magnifier-inner{transform:scale(2.1);transform-origin:center;max-width:96%;text-align:center;color:#111;}
+.translate-tip{position:fixed;z-index:410;background:#1f2430;color:#fff;border:1px solid var(--accent);border-radius:8px;padding:8px 12px;font-size:12.5px;box-shadow:0 8px 24px rgba(0,0,0,.4);max-width:220px;}
+.toast-stack{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);display:flex;flex-direction:column;gap:8px;z-index:500;align-items:center;}
+.toast{background:#242833;color:#fff;padding:10px 16px;border-radius:22px;font-size:12.5px;box-shadow:0 8px 24px rgba(0,0,0,.4);border:1px solid var(--border);}
+.toast.success{border-color:var(--ok);}
+.toast.error{border-color:var(--danger);}
+.color-swatch{width:100%;height:44px;border-radius:8px;margin-bottom:8px;border:1px solid var(--border);}
+
+/* ---- responsive ---- */
+@media (max-width:480px){
+  .ext-toolbar{max-width:26vw;}
+  .navbar{flex-wrap:wrap;}
+  .addressbar-wrap{order:3;flex:1 1 100%;margin-top:4px;}
+  .pg{padding:18px 14px 50px;}
+  .popover-root{right:6px;left:6px;width:auto;top:auto;bottom:8px;max-height:70vh;}
+  .notes-panel{width:100%;}
+}
+[hidden]{display:none!important;}
+</style>
+</head>
+<body>
+<div class="browser-root" id="root">
+
+  <div class="tabstrip-row">
+    <div class="tabstrip" id="tabStrip"></div>
+    <div class="newtab-menu-wrap" id="newtabMenuWrap">
+      <button type="button" class="newtab-btn" id="newtabBtn" title="新しいタブ">＋</button>
+      <div class="newtab-menu" id="newtabMenu" hidden>
+        <button type="button" data-newtab-type="web">🌐 新しいタブ（ウェブ）</button>
+        <button type="button" data-newtab-type="code">💻 コード実行タブ</button>
+      </div>
+    </div>
+    <div class="win-actions">
+      <button type="button" class="icon-btn" id="notesToggleTop" title="メモ帳" hidden>📝</button>
+    </div>
+  </div>
+
+  <div class="navbar">
+    <button type="button" class="nav-btn" id="backBtn" title="戻る">◀</button>
+    <button type="button" class="nav-btn" id="fwdBtn" title="進む">▶</button>
+    <button type="button" class="nav-btn" id="reloadBtn" title="再読み込み">⟳</button>
+    <div class="addressbar-wrap">
+      <input type="text" class="addressbar" id="addressBar" placeholder="検索ワードまたは内部URL（例: wiki://home）を入力" autocomplete="off">
+      <button type="button" class="star-btn" id="starBtn" title="ブックマーク">☆</button>
+      <div class="suggest-list" id="suggestList" hidden></div>
+    </div>
+    <div class="ext-toolbar" id="extToolbar"></div>
+    <button type="button" class="icon-btn" id="extPanelBtn" title="拡張機能">🧩</button>
+    <button type="button" class="icon-btn" id="bookmarksBarBtn" title="ブックマークバーの表示切替">📌</button>
+  </div>
+
+  <div class="bookmarks-bar" id="bookmarksBar"></div>
+
+  <div class="content-area" id="tabContentArea"></div>
+
+</div>
+
+<div class="popover-root" id="popoverRoot">
+  <div class="popover-hd"><b id="popoverTitle"></b><button type="button" class="icon-btn" id="popoverClose">✕</button></div>
+  <div class="popover-body" id="popoverBody"></div>
+</div>
+
+<div class="ext-panel-overlay" id="extPanelOverlay">
+  <div class="ext-panel">
+    <div class="ext-panel-hd"><b>🧩 拡張機能</b><button type="button" class="icon-btn" id="extPanelClose">✕</button></div>
+    <div class="ext-panel-body"><div class="ext-list" id="extList"></div></div>
+  </div>
+</div>
+
+<div class="notes-panel" id="notesPanel">
+  <div class="notes-hd"><b>📝 メモ帳</b><button type="button" class="icon-btn" id="notesClose">✕</button></div>
+  <textarea id="notesTextarea" placeholder="ブラウジング中のメモをここに書けます。自動保存されます。"></textarea>
+  <div class="notes-hint">入力内容は自動的に保存されます</div>
+</div>
+
+<div class="toast-stack" id="toastStack"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* =========================================================
+   0. 基本ユーティリティ / GUIOS SDK ラッパー
+   ========================================================= */
+var APP_ID = "web-browser";
+var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+
+var Store = {
+  get: function(key, def){
+    return new Promise(function(resolve){
+      try{
+        if (hasSDK){
+          GUIOS.storage.get(key).then(function(v){
+            resolve((v===undefined||v===null) ? def : v);
+          }).catch(function(){ resolve(def); });
+          return;
+        }
+      }catch(e){}
+      try{
+        var raw = localStorage.getItem(APP_ID+"_"+key);
+        resolve(raw ? JSON.parse(raw) : def);
+      }catch(e){ resolve(def); }
+    });
+  },
+  set: function(key, val){
+    return new Promise(function(resolve){
+      try{
+        if (hasSDK){
+          GUIOS.storage.set(key, val).then(function(){ resolve(true); }).catch(function(){ resolve(false); });
+          return;
+        }
+      }catch(e){}
+      try{
+        localStorage.setItem(APP_ID+"_"+key, JSON.stringify(val));
+        resolve(true);
+      }catch(e){ resolve(false); }
+    });
+  }
+};
+
+function showToast(msg, type){
+  var stack = document.getElementById("toastStack");
+  var el = document.createElement("div");
+  el.className = "toast" + (type ? " " + type : "");
+  el.textContent = msg;
+  stack.appendChild(el);
+  setTimeout(function(){ el.style.opacity = "0"; el.style.transition = "opacity .3s"; }, 2400);
+  setTimeout(function(){ if (el.parentNode) el.parentNode.removeChild(el); }, 2800);
+}
+function notify(msg, opts){
+  opts = opts || {};
+  try{
+    if (window.GUIOS && typeof GUIOS.notify === "function"){ GUIOS.notify(msg, opts); return; }
+  }catch(e){}
+  showToast(msg, opts.type);
+}
+function haptic(){
+  try{ if (window.GUIOS && typeof GUIOS.haptic === "function") GUIOS.haptic(); }catch(e){}
+}
+function copyText(text){
+  try{
+    if (window.GUIOS && GUIOS.clipboard && typeof GUIOS.clipboard.writeText === "function"){
+      GUIOS.clipboard.writeText(text).then(function(){ notify("コピーしました", {type:"success"}); }).catch(function(){
+        fallbackCopy(text);
+      });
+      return;
+    }
+  }catch(e){}
+  fallbackCopy(text);
+}
+function fallbackCopy(text){
+  try{
+    navigator.clipboard.writeText(text).then(function(){ notify("コピーしました", {type:"success"}); }).catch(function(){ notify("コピーできませんでした", {type:"error"}); });
+  }catch(e){ notify("コピーできませんでした", {type:"error"}); }
+}
+function shareText(text){
+  try{
+    if (window.GUIOS && typeof GUIOS.share === "function"){ GUIOS.share(text); return; }
+  }catch(e){}
+  copyText(text);
+}
+function esc(s){
+  return String(s===undefined||s===null?"":s)
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+function truncate(s, n){
+  s = String(s||"");
+  return s.length>n ? s.slice(0,n)+"…" : s;
+}
+function linkify(text, map){
+  var html = esc(text);
+  if (map){
+    Object.keys(map).forEach(function(k){
+      var idx = html.indexOf(k);
+      if (idx>=0){
+        var btn = '<button type="button" class="inline-link" data-nav="'+esc(map[k])+'">'+k+'</button>';
+        html = html.slice(0,idx) + btn + html.slice(idx+k.length);
+      }
+    });
+  }
+  return html;
+}
+function fmtTime(ts){
+  var d = new Date(ts);
+  function p(n){ return (n<10?"0":"")+n; }
+  return (d.getMonth()+1)+"/"+d.getDate()+" "+p(d.getHours())+":"+p(d.getMinutes());
+}
+
+/* =========================================================
+   1. QRコードエンコーダー（バイトモード / バージョン1-10 / ECC:M）
+   ========================================================= */
+var QR = (function(){
+  var GF_EXP = new Array(512);
+  var GF_LOG = new Array(256);
+  (function initGF(){
+    var x = 1;
+    for (var i=0;i<255;i++){ GF_EXP[i]=x; GF_LOG[x]=i; x = x<<1; if (x & 0x100) x ^= 0x11d; }
+    for (var i=255;i<512;i++) GF_EXP[i]=GF_EXP[i-255];
+  })();
+  function gfMul(a,b){ if (a===0||b===0) return 0; return GF_EXP[(GF_LOG[a]+GF_LOG[b])%255]; }
+  function computeGenerator(degree){
+    var gen=[1];
+    for (var i=0;i<degree;i++){
+      var ng = new Array(gen.length+1).fill(0);
+      for (var j=0;j<gen.length;j++){
+        ng[j] ^= gen[j];
+        ng[j+1] ^= gfMul(gen[j], GF_EXP[i]);
+      }
+      gen = ng;
+    }
+    return gen;
+  }
+  function rsEncode(dataBytes, eccLen){
+    var generator = computeGenerator(eccLen);
+    var remainder = new Array(eccLen).fill(0);
+    for (var i=0;i<dataBytes.length;i++){
+      var factor = dataBytes[i] ^ remainder[0];
+      remainder.shift(); remainder.push(0);
+      for (var j=0;j<eccLen;j++) remainder[j] ^= gfMul(generator[j+1], factor);
+    }
+    return remainder;
+  }
+  var CAPACITY_TOTAL = [26,44,70,100,134,172,196,242,292,346];
+  var EC_PER_BLOCK_M = [10,16,26,18,24,16,18,22,22,26];
+  var NUM_BLOCKS_M = [1,1,1,2,2,4,4,4,5,5];
+  var ALIGN_COORDS = [null,[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50]];
+  var REMAINDER_BITS = [0,7,7,7,7,7,0,0,0,0];
+
+  function utf8Bytes(str){
+    if (typeof TextEncoder !== "undefined") return Array.from(new TextEncoder().encode(str));
+    var bytes=[];
+    for (var i=0;i<str.length;i++){
+      var code = str.codePointAt(i);
+      if (code>0xffff) i++;
+      if (code<0x80) bytes.push(code);
+      else if (code<0x800){ bytes.push(0xc0|(code>>6), 0x80|(code&0x3f)); }
+      else if (code<0x10000){ bytes.push(0xe0|(code>>12), 0x80|((code>>6)&0x3f), 0x80|(code&0x3f)); }
+      else { bytes.push(0xf0|(code>>18), 0x80|((code>>12)&0x3f), 0x80|((code>>6)&0x3f), 0x80|(code&0x3f)); }
+    }
+    return bytes;
+  }
+  function pushBits(arr,n,value){ for (var i=n-1;i>=0;i--) arr.push((value>>i)&1); }
+  function bitsToBytes(bits){
+    var out=[];
+    for (var i=0;i<bits.length;i+=8){
+      var v=0; for (var j=0;j<8;j++) v=(v<<1)|(bits[i+j]||0);
+      out.push(v);
+    }
+    return out;
+  }
+  function makeGrid(size,val){
+    var g=[]; for (var r=0;r<size;r++){ var row=[]; for (var c=0;c<size;c++) row.push(val); g.push(row); }
+    return g;
+  }
+  function placeData(matrix,isFunc,size,bits){
+    var bitIdx=0, upward=true;
+    for (var col=size-1; col>=1; col-=2){
+      if (col===6) col=5;
+      for (var vert=0; vert<size; vert++){
+        for (var j=0;j<2;j++){
+          var c=col-j;
+          var r=upward ? size-1-vert : vert;
+          if (!isFunc[r][c]){
+            bits[bitIdx]===undefined ? matrix[r][c]=0 : (matrix[r][c]=bits[bitIdx]);
+            bitIdx++;
+          }
+        }
+      }
+      upward = !upward;
+    }
+  }
+  function maskCondition(m,r,c){
+    switch(m){
+      case 0: return (r+c)%2===0;
+      case 1: return r%2===0;
+      case 2: return c%3===0;
+      case 3: return (r+c)%3===0;
+      case 4: return (Math.floor(r/2)+Math.floor(c/3))%2===0;
+      case 5: return ((r*c)%2)+((r*c)%3)===0;
+      case 6: return (((r*c)%2)+((r*c)%3))%2===0;
+      case 7: return (((r+c)%2)+((r*c)%3))%2===0;
+    }
+    return false;
+  }
+  function applyMask(matrix,isFunc,size,maskId){
+    var out=[]; for (var r=0;r<size;r++) out.push(matrix[r].slice());
+    for (var r=0;r<size;r++) for (var c=0;c<size;c++)
+      if (!isFunc[r][c] && maskCondition(maskId,r,c)) out[r][c] ^= 1;
+    return out;
+  }
+  function computeFormatBits(maskId){
+    var data = maskId & 0x7;
+    var g = 0x537;
+    var val = data<<10;
+    for (var i=14;i>=10;i--){ if (val & (1<<i)) val ^= g<<(i-10); }
+    var full = (data<<10)|val;
+    full ^= 0x5412;
+    return full & 0x7fff;
+  }
+  function drawFormatInfo(matrix,size,maskId){
+    var data = computeFormatBits(maskId);
+    function bit(i){ return (data >> (14-i)) & 1; }
+    for (var i=0;i<=5;i++) matrix[8][i]=bit(i);
+    matrix[8][7]=bit(6); matrix[8][8]=bit(7); matrix[7][8]=bit(8);
+    for (var i=9;i<15;i++) matrix[14-i][8]=bit(i);
+    for (var i=0;i<7;i++) matrix[size-1-i][8]=bit(i);
+    for (var i=7;i<15;i++) matrix[8][size-15+i]=bit(i);
+  }
+  function computeVersionBits(version){
+    var d=version, g=0x1f25, val=d<<12;
+    for (var i=17;i>=12;i--){ if (val & (1<<i)) val ^= g<<(i-12); }
+    return (d<<12)|val;
+  }
+  function matchPattern(m,r,c,horiz,pattern){
+    for (var i=0;i<pattern.length;i++){
+      var rr = horiz?r:r+i, cc = horiz?c+i:c;
+      if (m[rr][cc]!==pattern[i]) return false;
+    }
+    return true;
+  }
+  function computePenalty(m,size){
+    var total=0;
+    for (var r=0;r<size;r++){
+      var rc=-1,rl=0;
+      for (var c=0;c<size;c++){ var v=m[r][c]; if (v===rc) rl++; else { if (rl>=5) total+=3+(rl-5); rc=v; rl=1; } }
+      if (rl>=5) total+=3+(rl-5);
+    }
+    for (var c=0;c<size;c++){
+      var rc=-1,rl=0;
+      for (var r=0;r<size;r++){ var v=m[r][c]; if (v===rc) rl++; else { if (rl>=5) total+=3+(rl-5); rc=v; rl=1; } }
+      if (rl>=5) total+=3+(rl-5);
+    }
+    for (var r=0;r<size-1;r++) for (var c=0;c<size-1;c++){
+      var v=m[r][c];
+      if (v===m[r][c+1] && v===m[r+1][c] && v===m[r+1][c+1]) total+=3;
+    }
+    var pa=[1,0,1,1,1,0,1,0,0,0,0], pb=[0,0,0,0,1,0,1,1,1,0,1];
+    for (var r=0;r<size;r++) for (var c=0;c<=size-11;c++){
+      if (matchPattern(m,r,c,true,pa)||matchPattern(m,r,c,true,pb)) total+=40;
+    }
+    for (var c=0;c<size;c++) for (var r=0;r<=size-11;r++){
+      if (matchPattern(m,r,c,false,pa)||matchPattern(m,r,c,false,pb)) total+=40;
+    }
+    var dark=0; for (var r=0;r<size;r++) for (var c=0;c<size;c++) if (m[r][c]) dark++;
+    var percent = dark*100/(size*size);
+    total += Math.floor(Math.abs(percent-50)/5)*10;
+    return total;
+  }
+  function buildMatrix(version,dataBits){
+    var size = version*4+17;
+    var matrix = makeGrid(size,0);
+    var isFunc = makeGrid(size,false);
+    function setFunc(r,c,val){
+      if (r<0||r>=size||c<0||c>=size) return;
+      matrix[r][c]=val?1:0; isFunc[r][c]=true;
+    }
+    function drawFinder(r0,c0){
+      for (var dr=-1;dr<=7;dr++) for (var dc=-1;dc<=7;dc++){
+        var rr=r0+dr, cc=c0+dc;
+        if (rr<0||rr>=size||cc<0||cc>=size) continue;
+        var dark = (dr>=0&&dr<=6&&dc>=0&&dc<=6) && (dr===0||dr===6||dc===0||dc===6||(dr>=2&&dr<=4&&dc>=2&&dc<=4));
+        setFunc(rr,cc,dark);
+      }
+    }
+    drawFinder(0,0); drawFinder(0,size-7); drawFinder(size-7,0);
+    for (var i=8;i<size-8;i++){ setFunc(6,i,i%2===0); setFunc(i,6,i%2===0); }
+    setFunc(size-8,8,true);
+    for (var i=0;i<9;i++){ if (!isFunc[8][i]) setFunc(8,i,false); if (!isFunc[i][8]) setFunc(i,8,false); }
+    for (var i=0;i<8;i++) setFunc(8,size-1-i,false);
+    for (var i=0;i<7;i++) setFunc(size-1-i,8,false);
+    var coords = ALIGN_COORDS[version-1];
+    if (coords){
+      for (var i=0;i<coords.length;i++) for (var j=0;j<coords.length;j++){
+        var r=coords[i], c=coords[j];
+        if ((r<=8&&c<=8)||(r<=8&&c>=size-9)||(r>=size-9&&c<=8)) continue;
+        for (var dr=-2;dr<=2;dr++) for (var dc=-2;dc<=2;dc++){
+          setFunc(r+dr,c+dc, Math.max(Math.abs(dr),Math.abs(dc))!==1);
+        }
+      }
+    }
+    if (version>=7){
+      var vbits = computeVersionBits(version);
+      for (var i=0;i<18;i++){
+        var b=(vbits>>i)&1, row=Math.floor(i/3), col=i%3;
+        setFunc(size-11+col,row,!!b);
+        setFunc(row,size-11+col,!!b);
+      }
+    }
+    placeData(matrix,isFunc,size,dataBits);
+    var bestMask=0, bestPenalty=Infinity, bestMatrix=null;
+    for (var m=0;m<8;m++){
+      var cand = applyMask(matrix,isFunc,size,m);
+      drawFormatInfo(cand,size,m);
+      var p = computePenalty(cand,size);
+      if (p<bestPenalty){ bestPenalty=p; bestMask=m; bestMatrix=cand; }
+    }
+    return {size:size, matrix:bestMatrix, mask:bestMask, version:version};
+  }
+  function encode(text){
+    var bytes = utf8Bytes(text||"");
+    var version=1;
+    for (; version<=10; version++){
+      var dataCw = CAPACITY_TOTAL[version-1] - EC_PER_BLOCK_M[version-1]*NUM_BLOCKS_M[version-1];
+      var cbits = version<10?8:16;
+      var neededBytes = Math.ceil((4+cbits+bytes.length*8)/8);
+      if (neededBytes<=dataCw) break;
+    }
+    if (version>10){
+      var maxData = CAPACITY_TOTAL[9]-EC_PER_BLOCK_M[9]*NUM_BLOCKS_M[9];
+      var maxBytes = Math.floor((maxData*8-4-16)/8);
+      bytes = bytes.slice(0, Math.max(1,maxBytes));
+      version=10;
+    }
+    var dataCw = CAPACITY_TOTAL[version-1]-EC_PER_BLOCK_M[version-1]*NUM_BLOCKS_M[version-1];
+    var cbits = version<10?8:16;
+    var bits=[];
+    pushBits(bits,4,4);
+    pushBits(bits,cbits,bytes.length);
+    for (var i=0;i<bytes.length;i++) pushBits(bits,8,bytes[i]);
+    var maxBits = dataCw*8;
+    var term = Math.min(4, Math.max(0,maxBits-bits.length));
+    for (var i=0;i<term;i++) bits.push(0);
+    while (bits.length%8!==0) bits.push(0);
+    var pad=[0xec,0x11], pi=0;
+    while (bits.length<maxBits){ pushBits(bits,8,pad[pi%2]); pi++; }
+    var dataArr = bitsToBytes(bits);
+    var numBlocks = NUM_BLOCKS_M[version-1];
+    var eccLen = EC_PER_BLOCK_M[version-1];
+    var shortLen = Math.floor(dataCw/numBlocks);
+    var numLong = dataCw - shortLen*numBlocks;
+    var numShort = numBlocks-numLong;
+    var blocks=[], idx=0;
+    for (var b=0;b<numBlocks;b++){
+      var len = b<numShort?shortLen:shortLen+1;
+      blocks.push(dataArr.slice(idx,idx+len)); idx+=len;
+    }
+    var eccBlocks = blocks.map(function(blk){ return rsEncode(blk,eccLen); });
+    var maxLen = shortLen + (numLong>0?1:0);
+    var interD=[];
+    for (var col=0;col<maxLen;col++) for (var b=0;b<numBlocks;b++) if (col<blocks[b].length) interD.push(blocks[b][col]);
+    var interE=[];
+    for (var col=0;col<eccLen;col++) for (var b=0;b<numBlocks;b++) interE.push(eccBlocks[b][col]);
+    var allCw = interD.concat(interE);
+    var finalBits=[];
+    for (var i=0;i<allCw.length;i++) pushBits(finalBits,8,allCw[i]);
+    var rem = REMAINDER_BITS[version-1];
+    for (var i=0;i<rem;i++) finalBits.push(0);
+    return buildMatrix(version,finalBits);
+  }
+  function drawToCanvas(canvas, result){
+    var size=result.size, m=result.matrix;
+    var quiet=4;
+    var scale = Math.max(3, Math.floor(216/(size+quiet*2)));
+    var dim=(size+quiet*2)*scale;
+    canvas.width=dim; canvas.height=dim;
+    var ctx=canvas.getContext("2d");
+    ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,dim,dim);
+    ctx.fillStyle="#000000";
+    for (var r=0;r<size;r++) for (var c=0;c<size;c++)
+      if (m[r][c]) ctx.fillRect((c+quiet)*scale,(r+quiet)*scale,scale,scale);
+  }
+  return {encode:encode, drawToCanvas:drawToCanvas};
+})();
+
+/* =========================================================
+   2. MockWeb: オフライン「模擬ウェブ」コンテンツ
+   ========================================================= */
+var WIKI = [
+  {id:"tomato", title:"トマト", kw:["野菜","食べ物","栽培"], p:[
+    "トマトは南米アンデス山脈が原産とされるナス科の植物で、世界中で親しまれている野菜（植物学的には果実）です。赤く熟した実には旨味成分であるグルタミン酸が豊富に含まれており、生食のほか、煮込み料理やソースの材料としても広く利用されます。",
+    "家庭菜園でも人気が高く、日当たりの良い場所であれば比較的育てやすい作物として知られています。水やりのしすぎは実の糖度を下げる原因になるため、乾燥気味に管理するのが甘いトマトを育てるコツだとされています。",
+    "栄養面ではビタミンCやリコピンを豊富に含み、抗酸化作用が期待されることから健康食品としても注目されています。"
+  ], related:[{id:"ramen",label:"ラーメン"},{id:"onsen",label:"温泉"}]},
+
+  {id:"neko", title:"猫", kw:["動物","ペット"], p:[
+    "猫はネコ科に属する小型の哺乳類で、世界中で最も人気のある伴侶動物のひとつです。優れた聴覚と夜間でも見える視力を持ち、獲物を捕らえる能力に長けています。",
+    "家庭で飼育される猫は一日の大半を眠って過ごすことで知られ、成猫の平均睡眠時間は12時間から16時間程度とされています。個体差はありますが、狭い場所や高い場所を好む習性を持つ猫が多いです。",
+    "近年ではインターネット上で猫の動画や画像が数多く共有されており、宇宙開発など全く異なる分野の話題と組み合わされたユーモラスな創作物が話題になることもあります。"
+  ], related:[{id:"uchu",label:"宇宙"}]},
+
+  {id:"tsuki", title:"月", kw:["天体","宇宙","夜空"], p:[
+    "月は地球にとって唯一の自然衛星であり、地球からおよそ38万キロメートル離れた場所を公転しています。満ち欠けを繰り返すその姿は古くから暦や文化と深く結びついてきました。",
+    "月の表面には「クレーター」と呼ばれる無数の窪みがあり、これは隕石の衝突によって形成されたと考えられています。重力は地球のおよそ6分の1しかなく、もし月面を歩けば非常に軽やかにジャンプできるといわれています。",
+    "月の引力は地球の潮の満ち引きにも大きな影響を与えており、海洋生態系にとっても重要な役割を果たしています。"
+  ], related:[{id:"uchu",label:"宇宙"},{id:"jishin",label:"地震"}]},
+
+  {id:"coffee", title:"コーヒー", kw:["飲み物","カフェ","豆"], p:[
+    "コーヒーはコーヒーノキの種子（コーヒー豆）を焙煎し、粉砕したものから抽出される飲み物です。エチオピア原産とされ、世界中で日常的に飲まれる嗜好品として定着しています。",
+    "焙煎の度合いによって酸味や苦味のバランスが大きく変化し、浅煎りは酸味が、深煎りは苦味が強くなる傾向があります。抽出方法も、ドリップ式やエスプレッソ式など多岐にわたります。",
+    "カフェインを含むため覚醒作用があり、多くの人が仕事や勉強の合間の一杯として親しんでいます。地元の小さな焙煎店が全国的な大会で評価されることも珍しくありません。"
+  ], related:[{id:"ramen",label:"ラーメン"}]},
+
+  {id:"fuji", title:"富士山", kw:["山","観光","日本"], p:[
+    "富士山は日本で最も標高が高い山であり、標高は3776メートルに達します。裾野が美しい末広がりの形をしていることから、古くより信仰や芸術の対象として親しまれてきました。",
+    "夏の登山シーズンには国内外から多くの登山者が訪れます。山頂からのご来光は特に人気があり、事前の防寒対策や高山病への備えが重要だとされています。",
+    "冬になると初冠雪のニュースが季節の便りとして報じられるほか、近隣には温泉地も多く、登山や観光と組み合わせて楽しむ旅行者も少なくありません。"
+  ], related:[{id:"onsen",label:"温泉"},{id:"sakura",label:"桜"}]},
+
+  {id:"robot", title:"ロボット", kw:["技術","AI","機械"], p:[
+    "ロボットとは、センサーやアクチュエーターを備え、自律的または遠隔操作によって作業を行う機械装置の総称です。工場での組み立て作業から、家庭用の掃除ロボットまで、その用途は多岐にわたります。",
+    "近年は人工知能技術の発展により、周囲の状況を認識し自ら判断して行動するロボットの開発が進んでいます。家庭向けの新型ロボットが発表されるたびに大きな話題となります。",
+    "宇宙開発の分野でも、人間には危険が伴う環境での探査や作業にロボットが活用されており、今後もさらなる活躍が期待されています。"
+  ], related:[{id:"uchu",label:"宇宙"}]},
+
+  {id:"onsen", title:"温泉", kw:["観光","入浴","日本"], p:[
+    "温泉とは地中の熱によって温められた地下水が湧き出したものを指し、日本各地に多数の温泉地が存在します。成分によって泉質が異なり、それぞれ異なる効能が期待されるとされています。",
+    "旅行先として温泉地を選ぶ人は多く、富士山周辺をはじめとした景勝地の近くにある温泉は特に人気があります。露天風呂から雪景色を眺められる施設も好まれています。",
+    "入浴前後の水分補給や、長時間の入浴を避けることが、温泉を安全に楽しむためのポイントとされています。"
+  ], related:[{id:"fuji",label:"富士山"}]},
+
+  {id:"sakura", title:"桜", kw:["植物","季節","花見"], p:[
+    "桜はバラ科サクラ属の樹木で、春に咲く淡い色の花は日本の風物詩として広く親しまれています。開花から満開、そして散り際までの短い期間が特に美しいとされます。",
+    "気象情報では毎年「桜前線」が話題になり、南から北へ開花の便りが順に届きます。お花見は家族や友人と屋外で食事を楽しむ日本独自の文化として定着しています。",
+    "桜をモチーフにした雑貨や食器も人気があり、春が近づくと関連商品を扱うお店が賑わいます。"
+  ], related:[{id:"fuji",label:"富士山"}]},
+
+  {id:"uchu", title:"宇宙", kw:["天体","科学","天文"], p:[
+    "宇宙は地球を含むすべての天体と空間を包含する広大な領域であり、その始まりは約138億年前のビッグバンにあるとする説が有力です。",
+    "近年は新しい宇宙望遠鏡の稼働によって、これまで観測できなかった遠方の銀河や惑星の姿が次々と明らかになっています。観測技術の進歩は天文学の常識を塗り替え続けています。",
+    "また、探査や作業の一部はロボットによって行われることが増えており、人間が直接立ち入ることが難しい環境でも研究が進められています。"
+  ], related:[{id:"tsuki",label:"月"},{id:"robot",label:"ロボット"}]},
+
+  {id:"ramen", title:"ラーメン", kw:["食べ物","麺","日本"], p:[
+    "ラーメンは中華麺を出汁のきいたスープに入れた日本発祥の麺料理で、地域ごとに醤油・味噌・塩・とんこつなど多彩なスープが存在します。",
+    "近年は行列のできる人気店も多く、開店前から多くの人が並ぶ光景がニュースで取り上げられることもあります。トッピングにはチャーシューやメンマ、ネギなどが定番です。",
+    "自宅で手軽に楽しめる即席麺タイプの商品も充実しており、忙しい日常の食事としても重宝されています。"
+  ], related:[{id:"coffee",label:"コーヒー"},{id:"tomato",label:"トマト"}]},
+
+  {id:"jishin", title:"地震", kw:["自然","防災","地質"], p:[
+    "地震は地下の岩盤にひずみが蓄積し、それが急激に解放されることで発生する地面の揺れです。日本は複数のプレートが接する地域に位置しており、世界的に見ても地震が多い国のひとつです。",
+    "揺れの大きさは震度やマグニチュードといった指標で表され、日頃からの備蓄や避難経路の確認といった防災意識が重要とされています。",
+    "地震のメカニズムの研究は地質学とも深く関わっており、山や地形の成り立ちを理解する手がかりにもなっています。"
+  ], related:[{id:"fuji",label:"富士山"}]},
+
+  {id:"internet_history", title:"コンピューターネットワークの歴史", kw:["技術","歴史","通信"], p:[
+    "複数のコンピューターを接続して情報をやり取りする仕組みは、20世紀後半の研究機関や大学の間で試験的に構築されたのが始まりとされています。当初は限られた専門家の間で使われる技術でした。",
+    "その後、通信規格の標準化が進んだことで、異なる機種や組織のコンピューター同士でもやり取りが可能になり、対応する機器やソフトウェアが急速に普及しました。",
+    "現在ではロボットや家電までもがネットワークに接続される時代となり、技術の応用範囲はますます広がり続けています。なお、この模擬ブラウザ自体は学習用のオフライン環境であり、実際の外部ネットワークには接続していません。"
+  ], related:[{id:"robot",label:"ロボット"}]}
+];
+
+var NEWS = [
+  {id:1, title:"家庭向けAI搭載お掃除ロボット、来月発売へ", cat:"技術", p:[
+    "国内の家電メーカーは、周囲の状況を認識して自律的に清掃ルートを判断する新型お掃除ロボットを来月発売すると発表した。従来モデルに比べて段差の検知精度が向上しているという。",
+    "開発担当者は「家庭内のさまざまな障害物を学習し、無駄のない清掃経路を組み立てられるようになった」とコメントしている。価格は据え置きながら性能を大幅に強化したとしている。",
+    "同社は今後、清掃以外の家庭内タスクにも対応するロボット製品の展開を検討していると明らかにした。"
+  ]},
+  {id:2, title:"桜前線、来月にも列島を北上へ", cat:"季節", p:[
+    "気象情報機関は、今年の桜の開花が例年並みか、やや早いペースで進む見込みだと発表した。南の地域から順に開花の便りが届き始めるとみられる。",
+    "各地の観光協会は、開花時期に合わせたライトアップイベントの準備を進めている。富士山周辺の名所でも多くの来訪者が見込まれている。",
+    "気象担当者は「気温の変化によって開花時期が前後する可能性がある」とし、最新の予測情報を随時確認するよう呼びかけている。"
+  ]},
+  {id:3, title:"地元コーヒー店が全国大会で優勝", cat:"暮らし", p:[
+    "小規模な自家焙煎店が、全国のコーヒー専門店が技術を競う大会で優勝したことが分かった。豆の個性を生かした焙煎方法が高く評価されたという。",
+    "店主は「地元のお客さんに支えられてここまで来られた」と喜びを語った。優勝を受けて、店には県外からも多くの来店があるという。",
+    "同店では今後、オンラインでの豆の販売も強化していく方針だという。"
+  ]},
+  {id:4, title:"富士山で初冠雪を観測", cat:"自然", p:[
+    "気象台は、富士山の山頂付近で今シーズン初めてとなる冠雪を観測したと発表した。平年と比べてほぼ同じ時期の観測となる。",
+    "冠雪は秋の訪れを告げる風物詩として毎年注目されており、周辺の観光地でも季節の変わり目を感じさせるニュースとして受け止められている。",
+    "登山シーズンはすでに終了しているが、麓の温泉地では紅葉狩りを楽しむ観光客の姿が増えているという。"
+  ]},
+  {id:5, title:"新型宇宙望遠鏡、本格観測を開始", cat:"科学", p:[
+    "研究機関は、新たに打ち上げられた宇宙望遠鏡が本格的な観測を開始したと発表した。従来よりも高い解像度で遠方の天体を捉えることができるという。",
+    "初期の観測データからは、これまで確認されていなかった銀河の詳細な構造が明らかになりつつあるとしている。",
+    "研究チームは「月や近傍の惑星だけでなく、より遠い宇宙の謎に迫る成果が期待できる」と述べている。"
+  ]},
+  {id:6, title:"人気ラーメン店の行列、過去最長を記録", cat:"暮らし", p:[
+    "都内の人気ラーメン店で、開店前に並ぶ行列が過去最長を記録したことが分かった。週末には整理券が早朝で配布終了となる日もあるという。",
+    "同店は化学調味料を使わない出汁づくりにこだわっており、常連客からは「スープの奥深さが人気の理由」との声が聞かれる。",
+    "混雑緩和のため、店舗側は近く整理券のオンライン配布システムを導入する予定だという。"
+  ], video:true}
+];
+
+var SHOP = [
+  {id:1, emoji:"🍅", name:"有機トマト 3個パック", price:398, desc:"甘みが強い完熟トマトを産地直送でお届けします。サラダやパスタソースにおすすめです。"},
+  {id:2, emoji:"☕", name:"ブレンドコーヒー豆 200g", price:680, desc:"酸味と苦味のバランスにこだわった自家焙煎のオリジナルブレンドです。"},
+  {id:3, emoji:"🤖", name:"お掃除ロボット Mini", price:24800, desc:"コンパクトながらパワフルな吸引力で、部屋の隅々まで清掃できる人気モデルです。", popupdemo:true},
+  {id:4, emoji:"🌸", name:"桜柄マグカップ", price:1200, desc:"春らしい桜模様が描かれた電子レンジ対応の陶器製マグカップです。"},
+  {id:5, emoji:"🍜", name:"即席ラーメン 5食セット", price:890, desc:"人気店監修のこだわりスープを再現した即席麺の詰め合わせです。"},
+  {id:6, emoji:"🧦", name:"あったか靴下 3足組", price:990, desc:"厚手の編み込みで冬場も足元を暖かく保つ靴下の3足セットです。"},
+  {id:7, emoji:"📷", name:"三脚スタンド", price:2450, desc:"高さ調節が可能な軽量三脚。スマートフォンにも対応しています。"},
+  {id:8, emoji:"🪴", name:"観葉植物 小鉢", price:1580, desc:"お手入れが簡単な小型の観葉植物です。デスク周りの癒やしにどうぞ。"},
+  {id:9, emoji:"🎧", name:"ワイヤレスイヤホン", price:5980, desc:"長時間のバッテリー駆動と快適な装着感が特長のイヤホンです。"},
+  {id:10, emoji:"🧴", name:"ハンドクリーム", price:520, desc:"乾燥が気になる季節におすすめの、べたつかないハンドクリームです。"},
+  {id:11, emoji:"🔋", name:"モバイルバッテリー", price:3280, desc:"外出先でも安心の大容量モバイルバッテリーです。"},
+  {id:12, emoji:"📓", name:"ノート3冊セット", price:450, desc:"書き心地のよい上質な紙を使用した罫線入りノートのセットです。"}
+];
+
+var BBS = [
+  {id:1, title:"おすすめの猫グッズ教えて", posts:[
+    {a:"にゃんこ好き", t:"最近猫を飼い始めました。おすすめのグッズがあれば教えてください！"},
+    {a:"もふもふ団長", t:"爪とぎは複数の種類を置いておくと猫の好みが分かって良いですよ。"},
+    {a:"にゃんこ好き", t:"なるほど、段ボール製とカーペット製を試してみます。ありがとうございます。"},
+    {a:"猫好き歴10年", t:"高い場所に登れるキャットタワーもおすすめです。運動不足解消になります。"}
+  ]},
+  {id:2, title:"富士山登山の準備について", posts:[
+    {a:"初心者登山者", t:"来月初めて富士山に登る予定です。持ち物で必須のものはありますか？"},
+    {a:"山男タロウ", t:"防寒着は必須です。山頂付近は真夏でも気温が大きく下がります。"},
+    {a:"初心者登山者", t:"防寒対策、しっかり準備します。温泉で疲れを癒すのも楽しみです。"},
+    {a:"登山ガイド見習い", t:"ヘッドライトと予備電池も忘れずに。ご来光を見るなら夜間行動になります。"}
+  ]},
+  {id:3, title:"在宅ワークのコツ", posts:[
+    {a:"在宅3年目", t:"在宅ワークが続くと集中力が切れがちです。何か工夫していますか？"},
+    {a:"コーヒー中毒", t:"作業の合間にコーヒーを淹れる時間を意識的に作ると気分転換になります。"},
+    {a:"在宅3年目", t:"それいいですね。休憩のタイミングを決めておくのも大事そうです。"}
+  ]},
+  {id:4, title:"このブラウザアプリの感想", posts:[
+    {a:"ゲスト01", t:"タブがたくさん開けて便利ですね。拡張機能も色々あって驚きました。"},
+    {a:"開発好き", t:"QRコードの拡張機能、内部URLをちゃんとエンコードしていてすごいです。"},
+    {a:"ゲスト01", t:"コード実行タブで簡単なHTMLを試せるのも地味に便利だと思います。"}
+  ]}
+];
+
+var DICT = {
+  "トマト":"tomato","猫":"cat","月":"moon","コーヒー":"coffee","富士山":"Mt. Fuji",
+  "ロボット":"robot","温泉":"hot spring","桜":"cherry blossom","宇宙":"space","ラーメン":"ramen",
+  "地震":"earthquake","検索":"search","天気":"weather","音楽":"music","映画":"movie",
+  "旅行":"travel","学校":"school","会社":"company","友達":"friend","家族":"family",
+  "時間":"time","仕事":"work","料理":"cooking","動物":"animal","植物":"plant",
+  "空":"sky","海":"sea","山":"mountain","川":"river","雪":"snow"
+};
+var DICT_REV = {};
+Object.keys(DICT).forEach(function(k){ DICT_REV[String(DICT[k]).toLowerCase()] = k; });
+function lookupDict(word){
+  if (!word) return null;
+  var w = word.trim();
+  if (!w || w.length>16) return null;
+  if (DICT[w]) return {from:w, to:DICT[w]};
+  var lw = w.toLowerCase();
+  if (DICT_REV[lw]) return {from:w, to:DICT_REV[lw]};
+  return null;
+}
+
+/* 検索インデックスの構築 */
+var SEARCH_INDEX = [];
+function buildSearchIndex(){
+  SEARCH_INDEX = [];
+  WIKI.forEach(function(a){
+    SEARCH_INDEX.push({url:"wiki://article/"+a.id, title:a.title+" - 百科事典", kw:a.kw.concat([a.title]), snip:a.p[0].slice(0,60)});
+  });
+  NEWS.forEach(function(a){
+    SEARCH_INDEX.push({url:"news://article/"+a.id, title:a.title, kw:[a.cat], snip:a.p[0].slice(0,60)});
+  });
+  SHOP.forEach(function(a){
+    SEARCH_INDEX.push({url:"shop://product/"+a.id, title:a.name+" - ショッピング", kw:[a.name], snip:a.desc.slice(0,60)});
+  });
+  BBS.forEach(function(a){
+    SEARCH_INDEX.push({url:"bbs://thread/"+a.id, title:a.title+" - 掲示板", kw:[a.title], snip:(a.posts[0]?a.posts[0].t:"").slice(0,60)});
+  });
+}
+function runSearch(query){
+  query = (query||"").trim().toLowerCase();
+  if (!query) return [];
+  var tokens = query.split(/\s+/).filter(Boolean);
+  var scored = SEARCH_INDEX.map(function(item){
+    var score = 0;
+    var titleL = item.title.toLowerCase();
+    var snipL = item.snip.toLowerCase();
+    tokens.forEach(function(t){
+      if (titleL.indexOf(t)>=0) score += 5;
+      item.kw.forEach(function(k){ if (k.toLowerCase().indexOf(t)>=0 || t.indexOf(k.toLowerCase())>=0) score += 3; });
+      if (snipL.indexOf(t)>=0) score += 1;
+    });
+    return {item:item, score:score};
+  }).filter(function(s){ return s.score>0; });
+  scored.sort(function(a,b){ return b.score-a.score; });
+  return scored.slice(0,20).map(function(s){ return s.item; });
+}
+
+/* =========================================================
+   3. ルーター: URL解析 & ページレンダリング
+   ========================================================= */
+function parseUrl(url){
+  var m = /^([a-zA-Z0-9]+):\/\/([^?]*)(?:\?(.*))?$/.exec(url||"");
+  if (!m) return {scheme:"", path:"", query:{}, raw:url};
+  var scheme = m[1].toLowerCase(), path = m[2]||"", qs = m[3]||"";
+  var query = {};
+  qs.split("&").forEach(function(pair){
+    if (!pair) return;
+    var kv = pair.split("=");
+    try{ query[decodeURIComponent(kv[0])] = decodeURIComponent(kv[1]||""); }catch(e){}
+  });
+  return {scheme:scheme, path:path.replace(/\/$/,""), query:query, raw:url};
+}
+
+function newTabWidgetsHtml(){
+  if (!extState.newtabwidgets) return "";
+  return '<div class="card" style="margin-top:18px;">'+
+    '<div style="font-size:12px;color:var(--page-text-dim);">拡張機能ウィジェット</div>'+
+    '<div style="font-size:24px;font-weight:700;margin:6px 0;" class="clock-widget">--:--:--</div>'+
+    '<div style="font-size:12px;color:var(--page-text-dim);" class="tip-widget">読み込み中…</div>'+
+    '</div>';
+}
+var NEWTAB_TIPS = [
+  "アドレスバーに直接 wiki://home や shop://home のような内部URLを入力しても移動できます。",
+  "拡張機能パネルの💧カラーピッカーを有効にすると、ページ内の色をクリックで取得できます。",
+  "コード実行タブでは自分のHTML/CSS/JSをその場でプレビューできます。",
+  "ブックマークバーは📌ボタンで表示・非表示を切り替えられます。",
+  "履歴ページでは検索ボックスで過去に見たページを素早く探せます。",
+  "拡張機能はすべて端末内で完結する本物の機能で、外部と通信しません。"
+];
+
+function renderNewTab(tab){
+  var html = '<div class="pg">'+
+    '<h1 style="text-align:center;margin-top:40px;">🌐 新しいタブ</h1>'+
+    '<form data-action="newtab-search" style="max-width:520px;margin:0 auto;">'+
+    '<div class="searchbox-row"><input type="text" name="q" placeholder="ケンサクで検索、または内部URLを入力"><button type="button" data-action="newtab-search-btn">検索</button></div>'+
+    '</form>'+
+    '<div class="quicklinks">'+
+    '<button type="button" class="quicklink-tile" data-nav="search://home"><span class="em">🔍</span>ケンサク</button>'+
+    '<button type="button" class="quicklink-tile" data-nav="wiki://home"><span class="em">📖</span>百科事典</button>'+
+    '<button type="button" class="quicklink-tile" data-nav="news://home"><span class="em">📰</span>ニュース</button>'+
+    '<button type="button" class="quicklink-tile" data-nav="shop://home"><span class="em">🛒</span>ショップ</button>'+
+    '<button type="button" class="quicklink-tile" data-nav="bbs://home"><span class="em">💬</span>掲示板</button>'+
+    '<button type="button" class="quicklink-tile" data-nav="internal://bookmarks"><span class="em">⭐</span>ブックマーク</button>'+
+    '</div>'+
+    newTabWidgetsHtml()+
+    '<p style="text-align:center;color:var(--page-text-dim);font-size:11px;margin-top:34px;">※このブラウザは学習用のオフラインシミュレーションです。実際のインターネットには接続していません。内部で自作された模擬サイトを閲覧できます。</p>'+
+    '</div>';
+  return {title:"新しいタブ", html:html};
+}
+
+function renderSearchHome(){
+  var html = '<div class="pg">'+
+    '<h1 style="text-align:center;margin-top:60px;">🔍 ケンサク検索</h1>'+
+    '<p style="text-align:center;color:var(--page-text-dim);">百科事典・ニュース・ショップ・掲示板を横断検索できます</p>'+
+    '<form data-action="newtab-search" style="max-width:520px;margin:0 auto;">'+
+    '<div class="searchbox-row"><input type="text" name="q" placeholder="キーワードを入力（例: 富士山、コーヒー）"><button type="button" data-action="newtab-search-btn">検索</button></div>'+
+    '</form>'+
+    '</div>';
+  return {title:"ケンサク検索", html:html};
+}
+function renderSearchResults(query){
+  var results = runSearch(query);
+  var body = results.map(function(r){
+    return '<div class="search-result"><div class="r-title"><button type="button" class="link" data-nav="'+esc(r.url)+'">'+esc(r.title)+'</button></div>'+
+      '<div class="r-url">'+esc(r.url)+'</div><div class="r-snip">'+esc(r.snip)+'…</div></div>';
+  }).join("") || '<p style="color:var(--page-text-dim);">検索結果が見つかりませんでした。別のキーワードをお試しください。</p>';
+  var html = '<div class="pg">'+
+    '<form data-action="newtab-search" style="margin-bottom:10px;">'+
+    '<div class="searchbox-row"><input type="text" name="q" value="'+esc(query)+'"><button type="button" data-action="newtab-search-btn">検索</button></div>'+
+    '</form>'+
+    '<div class="meta">「'+esc(query)+'」の検索結果 '+results.length+'件</div>'+
+    body+
+    '</div>';
+  return {title:'「'+truncate(query,20)+'」の検索結果', html:html};
+}
+
+function wikiIndexHtml(){
+  var items = WIKI.map(function(a){
+    return '<li style="margin-bottom:6px;"><button type="button" class="link" data-nav="wiki://article/'+a.id+'">'+esc(a.title)+'</button></li>';
+  }).join("");
+  return '<div class="pg"><h1>📖 百科事典</h1><p class="meta">全'+WIKI.length+'件の記事があります</p><ul style="padding-left:20px;">'+items+'</ul></div>';
+}
+function wikiArticleHtml(a){
+  var relatedHtml = (a.related||[]).map(function(r){
+    return '<button type="button" class="link" data-nav="wiki://article/'+r.id+'" style="margin-right:12px;">'+esc(r.label)+'</button>';
+  }).join("");
+  var paras = a.p.map(function(t,i){
+    var map = {};
+    (a.related||[]).forEach(function(r){ if (t.indexOf(r.label)>=0) map[r.label] = "wiki://article/"+r.id; });
+    return '<p>'+linkify(t, map)+'</p>';
+  }).join("");
+  var html = '<div class="pg"><span class="url-chip">wiki://article/'+a.id+'</span>'+
+    '<h1>'+esc(a.title)+'</h1>'+
+    '<div class="tag-row">'+a.kw.map(function(k){ return '<span class="tag">'+esc(k)+'</span>'; }).join("")+'</div>'+
+    paras+
+    (relatedHtml ? '<h2>関連記事</h2><div>'+relatedHtml+'</div>' : '')+
+    '<p style="margin-top:20px;"><button type="button" class="link" data-nav="wiki://home">← 百科事典トップへ戻る</button></p>'+
+    '</div>';
+  var readerHtml = '<div class="pg"><h1>'+esc(a.title)+'</h1>'+a.p.map(function(t){ return '<p>'+esc(t)+'</p>'; }).join("")+'</div>';
+  return {title:a.title+" - 百科事典", html:html, readerHtml:readerHtml};
+}
+function renderWiki(u){
+  if (!u.path || u.path==="home") return {title:"百科事典", html:wikiIndexHtml()};
+  var m = /^article\/(.+)$/.exec(u.path);
+  if (m){
+    var a = WIKI.filter(function(x){ return x.id===m[1]; })[0];
+    if (a) return wikiArticleHtml(a);
+  }
+  return null;
+}
+
+function newsHomeHtml(){
+  var items = NEWS.map(function(n){
+    return '<div class="card"><div class="meta">'+esc(n.cat)+'</div>'+
+      '<div style="font-size:15px;margin-bottom:6px;"><button type="button" class="link" data-nav="news://article/'+n.id+'">'+esc(n.title)+'</button></div>'+
+      '<div style="color:var(--page-text-dim);font-size:12.5px;">'+esc(n.p[0].slice(0,50))+'…</div></div>';
+  }).join("");
+  return '<div class="pg"><h1>📰 デイリーニュース</h1>'+
+    '<div class="ad-block">広告：この枠は「広告非表示」拡張機能を有効にすると消えます</div>'+
+    items+'</div>';
+}
+function newsArticleHtml(n){
+  var paras = n.p.map(function(t){ return '<p>'+esc(t)+'</p>'; }).join("");
+  var videoDemo = n.video ? '<div class="card"><button type="button" class="btn-outline" data-action="play-tone">▶ 動画を再生（デモ音）</button><span style="font-size:11px;color:var(--page-text-dim);margin-left:8px;">※ミュート拡張機能が有効な場合は再生されません</span></div>' : "";
+  var html = '<div class="pg"><span class="url-chip">news://article/'+n.id+'</span>'+
+    '<h1>'+esc(n.title)+'</h1><div class="meta">カテゴリ: '+esc(n.cat)+'</div>'+
+    paras+videoDemo+
+    '<div class="ad-block">広告：この枠は「広告非表示」拡張機能を有効にすると消えます</div>'+
+    '<p style="margin-top:14px;"><button type="button" class="link" data-nav="news://home">← ニュース一覧へ戻る</button></p>'+
+    '</div>';
+  var readerHtml = '<div class="pg"><h1>'+esc(n.title)+'</h1>'+paras+'</div>';
+  return {title:n.title, html:html, readerHtml:readerHtml};
+}
+function renderNews(u){
+  if (!u.path || u.path==="home") return {title:"ニュース", html:newsHomeHtml()};
+  var m = /^article\/(\d+)$/.exec(u.path);
+  if (m){
+    var n = NEWS.filter(function(x){ return String(x.id)===m[1]; })[0];
+    if (n) return newsArticleHtml(n);
+  }
+  return null;
+}
+
+function shopHomeHtml(){
+  var items = SHOP.map(function(p){
+    return '<div class="product-card"><div class="em">'+p.emoji+'</div>'+
+      '<div class="pname"><button type="button" class="link" data-nav="shop://product/'+p.id+'">'+esc(p.name)+'</button></div>'+
+      '<div class="pprice">¥'+p.price.toLocaleString()+'</div></div>';
+  }).join("");
+  return '<div class="pg"><h1>🛒 ショッピングサイト</h1>'+
+    '<p><button type="button" class="btn-outline" data-nav="shop://cart">🛒 カートを見る</button></p>'+
+    '<div class="product-grid">'+items+'</div></div>';
+}
+function shopProductHtml(p){
+  var popup = p.popupdemo ? '<div class="card"><button type="button" class="btn-outline" data-action="popup-demo" data-product="'+p.id+'">🎁 限定セール情報を見る</button><div class="popup-demo-result"></div></div>' : "";
+  var html = '<div class="pg"><span class="url-chip">shop://product/'+p.id+'</span>'+
+    '<h1>'+p.emoji+' '+esc(p.name)+'</h1>'+
+    '<div class="pprice" style="font-size:20px;margin-bottom:10px;">¥'+p.price.toLocaleString()+'</div>'+
+    '<p>'+esc(p.desc)+'</p>'+
+    '<button type="button" class="btn-mini" style="max-width:220px;" data-action="add-cart" data-product="'+p.id+'">カートに追加</button>'+
+    popup+
+    '<p style="margin-top:18px;"><button type="button" class="link" data-nav="shop://home">← 商品一覧へ戻る</button> ・ <button type="button" class="link" data-nav="shop://cart">カートを見る</button></p>'+
+    '</div>';
+  return {title:p.name, html:html};
+}
+function shopCartHtml(){
+  var rows = cart.map(function(c){
+    var p = SHOP.filter(function(x){ return x.id===c.id; })[0];
+    if (!p) return "";
+    return '<div class="cart-row"><span>'+p.emoji+' '+esc(p.name)+' × '+c.qty+'</span>'+
+      '<span>¥'+(p.price*c.qty).toLocaleString()+' <button type="button" class="btn-outline" data-action="remove-cart" data-product="'+p.id+'">削除</button></span></div>';
+  }).join("");
+  var total = cart.reduce(function(sum,c){
+    var p = SHOP.filter(function(x){ return x.id===c.id; })[0];
+    return sum + (p ? p.price*c.qty : 0);
+  }, 0);
+  var html = '<div class="pg"><h1>🛒 カート</h1>'+
+    (cart.length ? rows+'<div style="text-align:right;margin-top:12px;font-size:15px;">合計: ¥'+total.toLocaleString()+'</div>' : '<p style="color:var(--page-text-dim);">カートは空です。</p>')+
+    '<p style="margin-top:18px;"><button type="button" class="link" data-nav="shop://home">← 商品一覧へ戻る</button></p>'+
+    '</div>';
+  return {title:"カート", html:html};
+}
+function renderShop(u){
+  if (!u.path || u.path==="home") return {title:"ショップ", html:shopHomeHtml()};
+  if (u.path==="cart") return shopCartHtml();
+  var m = /^product\/(\d+)$/.exec(u.path);
+  if (m){
+    var p = SHOP.filter(function(x){ return String(x.id)===m[1]; })[0];
+    if (p) return shopProductHtml(p);
+  }
+  return null;
+}
+
+function bbsHomeHtml(){
+  var rows = BBS.map(function(t){
+    var extra = (userForumPosts[t.id]||[]).length;
+    return '<div class="thread-row" data-nav="bbs://thread/'+t.id+'"><span>💬 '+esc(t.title)+'</span><span style="color:var(--page-text-dim);font-size:12px;">'+(t.posts.length+extra)+'件の投稿</span></div>';
+  }).join("");
+  return '<div class="pg"><h1>💬 掲示板コミュニティ</h1>'+rows+'</div>';
+}
+function bbsThreadHtml(t){
+  var extraPosts = userForumPosts[t.id]||[];
+  var allPosts = t.posts.concat(extraPosts);
+  var posts = allPosts.map(function(p){
+    return '<div class="post"><div class="pa">'+esc(p.a)+'</div><div class="pt">'+esc(p.t)+'</div></div>';
+  }).join("");
+  var html = '<div class="pg"><span class="url-chip">bbs://thread/'+t.id+'</span>'+
+    '<h1>'+esc(t.title)+'</h1>'+posts+
+    '<div class="reply-box"><h2>返信を投稿</h2>'+
+    '<input type="text" placeholder="お名前（省略可）" class="reply-name" style="margin-bottom:8px;">'+
+    '<textarea placeholder="返信内容を入力してください" class="reply-text"></textarea>'+
+    '<button type="button" class="btn-mini" style="max-width:160px;margin-top:8px;" data-action="bbs-reply" data-thread="'+t.id+'">投稿する</button>'+
+    '</div>'+
+    '<p style="margin-top:18px;"><button type="button" class="link" data-nav="bbs://home">← 掲示板一覧へ戻る</button></p>'+
+    '</div>';
+  return {title:t.title, html:html};
+}
+function renderBbs(u){
+  if (!u.path || u.path==="home") return {title:"掲示板", html:bbsHomeHtml()};
+  var m = /^thread\/(\d+)$/.exec(u.path);
+  if (m){
+    var t = BBS.filter(function(x){ return String(x.id)===m[1]; })[0];
+    if (t) return bbsThreadHtml(t);
+  }
+  return null;
+}
+
+function renderNotFound(url, isRealInternet){
+  var html = '<div class="pg" style="text-align:center;margin-top:60px;">'+
+    '<div style="font-size:44px;">'+(isRealInternet?"🌐":"❓")+'</div>'+
+    '<h1>'+(isRealInternet ? "実際のインターネットには接続できません" : "ページが見つかりません")+'</h1>'+
+    '<p style="color:var(--page-text-dim);">'+esc(url||"")+'</p>'+
+    (isRealInternet
+      ? '<p>このブラウザはオフラインの模擬ウェブ環境です。安全のため実在のウェブサイトへは接続しません。かわりに検索・百科事典・ニュース・ショッピング・掲示板などの内蔵コンテンツをお楽しみください。</p>'
+      : '<p>入力されたURLに対応するページが見つかりませんでした。アドレスを確認するか、検索をお試しください。</p>')+
+    '<p style="margin-top:16px;"><button type="button" class="link" data-nav="newtab://home">新しいタブへ戻る</button></p>'+
+    '</div>';
+  return {title:"見つかりません", html:html};
+}
+
+function renderBookmarksPage(){
+  var rows = bookmarks.length ? bookmarks.map(function(b,i){
+    var icon = b.type==="snippet" ? "💻" : "⭐";
+    return '<div class="bm-row"><div class="bminfo"><div class="bmtitle">'+icon+' '+esc(b.title)+'</div><div class="bmurl">'+esc(b.url)+'</div></div>'+
+      '<div style="display:flex;gap:6px;flex-shrink:0;"><button type="button" class="btn-outline" data-action="open-bookmark" data-idx="'+i+'">開く</button>'+
+      '<button type="button" class="btn-outline" data-action="delete-bookmark" data-idx="'+i+'">削除</button></div></div>';
+  }).join("") : '<p style="color:var(--page-text-dim);">ブックマークはまだありません。アドレスバー横の☆で追加できます。</p>';
+  return '<div class="pg"><h1>⭐ ブックマーク管理</h1>'+rows+'</div>';
+}
+function renderHistoryPage(){
+  var rows = history.map(function(h,i){ return {h:h, idx:i}; }).slice().reverse().map(function(o){
+    var search = (o.h.title+" "+o.h.url).toLowerCase();
+    return '<div class="history-row" data-search="'+esc(search)+'"><div class="hinfo"><div class="htitle">'+esc(o.h.title)+'</div><div class="hurl">'+esc(o.h.url)+' ・ '+fmtTime(o.h.ts)+'</div></div>'+
+      '<div style="display:flex;gap:6px;flex-shrink:0;"><button type="button" class="btn-outline" data-action="open-bookmark" data-url="'+esc(o.h.url)+'">開く</button>'+
+      '<button type="button" class="btn-outline" data-action="delete-history" data-hidx="'+o.idx+'">削除</button></div></div>';
+  }).join("") || '<p style="color:var(--page-text-dim);">履歴はまだありません。</p>';
+  return '<div class="pg"><h1>🕒 履歴</h1>'+
+    '<input type="text" class="filter-input history-filter" placeholder="履歴を検索...">'+
+    '<button type="button" class="settings-btn danger" data-action="clear-history" style="max-width:220px;">履歴をすべて削除</button>'+
+    rows+'</div>';
+}
+function renderSettingsPage(){
+  return '<div class="pg"><h1>⚙️ 設定</h1>'+
+    '<button type="button" class="settings-btn" data-action="reset-extensions">拡張機能を初期状態（すべて無効）に戻す</button>'+
+    '<button type="button" class="settings-btn danger" data-action="clear-all">履歴とブックマークをすべて削除</button>'+
+    '<h2>このブラウザについて</h2>'+
+    '<p>このブラウザは学習・体験用のオフラインシミュレーションです。詳しくは<button type="button" class="link" data-nav="internal://about">このブラウザについて</button>のページをご覧ください。</p>'+
+    '</div>';
+}
+function renderAboutPage(){
+  return '<div class="pg"><h1>🌐 このブラウザについて</h1>'+
+    '<p>「ウェブブラウザ」は、タブ・拡張機能・ブックマーク・履歴など、本物のブラウザに近い操作感を再現した自己完結型のアプリです。ただし実際の外部ネットワークには一切接続していません。</p>'+
+    '<p>閲覧できるのは、このアプリ自身が内蔵しているオフラインの「模擬ウェブ」です。検索エンジン・百科事典・ニュースサイト・ショッピングサイト・掲示板といった複数の模擬サイトが互いにリンクしあっており、実際にウェブを回遊しているような感覚で楽しめます。</p>'+
+    '<p>「コード実行タブ」では、ご自身で書いたHTML・CSS・JavaScriptをその場でプレビューできます。このタブの内容は他のタブや拡張機能から独立しており、安全に試すことができます。</p>'+
+    '<p>拡張機能はすべて、このアプリの中だけで完結する本物の機能として実装されています。ダウンロードが必要な外部プログラムではなく、ダークモードや広告非表示、パスワード生成、QRコード表示など、その場で実際に動作します。</p>'+
+    '<p style="margin-top:16px;"><button type="button" class="link" data-nav="internal://settings">設定に戻る</button></p>'+
+    '</div>';
+}
+function renderInternal(u){
+  switch(u.path){
+    case "bookmarks": return {title:"ブックマーク管理", html:renderBookmarksPage()};
+    case "history": return {title:"履歴", html:renderHistoryPage()};
+    case "settings": return {title:"設定", html:renderSettingsPage()};
+    case "about": return {title:"このブラウザについて", html:renderAboutPage()};
+    default: return null;
+  }
+}
+
+function renderPageHtml(url){
+  var u = parseUrl(url);
+  var result = null;
+  switch(u.scheme){
+    case "newtab": result = renderNewTab(); break;
+    case "search":
+      if (!u.path || u.path==="home") result = renderSearchHome();
+      else if (u.path==="results") result = renderSearchResults(u.query.q||"");
+      break;
+    case "wiki": result = renderWiki(u); break;
+    case "news": result = renderNews(u); break;
+    case "shop": result = renderShop(u); break;
+    case "bbs": result = renderBbs(u); break;
+    case "internal": result = renderInternal(u); break;
+    case "http": case "https":
+      return renderNotFound(url, true);
+  }
+  if (!result) return renderNotFound(url, false);
+  return result;
+}
+function schemeIcon(url){
+  var u = parseUrl(url);
+  switch(u.scheme){
+    case "newtab": return "🌐";
+    case "search": return "🔍";
+    case "wiki": return "📖";
+    case "news": return "📰";
+    case "shop": return "🛒";
+    case "bbs": return "💬";
+    case "internal": return "⚙️";
+    default: return "🌐";
+  }
+}
+function shouldLogHistory(url){
+  var u = parseUrl(url);
+  return ["wiki","news","shop","bbs","search"].indexOf(u.scheme)>=0;
+}
+
+/* =========================================================
+   4. 状態: ブックマーク・履歴・拡張機能・カート・掲示板投稿
+   ========================================================= */
+var bookmarks = [];
+var history = [];
+var extState = {};
+var cart = [];
+var userForumPosts = {};
+var notesText = "";
+var prefs = {showBookmarksBar:true};
+
+var EXT_DEFS = [
+  {id:"darkmode", name:"ダークモード", icon:"🌙", desc:"模擬ページの配色をダークテーマに切り替えます", toolbar:false},
+  {id:"adblock", name:"広告非表示", icon:"🚫", desc:"ニュースサイトなどの広告枠を非表示にします", toolbar:false},
+  {id:"pwgen", name:"パスワード生成", icon:"🔑", desc:"条件を指定してランダムなパスワードを生成します", toolbar:true},
+  {id:"qrshare", name:"QRコードで共有", icon:"📱", desc:"現在のページの内部URLをQRコードで表示します", toolbar:true},
+  {id:"tts", name:"読み上げ", icon:"🔊", desc:"現在のページの本文を音声で読み上げます", toolbar:true},
+  {id:"translate", name:"翻訳辞書", icon:"🌐", desc:"ページ内の単語を選択すると簡易辞書で翻訳します", toolbar:false},
+  {id:"zoom", name:"ページ内ズーム", icon:"🔎", desc:"現在のページの表示倍率を変更します", toolbar:true},
+  {id:"reader", name:"リーダーモード", icon:"📖", desc:"記事ページを読みやすいシンプル表示に切り替えます", toolbar:true},
+  {id:"capture", name:"キャプチャカード保存", icon:"🖼️", desc:"現在のタブの要約カード画像をPNGで保存します", toolbar:true},
+  {id:"colorpicker", name:"カラーピッカー（スポイト）", icon:"💧", desc:"クリックした要素の色をHEX値で取得します", toolbar:true},
+  {id:"notes", name:"メモ帳サイドパネル", icon:"📝", desc:"閲覧しながらメモを取れるサイドパネルを開きます", toolbar:true},
+  {id:"tabsearch", name:"タブ検索", icon:"🔍", desc:"開いているタブを名前で素早く検索して切り替えます", toolbar:true},
+  {id:"bookmarkio", name:"ブックマークのエクスポート/インポート", icon:"💾", desc:"ブックマークをJSONで書き出し・読み込みします", toolbar:true},
+  {id:"scrolltop", name:"スクロールトップボタン", icon:"⬆️", desc:"下にスクロールすると先頭に戻るボタンを表示します", toolbar:false},
+  {id:"newtabwidgets", name:"新しいタブウィジェット", icon:"🧩", desc:"新しいタブに時計とヒントのウィジェットを表示します", toolbar:false},
+  {id:"popupblock", name:"ポップアップブロック実演", icon:"🛡️", desc:"ショップページのポップアップ広告演出をブロックします", toolbar:false},
+  {id:"magnifier", name:"拡大鏡（ルーペ）", icon:"🔬", desc:"マウスカーソル付近の内容を拡大表示します", toolbar:false},
+  {id:"mute", name:"ミュートタブ", icon:"🔇", desc:"読み上げやデモ音声などの音を無効にします", toolbar:false}
+];
+function defaultExtState(){
+  var s = {};
+  EXT_DEFS.forEach(function(e){ s[e.id]=false; });
+  return s;
+}
+
+/* =========================================================
+   5. タブ管理
+   ========================================================= */
+var tabs = [];
+var activeTabId = null;
+var tabSeq = 0;
+var MAX_TABS = 8;
+var pickerArmed = false;
+
+function getTab(id){ return tabs.filter(function(t){ return t.id===id; })[0] || null; }
+function getActiveTab(){ return getTab(activeTabId); }
+
+function createTab(type, url){
+  if (tabs.length>=MAX_TABS){ notify("タブは最大"+MAX_TABS+"個までです", {type:"info"}); return null; }
+  var id = "t"+(++tabSeq);
+  var tab = {
+    id:id, type:type, zoom:1, readerPages:{}, clockInterval:null, tipTimer:null, tipIndex:0
+  };
+  if (type==="code"){
+    tab.title = "コード実行";
+    tab.icon = "💻";
+    tab.code = {html:"<h1>こんにちは</h1>\n<p>ここにHTMLを書いてプレビューできます。</p>", css:"h1{color:#2f6fed;font-family:sans-serif;}\np{font-family:sans-serif;}", js:"console.log('code preview ready');", active:"html"};
+  } else {
+    tab.history = [url||"newtab://home"];
+    tab.historyIndex = 0;
+    tab.title = "新しいタブ";
+    tab.icon = "🌐";
+  }
+  tabs.push(tab);
+  setActiveTab(id);
+  renderTabStrip();
+  return tab;
+}
+
+function ensurePanel(tab){
+  if (tab.el) return tab.el;
+  var el = document.createElement("div");
+  el.className = "tab-panel";
+  el.dataset.tabId = tab.id;
+  document.getElementById("tabContentArea").appendChild(el);
+  tab.el = el;
+  if (tab.type==="web"){
+    el.innerHTML = '<div class="page-inner"></div><button type="button" class="scrolltop-btn" data-action="scroll-top">▲ 上へ</button>';
+    renderInto(tab);
+  } else {
+    buildCodeTabUI(tab);
+  }
+  return el;
+}
+
+function stopTabTimers(tab){
+  if (tab.clockInterval){ clearInterval(tab.clockInterval); tab.clockInterval=null; }
+}
+
+function renderInto(tab){
+  if (tab.type!=="web") return;
+  stopTabTimers(tab);
+  var url = tab.history[tab.historyIndex];
+  var data = renderPageHtml(url);
+  var inner = tab.el.querySelector(".page-inner");
+  while (inner.firstChild) inner.removeChild(inner.firstChild);
+  var useReader = tab.readerPages[url] && data.readerHtml;
+  inner.innerHTML = useReader ? data.readerHtml : data.html;
+  inner.classList.toggle("reader-mode", !!useReader);
+  tab.title = data.title;
+  tab.icon = schemeIcon(url);
+  tab.el.scrollTop = 0;
+  applyZoom(tab);
+  if (parseUrl(url).scheme==="newtab" && extState.newtabwidgets) startNewTabWidgets(tab);
+  if (shouldLogHistory(url) && !data._noLog){
+    history.push({url:url, title:data.title, ts:Date.now()});
+    Store.set("history", history);
+  }
+}
+
+function startNewTabWidgets(tab){
+  var clockEl = tab.el.querySelector(".clock-widget");
+  var tipEl = tab.el.querySelector(".tip-widget");
+  if (!clockEl) return;
+  function tick(){
+    var d = new Date();
+    function p(n){ return (n<10?"0":"")+n; }
+    clockEl.textContent = p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds());
+    if (d.getSeconds()%8===0){
+      tab.tipIndex = (tab.tipIndex+1)%NEWTAB_TIPS.length;
+      if (tipEl) tipEl.textContent = "💡 " + NEWTAB_TIPS[tab.tipIndex];
+    } else if (tipEl && tipEl.textContent==="読み込み中…"){
+      tipEl.textContent = "💡 " + NEWTAB_TIPS[tab.tipIndex];
+    }
+  }
+  tick();
+  tab.clockInterval = setInterval(tick, 1000);
+}
+
+function navigateTab(tabId, url, opts){
+  opts = opts || {};
+  var tab = getTab(tabId);
+  if (!tab || tab.type!=="web") return;
+  ensurePanel(tab);
+  if (!opts.fromHistory){
+    tab.history = tab.history.slice(0, tab.historyIndex+1);
+    tab.history.push(url);
+    tab.historyIndex = tab.history.length-1;
+  }
+  renderInto(tab);
+  if (tabId===activeTabId) refreshChrome();
+  renderTabStrip();
+}
+function goBack(tabId){
+  var tab = getTab(tabId);
+  if (!tab || tab.type!=="web" || tab.historyIndex<=0) return;
+  tab.historyIndex--;
+  renderInto(tab);
+  refreshChrome(); renderTabStrip();
+}
+function goForward(tabId){
+  var tab = getTab(tabId);
+  if (!tab || tab.type!=="web" || tab.historyIndex>=tab.history.length-1) return;
+  tab.historyIndex++;
+  renderInto(tab);
+  refreshChrome(); renderTabStrip();
+}
+function reloadTab(tabId){
+  var tab = getTab(tabId);
+  if (!tab) return;
+  if (tab.type==="web") renderInto(tab);
+  else updateCodePreview(tab);
+  refreshChrome();
+}
+
+function setActiveTab(id){
+  var tab = getTab(id);
+  if (!tab) return;
+  activeTabId = id;
+  ensurePanel(tab);
+  tabs.forEach(function(t){
+    if (t.el) t.el.classList.toggle("active", t.id===id);
+  });
+  refreshChrome();
+  renderTabStrip();
+  closePopover();
+}
+
+function closeTab(tabId){
+  var idx = tabs.findIndex(function(t){ return t.id===tabId; });
+  if (idx<0) return;
+  var tab = tabs[idx];
+  stopTabTimers(tab);
+  if (tab.el && tab.el.parentNode) tab.el.parentNode.removeChild(tab.el);
+  tabs.splice(idx,1);
+  if (tabs.length===0){
+    createTab("web","newtab://home");
+    return;
+  }
+  if (activeTabId===tabId){
+    var newActive = tabs[Math.max(0, idx-1)];
+    setActiveTab(newActive.id);
+  } else {
+    renderTabStrip();
+  }
+}
+
+function renderTabStrip(){
+  var strip = document.getElementById("tabStrip");
+  strip.innerHTML = tabs.map(function(t){
+    var active = t.id===activeTabId ? " active" : "";
+    return '<div class="tab-item'+active+'" data-tabid="'+t.id+'" data-tabact="switch">'+
+      '<span class="tab-icon">'+t.icon+'</span><span class="tab-title">'+esc(truncate(t.title,16))+'</span>'+
+      '<button type="button" class="tab-close" data-tabid="'+t.id+'" data-tabact="close">✕</button></div>';
+  }).join("");
+}
+
+function refreshChrome(){
+  var tab = getActiveTab();
+  var backBtn = document.getElementById("backBtn");
+  var fwdBtn = document.getElementById("fwdBtn");
+  var addressBar = document.getElementById("addressBar");
+  var starBtn = document.getElementById("starBtn");
+  if (!tab){ return; }
+  if (tab.type==="code"){
+    backBtn.disabled = true; fwdBtn.disabled = true;
+    addressBar.value = "コード実行タブ（アドレスバーは使用できません）";
+    addressBar.disabled = true;
+    starBtn.classList.remove("starred"); starBtn.textContent = "☆";
+  } else {
+    addressBar.disabled = false;
+    backBtn.disabled = tab.historyIndex<=0;
+    fwdBtn.disabled = tab.historyIndex>=tab.history.length-1;
+    var url = tab.history[tab.historyIndex];
+    addressBar.value = url;
+    var isBm = bookmarks.some(function(b){ return b.url===url; });
+    starBtn.classList.toggle("starred", isBm);
+    starBtn.textContent = isBm ? "★" : "☆";
+  }
+  renderBookmarksBar();
+}
+
+/* =========================================================
+   6. コード実行タブ
+   ========================================================= */
+function buildCodeTabUI(tab){
+  tab.el.innerHTML =
+    '<div class="code-tab-wrap">'+
+      '<div class="code-editor-tabs">'+
+        '<button type="button" data-editor="html" class="active">HTML</button>'+
+        '<button type="button" data-editor="css">CSS</button>'+
+        '<button type="button" data-editor="js">JS</button>'+
+      '</div>'+
+      '<div class="code-editor-body">'+
+        '<div class="code-editor-panes"><textarea class="code-input"></textarea></div>'+
+        '<div class="code-preview-pane"><iframe sandbox="allow-scripts"></iframe></div>'+
+      '</div>'+
+      '<div class="code-editor-actions"><button type="button" class="run-btn" data-action="code-run">更新</button>'+
+      '<span class="code-note">このタブの内容は他のタブや拡張機能から独立しています</span></div>'+
+    '</div>';
+  var textarea = tab.el.querySelector(".code-input");
+  textarea.value = tab.code.html;
+  tab.el.querySelectorAll(".code-editor-tabs button").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      tab.code[tab.code.active] = textarea.value;
+      tab.code.active = btn.dataset.editor;
+      tab.el.querySelectorAll(".code-editor-tabs button").forEach(function(b){ b.classList.toggle("active", b===btn); });
+      textarea.value = tab.code[tab.code.active];
+    });
+  });
+  textarea.addEventListener("input", function(){ tab.code[tab.code.active] = textarea.value; });
+  updateCodePreview(tab);
+}
+function updateCodePreview(tab){
+  var textarea = tab.el.querySelector(".code-input");
+  if (textarea) tab.code[tab.code.active] = textarea.value;
+  var iframe = tab.el.querySelector("iframe");
+  var doc = "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><style>"+tab.code.css+"</style></head><body>"+tab.code.html+"<script>"+tab.code.js+"<\/script></body></html>";
+  iframe.setAttribute("srcdoc", doc);
+}
+function refreshCodeEditorUI(tab){
+  if (!tab.el) return;
+  var textarea = tab.el.querySelector(".code-input");
+  tab.code.active = "html";
+  tab.el.querySelectorAll(".code-editor-tabs button").forEach(function(b){ b.classList.toggle("active", b.dataset.editor==="html"); });
+  if (textarea) textarea.value = tab.code.html;
+  updateCodePreview(tab);
+}
+
+/* =========================================================
+   7. ブックマーク / 履歴 の操作
+   ========================================================= */
+function openBookmarkByIndex(i){
+  var bm = bookmarks[i];
+  if (!bm) return;
+  openBookmarkObj(bm);
+}
+function openBookmarkByUrl(url){
+  var bm = bookmarks.filter(function(b){ return b.url===url; })[0];
+  if (bm){ openBookmarkObj(bm); return; }
+  openPlainUrl(url);
+}
+function openBookmarkObj(bm){
+  if (bm.type==="snippet"){
+    var tab = createTab("code");
+    tab.code.html = bm.html; tab.code.css = bm.css; tab.code.js = bm.js; tab.title = bm.title;
+    refreshCodeEditorUI(tab);
+    renderTabStrip();
+  } else {
+    openPlainUrl(bm.url);
+  }
+}
+function openPlainUrl(url){
+  var tab = getActiveTab();
+  if (!tab || tab.type!=="web") tab = createTab("web", url);
+  else navigateTab(tab.id, url);
+}
+function toggleBookmarkCurrent(){
+  var tab = getActiveTab();
+  if (!tab) return;
+  if (tab.type==="code"){
+    var name = prompt("スニペット名を入力してください", tab.title||"マイスニペット");
+    if (!name) return;
+    var textarea = tab.el.querySelector(".code-input");
+    if (textarea) tab.code[tab.code.active] = textarea.value;
+    bookmarks.push({url:"code://snippet/"+Date.now(), title:name, type:"snippet", html:tab.code.html, css:tab.code.css, js:tab.code.js, ts:Date.now()});
+    Store.set("bookmarks", bookmarks);
+    notify("スニペットを保存しました", {type:"success"});
+    renderBookmarksBar();
+    return;
+  }
+  var url = tab.history[tab.historyIndex];
+  var idx = bookmarks.findIndex(function(b){ return b.url===url; });
+  if (idx>=0){
+    bookmarks.splice(idx,1);
+    notify("ブックマークを削除しました", {type:"info"});
+  } else {
+    bookmarks.push({url:url, title:tab.title, type:"page", ts:Date.now()});
+    notify("ブックマークに追加しました", {type:"success"});
+  }
+  Store.set("bookmarks", bookmarks);
+  refreshChrome();
+}
+function renderBookmarksBar(){
+  var bar = document.getElementById("bookmarksBar");
+  bar.hidden = !prefs.showBookmarksBar;
+  if (!prefs.showBookmarksBar) return;
+  if (!bookmarks.length){
+    bar.innerHTML = '<span class="bookmarks-empty">ブックマークはまだありません。☆ボタンで追加できます。</span>';
+    return;
+  }
+  bar.innerHTML = bookmarks.map(function(b,i){
+    var icon = b.type==="snippet" ? "💻" : "⭐";
+    return '<div class="bookmark-chip" data-action="open-bookmark" data-idx="'+i+'">'+icon+' '+esc(truncate(b.title,16))+'</div>';
+  }).join("");
+}
+
+/* =========================================================
+   8. 拡張機能: エフェクト適用
+   ========================================================= */
+function applyGlobalExtClasses(){
+  document.documentElement.classList.toggle("ext-darkmode-on", !!extState.darkmode);
+  document.getElementById("tabContentArea").classList.toggle("adblock-on", !!extState.adblock);
+}
+function applyZoom(tab){
+  if (tab.type!=="web") return;
+  var inner = tab.el.querySelector(".page-inner");
+  if (!inner) return;
+  inner.style.transform = "scale("+tab.zoom+")";
+  inner.style.width = (100/tab.zoom)+"%";
+}
+function renderExtToolbar(){
+  var bar = document.getElementById("extToolbar");
+  bar.innerHTML = EXT_DEFS.filter(function(e){ return e.toolbar && extState[e.id]; }).map(function(e){
+    return '<button type="button" class="icon-btn ext-tool-btn" data-extid="'+e.id+'" title="'+esc(e.name)+'">'+e.icon+'</button>';
+  }).join("");
+  document.getElementById("notesToggleTop").hidden = !extState.notes;
+}
+function onExtToolbarClick(extId){
+  switch(extId){
+    case "reader": toggleReaderMode(); return;
+    case "notes": toggleNotesPanel(); return;
+    case "colorpicker": toggleColorPickerArm(); return;
+    default: togglePopover(extId); return;
+  }
+}
+function toggleReaderMode(){
+  var tab = getActiveTab();
+  if (!tab || tab.type!=="web"){ notify("このタブではリーダーモードは使用できません", {type:"info"}); return; }
+  var url = tab.history[tab.historyIndex];
+  var data = renderPageHtml(url);
+  if (!data.readerHtml){ notify("このページはリーダーモードに対応していません", {type:"info"}); return; }
+  tab.readerPages[url] = !tab.readerPages[url];
+  renderInto(tab);
+  notify(tab.readerPages[url] ? "リーダーモードをオンにしました" : "リーダーモードをオフにしました", {type:"info"});
+}
+function toggleColorPickerArm(){
+  if (!extState.colorpicker){ notify("先に拡張機能パネルでカラーピッカーを有効にしてください", {type:"info"}); return; }
+  pickerArmed = !pickerArmed;
+  var btn = document.querySelector('.ext-tool-btn[data-extid="colorpicker"]');
+  if (btn) btn.classList.toggle("active-state", pickerArmed);
+  notify(pickerArmed ? "ページ内の要素をクリックして色を取得してください" : "カラーピッカーを解除しました", {type:"info"});
+}
+
+/* =========================================================
+   9. ポップオーバー
+   ========================================================= */
+var currentPopoverExt = null;
+function openPopover(extId, titleOverride, bodyHtml){
+  currentPopoverExt = extId;
+  document.getElementById("popoverTitle").textContent = titleOverride;
+  document.getElementById("popoverBody").innerHTML = bodyHtml;
+  document.getElementById("popoverRoot").classList.add("open");
+}
+function closePopover(){
+  document.getElementById("popoverRoot").classList.remove("open");
+  currentPopoverExt = null;
+}
+function togglePopover(extId){
+  if (currentPopoverExt===extId){ closePopover(); return; }
+  var def = EXT_DEFS.filter(function(e){ return e.id===extId; })[0];
+  switch(extId){
+    case "pwgen": openPwgenPopover(def); break;
+    case "qrshare": openQrPopover(def); break;
+    case "tts": openTtsPopover(def); break;
+    case "zoom": openZoomPopover(def); break;
+    case "capture": openCapturePopover(def); break;
+    case "tabsearch": openTabSearchPopover(def); break;
+    case "bookmarkio": openBookmarkioPopover(def); break;
+    default: closePopover();
+  }
+}
+
+function openPwgenPopover(def){
+  var body =
+    '<label>長さ: <span id="pwLenVal">16</span>文字</label>'+
+    '<input type="range" id="pwLen" min="4" max="64" value="16">'+
+    '<div class="pw-opts">'+
+    '<label><input type="checkbox" id="pwUpper" checked> 大文字 (A-Z)</label>'+
+    '<label><input type="checkbox" id="pwLower" checked> 小文字 (a-z)</label>'+
+    '<label><input type="checkbox" id="pwDigit" checked> 数字 (0-9)</label>'+
+    '<label><input type="checkbox" id="pwSymbol"> 記号 (!@#$%)</label>'+
+    '</div>'+
+    '<button type="button" class="act" id="pwGenBtn">生成</button>'+
+    '<div class="pw-result"><input type="text" id="pwOut" readonly><button type="button" class="act secondary" id="pwCopyBtn">コピー</button></div>';
+  openPopover("pwgen", "🔑 パスワード生成", body);
+  var lenInput = document.getElementById("pwLen");
+  var lenVal = document.getElementById("pwLenVal");
+  lenInput.addEventListener("input", function(){ lenVal.textContent = lenInput.value; });
+  document.getElementById("pwGenBtn").addEventListener("click", function(){
+    var sets = [];
+    if (document.getElementById("pwUpper").checked) sets.push("ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+    if (document.getElementById("pwLower").checked) sets.push("abcdefghijklmnopqrstuvwxyz");
+    if (document.getElementById("pwDigit").checked) sets.push("0123456789");
+    if (document.getElementById("pwSymbol").checked) sets.push("!@#$%^&*()-_=+");
+    if (!sets.length){ notify("少なくとも1つの文字種を選択してください", {type:"error"}); return; }
+    var all = sets.join("");
+    var len = parseInt(lenInput.value,10);
+    var out = "";
+    var randArr = null;
+    try{
+      if (window.crypto && crypto.getRandomValues) randArr = crypto.getRandomValues(new Uint32Array(len));
+    }catch(e){}
+    for (var i=0;i<len;i++){
+      var r = randArr ? randArr[i] : Math.floor(Math.random()*4294967296);
+      out += all[r % all.length];
+    }
+    document.getElementById("pwOut").value = out;
+  });
+  document.getElementById("pwCopyBtn").addEventListener("click", function(){
+    var v = document.getElementById("pwOut").value;
+    if (!v){ notify("先にパスワードを生成してください", {type:"info"}); return; }
+    copyText(v);
+  });
+}
+
+function openQrPopover(def){
+  var tab = getActiveTab();
+  var url = (tab && tab.type==="web") ? tab.history[tab.historyIndex] : "code://tab/"+(tab?tab.id:"");
+  var body = '<div class="qr-canvas-wrap"><canvas id="qrCanvas"></canvas></div>'+
+    '<div style="word-break:break-all;font-family:monospace;font-size:11px;margin-top:8px;color:var(--text-dim);">'+esc(url)+'</div>'+
+    '<button type="button" class="act" id="qrCopyBtn">URLをコピー</button>';
+  openPopover("qrshare", "📱 QRコードで共有", body);
+  try{
+    var result = QR.encode(url);
+    QR.drawToCanvas(document.getElementById("qrCanvas"), result);
+  }catch(e){
+    document.getElementById("popoverBody").innerHTML += '<p style="color:var(--danger);">QRコードの生成に失敗しました。</p>';
+  }
+  document.getElementById("qrCopyBtn").addEventListener("click", function(){ copyText(url); });
+}
+
+var ttsUtterance = null;
+function openTtsPopover(def){
+  var body = '<p style="color:var(--text-dim);">現在のページの本文を読み上げます。</p>'+
+    '<button type="button" class="act" id="ttsPlayBtn">▶ 再生</button> '+
+    '<button type="button" class="act secondary" id="ttsStopBtn">■ 停止</button>'+
+    '<div id="ttsStatus" style="margin-top:8px;color:var(--text-dim);"></div>';
+  openPopover("tts", "🔊 読み上げ", body);
+  var statusEl = document.getElementById("ttsStatus");
+  document.getElementById("ttsPlayBtn").addEventListener("click", function(){
+    if (extState.mute){ notify("ミュート中のため読み上げできません", {type:"info"}); return; }
+    if (!("speechSynthesis" in window)){ statusEl.textContent = "この環境では読み上げに対応していません"; return; }
+    var tab = getActiveTab();
+    if (!tab || tab.type!=="web"){ statusEl.textContent = "このタブは読み上げに対応していません"; return; }
+    var inner = tab.el.querySelector(".page-inner");
+    var nodes = inner.querySelectorAll("h1,h2,h3,p,li");
+    var text = Array.prototype.map.call(nodes, function(n){ return n.textContent; }).join("。 ").slice(0,1200);
+    if (!text){ statusEl.textContent = "読み上げるテキストが見つかりません"; return; }
+    try{
+      window.speechSynthesis.cancel();
+      ttsUtterance = new SpeechSynthesisUtterance(text);
+      ttsUtterance.lang = "ja-JP";
+      statusEl.textContent = "読み上げ中...";
+      ttsUtterance.onend = function(){ statusEl.textContent = "読み上げが完了しました"; };
+      window.speechSynthesis.speak(ttsUtterance);
+    }catch(e){ statusEl.textContent = "読み上げでエラーが発生しました"; }
+  });
+  document.getElementById("ttsStopBtn").addEventListener("click", function(){
+    try{ if ("speechSynthesis" in window) window.speechSynthesis.cancel(); }catch(e){}
+    statusEl.textContent = "停止しました";
+  });
+}
+
+function openZoomPopover(def){
+  var tab = getActiveTab();
+  var body = '<div style="text-align:center;font-size:22px;margin-bottom:8px;" id="zoomPct">'+Math.round((tab?tab.zoom:1)*100)+'%</div>'+
+    '<div style="display:flex;gap:8px;justify-content:center;">'+
+    '<button type="button" class="act secondary" data-zoom="out">－</button>'+
+    '<button type="button" class="act secondary" data-zoom="reset">リセット</button>'+
+    '<button type="button" class="act secondary" data-zoom="in">＋</button>'+
+    '</div>';
+  openPopover("zoom", "🔎 ページ内ズーム", body);
+  document.querySelectorAll("#popoverBody [data-zoom]").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var t = getActiveTab();
+      if (!t || t.type!=="web") return;
+      if (btn.dataset.zoom==="in") t.zoom = Math.min(2.0, +(t.zoom+0.1).toFixed(2));
+      else if (btn.dataset.zoom==="out") t.zoom = Math.max(0.6, +(t.zoom-0.1).toFixed(2));
+      else t.zoom = 1;
+      applyZoom(t);
+      document.getElementById("zoomPct").textContent = Math.round(t.zoom*100)+"%";
+    });
+  });
+}
+
+function openCapturePopover(def){
+  var body = '<p style="color:var(--text-dim);">現在のタブの要約カード（タイトル・URL・日時）を画像として保存します。実際の画面キャプチャではありません。</p>'+
+    '<button type="button" class="act" id="captureGenBtn">生成してダウンロード</button>';
+  openPopover("capture", "🖼️ キャプチャカード保存", body);
+  document.getElementById("captureGenBtn").addEventListener("click", function(){
+    var tab = getActiveTab();
+    if (!tab) return;
+    var url = tab.type==="web" ? tab.history[tab.historyIndex] : "code://tab/"+tab.id;
+    var canvas = document.createElement("canvas");
+    canvas.width = 480; canvas.height = 300;
+    var ctx = canvas.getContext("2d");
+    var grad = ctx.createLinearGradient(0,0,480,300);
+    grad.addColorStop(0,"#2f6fed"); grad.addColorStop(1,"#1a1d24");
+    ctx.fillStyle = grad; ctx.fillRect(0,0,480,300);
+    ctx.fillStyle = "rgba(255,255,255,.08)"; ctx.fillRect(20,20,440,260);
+    ctx.fillStyle = "#fff"; ctx.font = "bold 20px sans-serif";
+    ctx.fillText(truncate(tab.title||"", 26), 38, 70);
+    ctx.font = "13px monospace";
+    ctx.fillStyle = "#cfe0ff";
+    ctx.fillText(truncate(url,40), 38, 100);
+    ctx.font = "12px sans-serif";
+    ctx.fillStyle = "#aeb8cc";
+    ctx.fillText(new Date().toLocaleString(), 38, 250);
+    ctx.fillText("ウェブブラウザ ・ 要約カード（実画面キャプチャではありません）", 38, 270);
+    canvas.toBlob(function(blob){
+      if (!blob){ notify("生成に失敗しました", {type:"error"}); return; }
+      try{
+        var a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "capture-card.png";
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(a.href); }, 1000);
+        notify("キャプチャカードを保存しました", {type:"success"});
+      }catch(e){ notify("保存に失敗しました", {type:"error"}); }
+    }, "image/png");
+  });
+}
+
+function openTabSearchPopover(def){
+  var body = '<input type="text" id="tabSearchInput" placeholder="タブ名で検索..." style="margin-bottom:8px;">'+
+    '<div id="tabSearchList"></div>';
+  openPopover("tabsearch", "🔍 タブ検索", body);
+  function renderList(filter){
+    var list = document.getElementById("tabSearchList");
+    var f = (filter||"").toLowerCase();
+    list.innerHTML = tabs.filter(function(t){ return !f || t.title.toLowerCase().indexOf(f)>=0; }).map(function(t){
+      return '<div class="tab-search-item" data-jump="'+t.id+'"><span>'+t.icon+'</span><span>'+esc(truncate(t.title,22))+'</span></div>';
+    }).join("") || '<div style="color:var(--text-dim);padding:8px;">一致するタブがありません</div>';
+    list.querySelectorAll("[data-jump]").forEach(function(el){
+      el.addEventListener("click", function(){ setActiveTab(el.dataset.jump); closePopover(); });
+    });
+  }
+  renderList("");
+  document.getElementById("tabSearchInput").addEventListener("input", function(e){ renderList(e.target.value); });
+}
+
+function openBookmarkioPopover(def){
+  var body = '<button type="button" class="act" id="bmExportBtn">エクスポート（.json）</button>'+
+    '<label>インポートするJSONを貼り付け</label>'+
+    '<textarea id="bmImportArea" placeholder=\'[{"url":"wiki://home","title":"例"}]\'></textarea>'+
+    '<button type="button" class="act secondary" id="bmImportBtn">インポート</button>';
+  openPopover("bookmarkio", "💾 ブックマークのエクスポート/インポート", body);
+  document.getElementById("bmExportBtn").addEventListener("click", function(){
+    try{
+      var blob = new Blob([JSON.stringify(bookmarks, null, 2)], {type:"application/json"});
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "bookmarks.json";
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(a.href); }, 1000);
+      notify("ブックマークを書き出しました", {type:"success"});
+    }catch(e){ notify("書き出しに失敗しました", {type:"error"}); }
+  });
+  document.getElementById("bmImportBtn").addEventListener("click", function(){
+    var raw = document.getElementById("bmImportArea").value.trim();
+    if (!raw){ notify("JSONを貼り付けてください", {type:"info"}); return; }
+    try{
+      var arr = JSON.parse(raw);
+      if (!Array.isArray(arr)) throw new Error("not array");
+      var added = 0;
+      arr.forEach(function(item){
+        if (item && typeof item.url==="string" && typeof item.title==="string"){
+          if (!bookmarks.some(function(b){ return b.url===item.url; })){
+            bookmarks.push({url:item.url, title:item.title, type:item.type||"page", ts:Date.now()});
+            added++;
+          }
+        }
+      });
+      Store.set("bookmarks", bookmarks);
+      renderBookmarksBar(); refreshChrome();
+      notify(added+"件のブックマークをインポートしました", {type:"success"});
+    }catch(e){ notify("正しいJSON配列ではありません", {type:"error"}); }
+  });
+}
+
+/* =========================================================
+   10. 拡張機能パネル
+   ========================================================= */
+function renderExtPanel(){
+  var list = document.getElementById("extList");
+  list.innerHTML = EXT_DEFS.map(function(e){
+    return '<div class="ext-card"><div class="eicon">'+e.icon+'</div>'+
+      '<div class="einfo"><div class="ename">'+esc(e.name)+'</div><div class="edesc">'+esc(e.desc)+'</div></div>'+
+      '<label class="switch"><input type="checkbox" data-extToggle="'+e.id+'" '+(extState[e.id]?"checked":"")+'><span class="slider"></span></label>'+
+      '</div>';
+  }).join("");
+}
+function setExtEnabled(extId, enabled){
+  extState[extId] = enabled;
+  Store.set("extensions", extState);
+  applyGlobalExtClasses();
+  renderExtToolbar();
+  if (extId==="notes" && !enabled) closeNotesPanel();
+  if (extId==="colorpicker" && !enabled) pickerArmed = false;
+  tabs.forEach(function(t){ if (t.type==="web" && t.el) renderInto(t); });
+  if (activeTabId) refreshChrome();
+}
+
+/* =========================================================
+   11. メモ帳サイドパネル
+   ========================================================= */
+var notesSaveTimer = null;
+function openNotesPanel(){
+  document.getElementById("notesPanel").classList.add("open");
+  document.getElementById("notesTextarea").value = notesText;
+}
+function closeNotesPanel(){ document.getElementById("notesPanel").classList.remove("open"); }
+function toggleNotesPanel(){
+  if (!extState.notes){ notify("先に拡張機能パネルでメモ帳を有効にしてください", {type:"info"}); return; }
+  var panel = document.getElementById("notesPanel");
+  if (panel.classList.contains("open")) closeNotesPanel(); else openNotesPanel();
+}
+
+/* =========================================================
+   12. 拡大鏡・翻訳・ポップアップブロック・音声デモ 等
+   ========================================================= */
+var magnifierEl = null;
+function ensureMagnifier(){
+  if (magnifierEl) return magnifierEl;
+  magnifierEl = document.createElement("div");
+  magnifierEl.className = "magnifier-lens";
+  magnifierEl.innerHTML = '<div class="magnifier-inner"></div>';
+  document.body.appendChild(magnifierEl);
+  return magnifierEl;
+}
+function hideMagnifier(){ if (magnifierEl) magnifierEl.style.display = "none"; }
+
+function playDemoTone(){
+  try{
+    var ctx = new (window.AudioContext||window.webkitAudioContext)();
+    var osc = ctx.createOscillator(); var gain = ctx.createGain();
+    osc.frequency.value = 440;
+    osc.connect(gain); gain.connect(ctx.destination);
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    osc.start();
+    osc.frequency.linearRampToValueAtTime(660, ctx.currentTime+0.4);
+    gain.gain.linearRampToValueAtTime(0.0001, ctx.currentTime+0.8);
+    osc.stop(ctx.currentTime+0.85);
+  }catch(e){}
+}
+
+var translateTipEl = null;
+function showTranslateTip(x, y, from, result){
+  if (!translateTipEl){
+    translateTipEl = document.createElement("div");
+    translateTipEl.className = "translate-tip";
+    document.body.appendChild(translateTipEl);
+  }
+  translateTipEl.textContent = result ? (from + " → " + result.to) : (from + " : 辞書に見つかりません");
+  translateTipEl.style.left = Math.min(window.innerWidth-230, x+8) + "px";
+  translateTipEl.style.top = Math.max(8, y-40) + "px";
+  translateTipEl.style.display = "block";
+  clearTimeout(translateTipEl._hideTimer);
+  translateTipEl._hideTimer = setTimeout(function(){ if (translateTipEl) translateTipEl.style.display = "none"; }, 3800);
+}
+
+/* =========================================================
+   13. イベント配線
+   ========================================================= */
+function bindGlobalEvents(){
+  var contentArea = document.getElementById("tabContentArea");
+
+  document.getElementById("backBtn").addEventListener("click", function(){ if (activeTabId) goBack(activeTabId); });
+  document.getElementById("fwdBtn").addEventListener("click", function(){ if (activeTabId) goForward(activeTabId); });
+  document.getElementById("reloadBtn").addEventListener("click", function(){ if (activeTabId) reloadTab(activeTabId); });
+  document.getElementById("starBtn").addEventListener("click", toggleBookmarkCurrent);
+
+  document.getElementById("newtabBtn").addEventListener("click", function(e){
+    e.stopPropagation();
+    document.getElementById("newtabMenu").hidden = !document.getElementById("newtabMenu").hidden;
+  });
+  document.getElementById("newtabMenu").addEventListener("click", function(e){
+    var btn = e.target.closest("[data-newtab-type]");
+    if (!btn) return;
+    createTab(btn.dataset.newtabType, "newtab://home");
+    document.getElementById("newtabMenu").hidden = true;
+  });
+  document.addEventListener("click", function(e){
+    if (!e.target.closest("#newtabMenuWrap")) document.getElementById("newtabMenu").hidden = true;
+  });
+
+  document.getElementById("tabStrip").addEventListener("click", function(e){
+    var closeBtn = e.target.closest('[data-tabact="close"]');
+    if (closeBtn){ e.stopPropagation(); closeTab(closeBtn.dataset.tabid); return; }
+    var item = e.target.closest('[data-tabact="switch"]');
+    if (item) setActiveTab(item.dataset.tabid);
+  });
+
+  var addressBar = document.getElementById("addressBar");
+  var suggestList = document.getElementById("suggestList");
+  function submitAddress(val){
+    suggestList.hidden = true;
+    var tab = getActiveTab();
+    if (!tab || tab.type==="code"){ notify("コード実行タブではアドレスバーは使用できません", {type:"info"}); return; }
+    val = (val===undefined ? addressBar.value : val).trim();
+    if (!val) return;
+    var url;
+    if (/^[a-zA-Z0-9]+:\/\//.test(val)) url = val;
+    else url = "search://results?q=" + encodeURIComponent(val);
+    navigateTab(tab.id, url);
+  }
+  addressBar.addEventListener("keydown", function(e){ if (e.key==="Enter") submitAddress(); });
+  addressBar.addEventListener("input", function(){
+    var q = addressBar.value.trim().toLowerCase();
+    if (!q){ suggestList.hidden = true; return; }
+    var seen = {};
+    var matches = [];
+    bookmarks.forEach(function(b){
+      if (b.title.toLowerCase().indexOf(q)>=0 && !seen[b.url]){ matches.push({title:b.title, url:b.url}); seen[b.url]=1; }
+    });
+    history.slice().reverse().forEach(function(h){
+      if (matches.length>=6) return;
+      if ((h.title.toLowerCase().indexOf(q)>=0 || h.url.toLowerCase().indexOf(q)>=0) && !seen[h.url]){
+        matches.push({title:h.title, url:h.url}); seen[h.url]=1;
+      }
+    });
+    matches = matches.slice(0,6);
+    if (!matches.length){ suggestList.hidden = true; return; }
+    suggestList.innerHTML = matches.map(function(m){
+      return '<div class="suggest-item" data-suggest-url="'+esc(m.url)+'"><div class="suggest-title">'+esc(m.title)+'</div><div class="suggest-url">'+esc(m.url)+'</div></div>';
+    }).join("");
+    suggestList.hidden = false;
+  });
+  suggestList.addEventListener("mousedown", function(e){
+    var item = e.target.closest("[data-suggest-url]");
+    if (item){ submitAddress(item.dataset.suggestUrl); }
+  });
+  document.addEventListener("click", function(e){
+    if (!e.target.closest(".addressbar-wrap")) suggestList.hidden = true;
+  });
+
+  document.getElementById("bookmarksBarBtn").addEventListener("click", function(){
+    prefs.showBookmarksBar = !prefs.showBookmarksBar;
+    Store.set("prefs", prefs);
+    renderBookmarksBar();
+  });
+
+  document.getElementById("extPanelBtn").addEventListener("click", function(){
+    renderExtPanel();
+    document.getElementById("extPanelOverlay").classList.add("open");
+  });
+  document.getElementById("extPanelClose").addEventListener("click", function(){
+    document.getElementById("extPanelOverlay").classList.remove("open");
+  });
+  document.getElementById("extPanelOverlay").addEventListener("click", function(e){
+    if (e.target.id==="extPanelOverlay") document.getElementById("extPanelOverlay").classList.remove("open");
+  });
+  document.getElementById("extList").addEventListener("change", function(e){
+    var cb = e.target.closest("[data-extToggle]");
+    if (cb) setExtEnabled(cb.dataset.exttoggle, cb.checked);
+  });
+
+  document.getElementById("extToolbar").addEventListener("click", function(e){
+    var btn = e.target.closest(".ext-tool-btn");
+    if (btn) onExtToolbarClick(btn.dataset.extid);
+  });
+
+  document.getElementById("popoverClose").addEventListener("click", closePopover);
+  document.addEventListener("mousedown", function(e){
+    var root = document.getElementById("popoverRoot");
+    if (root.classList.contains("open") && !e.target.closest("#popoverRoot") && !e.target.closest(".ext-tool-btn")){
+      closePopover();
+    }
+  });
+
+  document.getElementById("notesToggleTop").addEventListener("click", toggleNotesPanel);
+  document.getElementById("notesClose").addEventListener("click", closeNotesPanel);
+
+  /* --- コンテンツエリアの委任イベント --- */
+  contentArea.addEventListener("click", function(e){
+    var panel = e.target.closest(".tab-panel");
+    if (!panel) return;
+    var tabId = panel.dataset.tabId;
+    var tab = getTab(tabId);
+
+    if (pickerArmed){
+      e.preventDefault(); e.stopPropagation();
+      pickerArmed = false;
+      var b1 = document.querySelector('.ext-tool-btn[data-extid="colorpicker"]');
+      if (b1) b1.classList.remove("active-state");
+      var cs = window.getComputedStyle(e.target);
+      var bg = cs.backgroundColor, col = cs.color;
+      openPopover("colorpicker", "💧 カラーピッカー",
+        '<div class="color-swatch" style="background:'+bg+';"></div>'+
+        '<div style="font-size:12px;color:var(--text-dim);">背景色</div>'+
+        '<div id="pickHex" style="font-family:monospace;margin-bottom:8px;">'+esc(bg)+'</div>'+
+        '<div style="font-size:12px;color:var(--text-dim);">文字色</div>'+
+        '<div style="font-family:monospace;margin-bottom:8px;">'+esc(col)+'</div>'+
+        '<button type="button" class="act" id="pickCopyBtn">コピー</button>');
+      document.getElementById("pickCopyBtn").addEventListener("click", function(){ copyText(bg); });
+      return;
+    }
+
+    var navBtn = e.target.closest("[data-nav]");
+    if (navBtn){ e.preventDefault(); if (tab) navigateTab(tab.id, navBtn.dataset.nav); return; }
+
+    var actionBtn = e.target.closest("[data-action]");
+    if (!actionBtn) return;
+    var action = actionBtn.dataset.action;
+    switch(action){
+      case "scroll-top":
+        panel.scrollTop = 0;
+        break;
+      case "newtab-search-btn": {
+        var form = actionBtn.closest("form");
+        var input = form ? form.querySelector('input[name="q"]') : null;
+        if (input && input.value.trim() && tab) navigateTab(tab.id, "search://results?q="+encodeURIComponent(input.value.trim()));
+        break;
+      }
+      case "add-cart": {
+        var pid = parseInt(actionBtn.dataset.product,10);
+        var existing = cart.filter(function(c){ return c.id===pid; })[0];
+        if (existing) existing.qty++; else cart.push({id:pid, qty:1});
+        Store.set("cart", cart);
+        notify("カートに追加しました", {type:"success"});
+        break;
+      }
+      case "remove-cart": {
+        var pid2 = parseInt(actionBtn.dataset.product,10);
+        cart = cart.filter(function(c){ return c.id!==pid2; });
+        Store.set("cart", cart);
+        if (tab) renderInto(tab);
+        break;
+      }
+      case "popup-demo": {
+        var resultEl = panel.querySelector(".popup-demo-result");
+        if (!resultEl) break;
+        if (extState.popupblock){
+          resultEl.innerHTML = '<div class="popup-blocked-note">🛡️ 1件のポップアップをブロックしました</div>';
+        } else {
+          resultEl.innerHTML = '<div class="popup-demo-banner">📢 期間限定！今なら10%オフクーポン配布中！（デモ表示）</div>';
+        }
+        break;
+      }
+      case "bbs-reply": {
+        var threadId = parseInt(actionBtn.dataset.thread,10);
+        var box = actionBtn.closest(".reply-box");
+        var nameInput = box.querySelector(".reply-name");
+        var textInput = box.querySelector(".reply-text");
+        var txt = textInput.value.trim();
+        if (!txt){ notify("返信内容を入力してください", {type:"info"}); break; }
+        var name = nameInput.value.trim() || "ゲスト";
+        if (!userForumPosts[threadId]) userForumPosts[threadId] = [];
+        userForumPosts[threadId].push({a:name, t:txt});
+        Store.set("forumPosts", userForumPosts);
+        notify("返信を投稿しました", {type:"success"});
+        if (tab) renderInto(tab);
+        break;
+      }
+      case "play-tone": {
+        if (extState.mute){ notify("ミュート中です", {type:"info"}); break; }
+        playDemoTone();
+        break;
+      }
+      case "open-bookmark": {
+        if (actionBtn.dataset.idx!==undefined) openBookmarkByIndex(parseInt(actionBtn.dataset.idx,10));
+        else if (actionBtn.dataset.url) openBookmarkByUrl(actionBtn.dataset.url);
+        break;
+      }
+      case "delete-bookmark": {
+        var i = parseInt(actionBtn.dataset.idx,10);
+        bookmarks.splice(i,1);
+        Store.set("bookmarks", bookmarks);
+        if (tab) renderInto(tab);
+        renderBookmarksBar(); refreshChrome();
+        notify("ブックマークを削除しました", {type:"info"});
+        break;
+      }
+      case "delete-history": {
+        var hi = parseInt(actionBtn.dataset.hidx,10);
+        history.splice(hi,1);
+        Store.set("history", history);
+        if (tab) renderInto(tab);
+        break;
+      }
+      case "clear-history": {
+        if (confirm("履歴をすべて削除しますか？")){
+          history = [];
+          Store.set("history", history);
+          if (tab) renderInto(tab);
+          notify("履歴を削除しました", {type:"success"});
+        }
+        break;
+      }
+      case "reset-extensions": {
+        if (confirm("拡張機能をすべて無効な初期状態に戻しますか？")){
+          extState = defaultExtState();
+          Store.set("extensions", extState);
+          applyGlobalExtClasses();
+          renderExtToolbar();
+          tabs.forEach(function(t){ if (t.type==="web" && t.el) renderInto(t); });
+          notify("拡張機能を初期状態に戻しました", {type:"success"});
+        }
+        break;
+      }
+      case "clear-all": {
+        if (confirm("履歴とブックマークをすべて削除します。よろしいですか？")){
+          history = []; bookmarks = [];
+          Store.set("history", history); Store.set("bookmarks", bookmarks);
+          if (tab) renderInto(tab);
+          renderBookmarksBar(); refreshChrome();
+          notify("履歴とブックマークを削除しました", {type:"success"});
+        }
+        break;
+      }
+    }
+  });
+
+  contentArea.addEventListener("submit", function(e){ e.preventDefault(); }, true);
+
+  contentArea.addEventListener("mouseup", function(e){
+    if (!extState.translate) return;
+    var tab = getActiveTab();
+    if (!tab || tab.type!=="web") return;
+    var panel = e.target.closest(".tab-panel");
+    if (!panel || panel!==tab.el) return;
+    var sel = window.getSelection();
+    var text = sel ? sel.toString().trim() : "";
+    if (!text) return;
+    var result = lookupDict(text);
+    showTranslateTip(e.clientX, e.clientY, text, result);
+  });
+
+  contentArea.addEventListener("mousemove", function(e){
+    if (!extState.magnifier){ hideMagnifier(); return; }
+    var tab = getActiveTab();
+    if (!tab || tab.type!=="web"){ hideMagnifier(); return; }
+    if (!tab.el.contains(e.target)){ hideMagnifier(); return; }
+    var lens = ensureMagnifier();
+    lens.style.display = "flex";
+    lens.style.left = (e.clientX+18) + "px";
+    lens.style.top = (e.clientY+18) + "px";
+    var target = document.elementFromPoint(e.clientX, e.clientY);
+    if (target && target!==lens && !lens.contains(target)){
+      var inner = lens.querySelector(".magnifier-inner");
+      inner.innerHTML = "";
+      try{ inner.appendChild(target.cloneNode(true)); }catch(err){}
+    }
+  });
+  contentArea.addEventListener("mouseleave", hideMagnifier, true);
+
+  contentArea.addEventListener("scroll", function(e){
+    var panel = e.target;
+    if (!panel.classList || !panel.classList.contains("tab-panel")) return;
+    var btn = panel.querySelector(".scrolltop-btn");
+    if (!btn) return;
+    if (!extState.scrolltop){ btn.classList.remove("show"); return; }
+    if (panel.scrollTop>300) btn.classList.add("show"); else btn.classList.remove("show");
+  }, true);
+
+  contentArea.addEventListener("input", function(e){
+    if (e.target.matches(".history-filter")){
+      var panel = e.target.closest(".tab-panel");
+      var q = e.target.value.trim().toLowerCase();
+      panel.querySelectorAll(".history-row").forEach(function(row){
+        var text = row.dataset.search || "";
+        row.style.display = (!q || text.indexOf(q)>=0) ? "" : "none";
+      });
+    }
+  });
+
+  contentArea.addEventListener("click", function(e){
+    var runBtn = e.target.closest('[data-action="code-run"]');
+    if (!runBtn) return;
+    var panel = e.target.closest(".tab-panel");
+    var tab = getTab(panel.dataset.tabId);
+    if (tab) updateCodePreview(tab);
+  });
+
+  document.getElementById("notesTextarea").addEventListener("input", function(e){
+    notesText = e.target.value;
+    clearTimeout(notesSaveTimer);
+    notesSaveTimer = setTimeout(function(){ Store.set("notes", notesText); }, 500);
+  });
+
+  window.addEventListener("resize", function(){});
+}
+
+/* =========================================================
+   14. 初期化
+   ========================================================= */
+async function init(){
+  extState = await Store.get("extensions", defaultExtState());
+  EXT_DEFS.forEach(function(e){ if (extState[e.id]===undefined) extState[e.id]=false; });
+  bookmarks = await Store.get("bookmarks", []);
+  history = await Store.get("history", []);
+  notesText = await Store.get("notes", "");
+  cart = await Store.get("cart", []);
+  userForumPosts = await Store.get("forumPosts", {});
+  prefs = await Store.get("prefs", {showBookmarksBar:true});
+
+  buildSearchIndex();
+  applyGlobalExtClasses();
+  renderExtToolbar();
+  bindGlobalEvents();
+  createTab("web", "newtab://home");
+  renderBookmarksBar();
+}
+
+if (document.readyState==="loading") document.addEventListener("DOMContentLoaded", init);
+else init();
+
+})();
+</script>
+</body>
+</html>

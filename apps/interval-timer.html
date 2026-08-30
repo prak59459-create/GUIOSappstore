@@ -1,0 +1,470 @@
+<!--GUIOS-APP {"id":"interval-timer","name":"インターバルタイマー","icon":"💪","color":"#d84315","version":"1.0.0","author":"Claude","description":"運動と休憩を繰り返すインターバルトレーニング用のタイマーアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>インターバルタイマー</title>
+<style>
+  :root{
+    --bg:#1a120e; --card:#241813; --line:#3a2620;
+    --text:#fbe9e2; --sub:#cba99c;
+    --prepare:#f9a825; --work:#d84315; --rest:#00897b; --done:#8e24aa;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; }
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    display:flex; flex-direction:column; align-items:center;
+    padding:16px; padding-bottom:36px;
+  }
+  h1{ font-size:18px; margin:6px 0 14px; text-align:center; }
+  .phase-pill{
+    font-size:16px; font-weight:800; padding:8px 22px; border-radius:22px; margin-bottom:16px;
+    background:var(--work); color:#fff; letter-spacing:.04em; transition:background .25s;
+    min-width:120px; text-align:center;
+  }
+  .phase-pill[data-phase="prepare"]{ background:var(--prepare); color:#2a1c00; }
+  .phase-pill[data-phase="work"]{ background:var(--work); color:#fff; }
+  .phase-pill[data-phase="rest"]{ background:var(--rest); color:#fff; }
+  .phase-pill[data-phase="done"]{ background:var(--done); color:#fff; }
+  .phase-pill[data-phase="idle"]{ background:#3a2620; color:var(--sub); }
+
+  .ring-wrap{ position:relative; width:min(66vw, 250px); height:min(66vw, 250px); margin-bottom:16px; }
+  .ring{
+    width:100%; height:100%; border-radius:50%;
+    background:conic-gradient(var(--work) var(--pct,0%), #2a1a15 0);
+    display:flex; align-items:center; justify-content:center;
+    transition:background .2s linear;
+  }
+  .ring[data-phase="prepare"]{ background:conic-gradient(var(--prepare) var(--pct,0%), #2a2312 0); }
+  .ring[data-phase="rest"]{ background:conic-gradient(var(--rest) var(--pct,0%), #142521 0); }
+  .ring[data-phase="done"]{ background:conic-gradient(var(--done) var(--pct,0%), #22132a 0); }
+  .ring[data-phase="idle"]{ background:conic-gradient(#3a2620 var(--pct,0%), #2a1a15 0); }
+  .ring-inner{
+    width:82%; height:82%; border-radius:50%; background:var(--bg);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+  }
+  .time{
+    font-size:clamp(40px, 16vw, 60px); font-weight:700; font-variant-numeric:tabular-nums;
+    font-family:'SF Mono','Menlo','Consolas',monospace; letter-spacing:.02em;
+  }
+  .round-info{ font-size:13px; color:var(--sub); margin-top:6px; }
+
+  .controls{ display:flex; gap:10px; margin-bottom:18px; flex-wrap:wrap; justify-content:center; }
+  .btn{
+    background:var(--work); color:#fff; border:none; border-radius:14px; font-weight:700;
+    font-size:15px; padding:14px 20px; min-height:48px; cursor:pointer; min-width:96px;
+  }
+  .btn:active{ filter:brightness(1.15); }
+  .btn.secondary{ background:#3a2620; color:var(--text); }
+  .btn:disabled{ opacity:.4; cursor:default; }
+
+  .config-card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:16px; width:100%; max-width:340px; margin-bottom:14px;
+  }
+  .config-row{
+    display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px;
+  }
+  .config-row:last-child{ margin-bottom:0; }
+  .config-row label{ font-size:13px; color:var(--sub); flex:1; }
+  .config-row input{
+    width:84px; padding:9px 10px; border-radius:10px; border:1px solid var(--line);
+    background:#150e0b; color:var(--text); font-size:15px; text-align:center; outline:none;
+  }
+  .config-row input:focus{ border-color:var(--work); }
+  .total-line{ font-size:12px; color:var(--sub); text-align:center; margin-top:2px; }
+
+  .note{ font-size:11px; color:var(--sub); text-align:center; max-width:320px; line-height:1.5; opacity:.85; }
+
+  .toast{
+    position:fixed; left:50%; bottom:22px; transform:translateX(-50%) translateY(20px);
+    background:#3a2620; color:var(--text); padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; transition:opacity .25s, transform .25s; pointer-events:none;
+    max-width:90%; text-align:center; box-shadow:0 6px 18px rgba(0,0,0,.35); z-index:50;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+  <h1>💪 インターバルタイマー</h1>
+  <div class="phase-pill" id="phasePill" data-phase="idle">準備OK</div>
+
+  <div class="ring-wrap">
+    <div class="ring" id="ring" data-phase="idle">
+      <div class="ring-inner">
+        <div class="time" id="timeDisplay">00:00</div>
+        <div class="round-info" id="roundInfo">ラウンド -/-</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn" id="startBtn">開始</button>
+    <button class="btn secondary" id="pauseBtn" disabled>一時停止</button>
+    <button class="btn secondary" id="resetBtn">リセット</button>
+  </div>
+
+  <div class="config-card" id="configCard">
+    <div class="config-row">
+      <label for="workInput">運動時間（秒）</label>
+      <input type="number" id="workInput" min="1" max="600" value="30">
+    </div>
+    <div class="config-row">
+      <label for="restInput">休憩時間（秒）</label>
+      <input type="number" id="restInput" min="0" max="600" value="15">
+    </div>
+    <div class="config-row">
+      <label for="roundsInput">ラウンド数</label>
+      <input type="number" id="roundsInput" min="1" max="50" value="8">
+    </div>
+    <div class="config-row">
+      <label for="prepInput">準備時間（秒）</label>
+      <input type="number" id="prepInput" min="0" max="60" value="10">
+    </div>
+    <div class="total-line" id="totalLine">合計時間: --:--</div>
+  </div>
+
+  <div class="note">記録用アプリです。ご自身の体調に合わせて無理のない範囲で行い、不安がある場合は医師にご相談ください。</div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+  var APP_ID = 'interval-timer';
+  var FALLBACK_KEY = 'guios-fallback-' + APP_ID + '-config';
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+
+  var toastEl = document.getElementById('toast');
+  var toastTimer = null;
+  function showToast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ toastEl.classList.remove('show'); }, 2200);
+  }
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify) {
+      try { window.GUIOS.notify(msg, { type: type || 'info' }); return; } catch(e){}
+    }
+    showToast(msg);
+  }
+  function haptic(){
+    if (window.GUIOS && window.GUIOS.haptic) {
+      try { window.GUIOS.haptic(); } catch(e){}
+    }
+  }
+
+  async function loadConfig(){
+    if (hasSDK) {
+      try {
+        var v = await window.GUIOS.storage.get('config');
+        return (v && typeof v === 'object') ? v : null;
+      } catch(e){ return null; }
+    } else {
+      try {
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch(e){ return null; }
+    }
+  }
+  async function saveConfig(obj){
+    if (hasSDK) {
+      try { await window.GUIOS.storage.set('config', obj); } catch(e){}
+    } else {
+      try { localStorage.setItem(FALLBACK_KEY, JSON.stringify(obj)); } catch(e){}
+    }
+  }
+
+  // ---- Audio (WebAudio beep, no leaks: each oscillator stops+disconnects itself) ----
+  var audioCtx = null;
+  function ensureAudio(){
+    if (audioCtx) return;
+    try {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (Ctx) audioCtx = new Ctx();
+    } catch(e){ audioCtx = null; }
+  }
+  function beep(freq, dur, vol){
+    if (!audioCtx) return;
+    try {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      var t0 = audioCtx.currentTime;
+      var osc = audioCtx.createOscillator();
+      var gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t0);
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(vol || 0.2, t0 + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + (dur || 0.15));
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(t0);
+      osc.stop(t0 + (dur || 0.15) + 0.02);
+      osc.onended = function(){
+        try { osc.disconnect(); gain.disconnect(); } catch(e){}
+      };
+    } catch(e){}
+  }
+  function closeAudio(){
+    if (audioCtx) {
+      try { audioCtx.close(); } catch(e){}
+      audioCtx = null;
+    }
+  }
+
+  // ---- Timer state machine ----
+  // state: 'idle' | 'running' | 'paused' | 'done'
+  var state = 'idle';
+  var steps = [];       // [{type:'prepare'|'work'|'rest', duration, round, totalRounds}]
+  var stepIndex = 0;
+  var remaining = 0;
+  var tickTimer = null;
+  var lastTick = 0;
+  var lastBeepSecond = null;
+
+  var workInput = document.getElementById('workInput');
+  var restInput = document.getElementById('restInput');
+  var roundsInput = document.getElementById('roundsInput');
+  var prepInput = document.getElementById('prepInput');
+  var startBtn = document.getElementById('startBtn');
+  var pauseBtn = document.getElementById('pauseBtn');
+  var resetBtn = document.getElementById('resetBtn');
+  var phasePill = document.getElementById('phasePill');
+  var ringEl = document.getElementById('ring');
+  var timeDisplay = document.getElementById('timeDisplay');
+  var roundInfo = document.getElementById('roundInfo');
+  var totalLine = document.getElementById('totalLine');
+
+  function fmt(sec){
+    sec = Math.max(0, Math.round(sec));
+    var m = Math.floor(sec / 60);
+    var s = sec % 60;
+    return (m<10?'0':'')+m + ':' + (s<10?'0':'')+s;
+  }
+
+  function readConfigValues(){
+    var work = Math.max(1, parseInt(workInput.value, 10) || 30);
+    var rest = Math.max(0, parseInt(restInput.value, 10) || 0);
+    var rounds = Math.max(1, parseInt(roundsInput.value, 10) || 1);
+    var prep = Math.max(0, parseInt(prepInput.value, 10) || 0);
+    return { work: work, rest: rest, rounds: rounds, prep: prep };
+  }
+
+  function updateTotalLine(){
+    var c = readConfigValues();
+    var total = c.prep + (c.work + c.rest) * c.rounds;
+    totalLine.textContent = '合計時間: ' + fmt(total);
+  }
+  [workInput, restInput, roundsInput, prepInput].forEach(function(el){
+    el.addEventListener('input', updateTotalLine);
+  });
+
+  function buildSteps(cfg){
+    var list = [];
+    if (cfg.prep > 0) list.push({ type:'prepare', duration: cfg.prep });
+    for (var i = 1; i <= cfg.rounds; i++) {
+      list.push({ type:'work', duration: cfg.work, round: i, totalRounds: cfg.rounds });
+      if (cfg.rest > 0) list.push({ type:'rest', duration: cfg.rest, round: i, totalRounds: cfg.rounds });
+    }
+    return list;
+  }
+
+  function phaseLabel(step){
+    if (!step) return '完了';
+    if (step.type === 'prepare') return '準備';
+    if (step.type === 'work') return '運動';
+    if (step.type === 'rest') return '休憩';
+    return '完了';
+  }
+
+  function setPhaseVisual(phaseKey){
+    phasePill.setAttribute('data-phase', phaseKey);
+    ringEl.setAttribute('data-phase', phaseKey);
+  }
+
+  function render(){
+    var step = steps[stepIndex];
+    if (state === 'idle') {
+      phasePill.textContent = '準備OK';
+      setPhaseVisual('idle');
+      timeDisplay.textContent = '00:00';
+      roundInfo.textContent = 'ラウンド -/-';
+      ringEl.style.setProperty('--pct', '0%');
+      return;
+    }
+    if (state === 'done' || !step) {
+      phasePill.textContent = '完了 🎉';
+      setPhaseVisual('done');
+      timeDisplay.textContent = '00:00';
+      roundInfo.textContent = 'お疲れさまでした';
+      ringEl.style.setProperty('--pct', '100%');
+      return;
+    }
+    phasePill.textContent = phaseLabel(step) + (state === 'paused' ? '（一時停止）' : '');
+    setPhaseVisual(step.type);
+    timeDisplay.textContent = fmt(remaining);
+    if (step.type === 'work' || step.type === 'rest') {
+      roundInfo.textContent = 'ラウンド ' + step.round + '/' + step.totalRounds;
+    } else {
+      roundInfo.textContent = 'もうすぐ開始します';
+    }
+    var pct = step.duration > 0 ? ((step.duration - remaining) / step.duration * 100) : 0;
+    ringEl.style.setProperty('--pct', Math.max(0, Math.min(100, pct)).toFixed(1) + '%');
+  }
+
+  function clearTick(){
+    if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
+  }
+
+  function announcePhase(step){
+    if (!step) {
+      notify('全ラウンド完了です。お疲れさまでした 🎉', 'success');
+      haptic();
+      beep(660, 0.15);
+      setTimeout(function(){ beep(880, 0.18); }, 170);
+      setTimeout(function(){ beep(1100, 0.22); }, 360);
+      return;
+    }
+    if (step.type === 'prepare') {
+      notify('準備してください', 'info');
+      haptic();
+      beep(440, 0.12);
+    } else if (step.type === 'work') {
+      notify('運動開始！ラウンド ' + step.round + '/' + step.totalRounds, 'success');
+      haptic();
+      beep(880, 0.15);
+      setTimeout(function(){ beep(880, 0.15); }, 140);
+    } else if (step.type === 'rest') {
+      notify('休憩しましょう', 'info');
+      haptic();
+      beep(440, 0.18);
+    }
+  }
+
+  function goToStep(idx){
+    stepIndex = idx;
+    var step = steps[stepIndex];
+    if (!step) {
+      state = 'done';
+      clearTick();
+      render();
+      announcePhase(null);
+      return;
+    }
+    remaining = step.duration;
+    lastBeepSecond = null;
+    render();
+    announcePhase(step);
+  }
+
+  function tick(){
+    var now = Date.now();
+    var elapsedMs = now - lastTick;
+    if (elapsedMs < 200) return;
+    var elapsedSec = Math.floor(elapsedMs / 1000);
+    if (elapsedSec < 1) return;
+    lastTick += elapsedSec * 1000;
+    remaining -= elapsedSec;
+    if (remaining <= 0) {
+      remaining = 0;
+      render();
+      var nextIdx = stepIndex + 1;
+      if (nextIdx < steps.length) {
+        goToStep(nextIdx);
+      } else {
+        state = 'done';
+        clearTick();
+        render();
+        announcePhase(null);
+      }
+      return;
+    }
+    var step = steps[stepIndex];
+    if (step && (step.type === 'work' || step.type === 'rest') && remaining <= 3 && remaining >= 1 && lastBeepSecond !== remaining) {
+      lastBeepSecond = remaining;
+      beep(520, 0.08, 0.15);
+    }
+    render();
+  }
+
+  function startTicking(){
+    clearTick();
+    lastTick = Date.now();
+    tickTimer = setInterval(tick, 200);
+  }
+
+  function startSequence(){
+    ensureAudio();
+    var cfg = readConfigValues();
+    saveConfig(cfg);
+    steps = buildSteps(cfg);
+    if (steps.length === 0) {
+      notify('設定を確認してください', 'error');
+      return;
+    }
+    state = 'running';
+    startBtn.disabled = true;
+    pauseBtn.disabled = false;
+    pauseBtn.textContent = '一時停止';
+    workInput.disabled = restInput.disabled = roundsInput.disabled = prepInput.disabled = true;
+    goToStep(0);
+    startTicking();
+  }
+
+  function pauseResume(){
+    if (state === 'running') {
+      state = 'paused';
+      clearTick();
+      pauseBtn.textContent = '再開';
+      render();
+    } else if (state === 'paused') {
+      state = 'running';
+      pauseBtn.textContent = '一時停止';
+      startTicking();
+      render();
+    }
+  }
+
+  function resetAll(){
+    state = 'idle';
+    clearTick();
+    closeAudio();
+    stepIndex = 0;
+    remaining = 0;
+    lastBeepSecond = null;
+    startBtn.disabled = false;
+    pauseBtn.disabled = true;
+    pauseBtn.textContent = '一時停止';
+    workInput.disabled = restInput.disabled = roundsInput.disabled = prepInput.disabled = false;
+    render();
+  }
+
+  startBtn.addEventListener('click', startSequence);
+  pauseBtn.addEventListener('click', pauseResume);
+  resetBtn.addEventListener('click', resetAll);
+
+  (async function init(){
+    var stored = await loadConfig();
+    if (stored) {
+      if (stored.work) workInput.value = stored.work;
+      if (typeof stored.rest === 'number') restInput.value = stored.rest;
+      if (stored.rounds) roundsInput.value = stored.rounds;
+      if (typeof stored.prep === 'number') prepInput.value = stored.prep;
+    }
+    updateTotalLine();
+    render();
+    if (window.GUIOS && window.GUIOS.setTitle) {
+      try { window.GUIOS.setTitle('インターバルタイマー'); } catch(e){}
+    }
+  })();
+
+  window.addEventListener('beforeunload', function(){
+    clearTick();
+    closeAudio();
+  });
+</script>
+</body>
+</html>

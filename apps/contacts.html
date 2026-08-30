@@ -1,0 +1,465 @@
+<!--GUIOS-APP {"id":"contacts","name":"連絡先","icon":"👤","color":"#00796b","version":"1.0.0","author":"Claude","description":"氏名・電話番号・メールなどを登録して管理できる連絡先アプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>連絡先</title>
+<style>
+  :root{
+    --accent:#26a69a;
+    --bg:#0b1615;
+    --card:#12211f;
+    --card2:#172a27;
+    --text:#e6f5f2;
+    --sub:#9fc3bd;
+    --line:#20423d;
+    --input:#0a1513;
+    --danger:#e05353;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    display:flex; flex-direction:column;
+  }
+  .screen{display:flex; flex-direction:column; flex:1; min-height:100vh;}
+  .screen[hidden]{display:none;}
+
+  .topbar{
+    padding:14px 16px 10px; flex:none; display:flex; align-items:center; gap:10px;
+  }
+  .topbar h1{font-size:18px; margin:0; display:flex; align-items:center; gap:8px; flex:1;}
+  .icon-btn{
+    width:40px; height:40px; border-radius:10px; border:1px solid var(--line); background:var(--input);
+    color:var(--text); font-size:18px; cursor:pointer; flex:none; display:flex; align-items:center; justify-content:center;
+  }
+  .add-btn{
+    width:40px; height:40px; border-radius:10px; border:none; background:var(--accent);
+    color:#04140f; font-size:20px; font-weight:800; cursor:pointer; flex:none;
+  }
+  .search-wrap{padding:0 16px 10px; flex:none;}
+  #searchInput{
+    width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--line);
+    background:var(--input); color:var(--text); font-size:15px; outline:none;
+  }
+  #searchInput:focus{border-color:var(--accent);}
+
+  .list-wrap{flex:1; overflow-y:auto; padding:4px 16px 24px;}
+  .contact-card{
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:12px 14px; margin-bottom:8px; display:flex; align-items:center; gap:12px; cursor:pointer;
+  }
+  .avatar{
+    width:40px; height:40px; border-radius:50%; background:var(--card2); border:1px solid var(--line);
+    display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:800; color:var(--accent); flex:none;
+  }
+  .c-info{flex:1; min-width:0;}
+  .c-name{font-size:15px; font-weight:700; word-break:break-word;}
+  .c-sub{font-size:12px; color:var(--sub); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .chevron{color:var(--sub); font-size:16px; flex:none;}
+  .empty{color:var(--sub); text-align:center; padding:60px 20px; font-size:14px;}
+
+  .content{flex:1; overflow-y:auto; padding:6px 16px 24px;}
+  .detail-card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px; padding:20px; margin-bottom:16px;
+    text-align:center;
+  }
+  .detail-avatar{
+    width:64px; height:64px; border-radius:50%; background:var(--card2); border:1px solid var(--line);
+    display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:800; color:var(--accent);
+    margin:0 auto 12px;
+  }
+  .detail-name{font-size:20px; font-weight:800; margin-bottom:2px;}
+  .detail-company{font-size:13px; color:var(--sub);}
+  .field-block{
+    background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:10px;
+  }
+  .field-block .lbl{font-size:11px; color:var(--sub); margin-bottom:4px;}
+  .field-block .val{font-size:15px; word-break:break-word;}
+  .copy-row{display:flex; gap:8px; margin-top:8px;}
+  .copy-btn{
+    flex:1; padding:10px 8px; border-radius:8px; border:1px solid var(--line); background:var(--input);
+    color:var(--accent); font-size:12.5px; font-weight:700; cursor:pointer; min-height:40px;
+  }
+  .action-row{display:flex; gap:10px; margin-top:16px;}
+  .action-row button{flex:1; min-height:44px;}
+
+  button{font-family:inherit;}
+  .btn{
+    padding:12px 18px; border-radius:10px; border:none; background:var(--accent);
+    color:#04140f; font-weight:700; font-size:15px; cursor:pointer;
+  }
+  .btn.secondary{background:transparent; color:var(--sub); border:1px solid var(--line);}
+  .btn.danger{background:transparent; color:var(--danger); border:1px solid var(--line);}
+
+  label{display:block; font-size:12px; color:var(--sub); margin:0 0 6px;}
+  .field{margin-bottom:14px;}
+  input[type=text], input[type=tel], input[type=email], textarea{
+    width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--line);
+    background:var(--input); color:var(--text); font-size:16px; outline:none; font-family:inherit;
+  }
+  textarea{resize:vertical; min-height:70px;}
+  input:focus, textarea:focus{border-color:var(--accent);}
+  .req{color:var(--danger);}
+</style>
+</head>
+<body>
+
+  <!-- LIST SCREEN -->
+  <div class="screen" id="screenList">
+    <div class="topbar">
+      <h1>👤 連絡先</h1>
+      <button class="add-btn" id="openAddBtn">＋</button>
+    </div>
+    <div class="search-wrap">
+      <input type="text" id="searchInput" placeholder="名前で検索...">
+    </div>
+    <div class="list-wrap" id="listWrap"></div>
+  </div>
+
+  <!-- DETAIL SCREEN -->
+  <div class="screen" id="screenDetail" hidden>
+    <div class="topbar">
+      <button class="icon-btn" id="detailBackBtn">←</button>
+      <h1>連絡先詳細</h1>
+    </div>
+    <div class="content" id="detailContent"></div>
+  </div>
+
+  <!-- FORM SCREEN (add / edit) -->
+  <div class="screen" id="screenForm" hidden>
+    <div class="topbar">
+      <button class="icon-btn" id="formBackBtn">←</button>
+      <h1 id="formTitle">連絡先を追加</h1>
+    </div>
+    <div class="content">
+      <div class="field">
+        <label>氏名 <span class="req">*</span></label>
+        <input type="text" id="fName" placeholder="山田 太郎">
+      </div>
+      <div class="field">
+        <label>電話番号</label>
+        <input type="tel" id="fPhone" placeholder="090-1234-5678">
+      </div>
+      <div class="field">
+        <label>メールアドレス</label>
+        <input type="email" id="fEmail" placeholder="taro@example.com">
+      </div>
+      <div class="field">
+        <label>会社・所属(任意)</label>
+        <input type="text" id="fCompany" placeholder="株式会社サンプル">
+      </div>
+      <div class="field">
+        <label>メモ(任意)</label>
+        <textarea id="fMemo" placeholder="メモを入力..."></textarea>
+      </div>
+      <div class="action-row">
+        <button class="btn secondary" id="formCancelBtn">キャンセル</button>
+        <button class="btn" id="formSaveBtn">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" style="position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:#172a27; color:var(--text); padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; pointer-events:none; transition:all .25s; border:1px solid var(--line);
+    max-width:90%; text-align:center; z-index:999;"></div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var STORAGE_KEY = 'contacts';
+  var FALLBACK_KEY = 'guios-fallback-contacts-contacts';
+
+  var contacts = [];
+  var currentDetailId = null;
+  var editingId = null;
+  var searchTerm = '';
+
+  function showToast(msg){
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.opacity = '1';
+    t.style.transform = 'translateX(-50%) translateY(0)';
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(function(){
+      t.style.opacity = '0';
+      t.style.transform = 'translateX(-50%) translateY(20px)';
+    }, 1600);
+  }
+  function notify(msg, type){
+    if(window.GUIOS && window.GUIOS.notify){
+      GUIOS.notify(msg, {type: type || 'info'});
+    } else {
+      showToast(msg);
+    }
+  }
+  async function copyText(text){
+    try{
+      if(window.GUIOS && window.GUIOS.clipboard && window.GUIOS.clipboard.writeText){
+        await GUIOS.clipboard.writeText(text);
+        return true;
+      }
+    }catch(e){}
+    try{
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    }catch(e){}
+    return false;
+  }
+
+  async function loadContacts(){
+    if(hasSDK){
+      var v = await GUIOS.storage.get(STORAGE_KEY);
+      return Array.isArray(v) ? v : [];
+    } else {
+      try{
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        return raw ? JSON.parse(raw) : [];
+      }catch(e){ return []; }
+    }
+  }
+  async function saveContacts(list){
+    if(hasSDK){
+      await GUIOS.storage.set(STORAGE_KEY, list);
+    } else {
+      try{ localStorage.setItem(FALLBACK_KEY, JSON.stringify(list)); }catch(e){}
+    }
+  }
+
+  function showScreen(id){
+    ['screenList','screenDetail','screenForm'].forEach(function(s){
+      document.getElementById(s).hidden = (s !== id);
+    });
+  }
+
+  function initials(name){
+    var t = (name||'').trim();
+    return t ? t.charAt(0).toUpperCase() : '?';
+  }
+
+  function sortedFilteredContacts(){
+    var term = searchTerm.trim().toLowerCase();
+    var list = contacts.filter(function(c){
+      if(!term) return true;
+      return (c.name||'').toLowerCase().indexOf(term) !== -1;
+    });
+    list.sort(function(a,b){
+      return (a.name||'').localeCompare((b.name||''), 'ja');
+    });
+    return list;
+  }
+
+  function renderList(){
+    var wrap = document.getElementById('listWrap');
+    var list = sortedFilteredContacts();
+    if(list.length === 0){
+      wrap.innerHTML = '<div class="empty">' + (contacts.length === 0 ? '連絡先がまだありません' : '該当する連絡先がありません') + '</div>';
+      return;
+    }
+    wrap.innerHTML = '';
+    list.forEach(function(c){
+      var card = document.createElement('div');
+      card.className = 'contact-card';
+      card.addEventListener('click', function(){ openDetail(c.id); });
+
+      var avatar = document.createElement('div');
+      avatar.className = 'avatar';
+      avatar.textContent = initials(c.name);
+
+      var info = document.createElement('div');
+      info.className = 'c-info';
+      var nameEl = document.createElement('div');
+      nameEl.className = 'c-name';
+      nameEl.textContent = c.name || '(名前未設定)';
+      var subEl = document.createElement('div');
+      subEl.className = 'c-sub';
+      subEl.textContent = c.phone || c.email || c.company || '';
+      info.appendChild(nameEl);
+      info.appendChild(subEl);
+
+      var chev = document.createElement('div');
+      chev.className = 'chevron';
+      chev.textContent = '›';
+
+      card.appendChild(avatar);
+      card.appendChild(info);
+      card.appendChild(chev);
+      wrap.appendChild(card);
+    });
+  }
+
+  function openDetail(id){
+    var c = contacts.find(function(x){ return x.id === id; });
+    if(!c) return;
+    currentDetailId = id;
+
+    var content = document.getElementById('detailContent');
+    content.innerHTML = '';
+
+    var top = document.createElement('div');
+    top.className = 'detail-card';
+    var av = document.createElement('div');
+    av.className = 'detail-avatar';
+    av.textContent = initials(c.name);
+    var nm = document.createElement('div');
+    nm.className = 'detail-name';
+    nm.textContent = c.name || '(名前未設定)';
+    top.appendChild(av);
+    top.appendChild(nm);
+    if(c.company){
+      var comp = document.createElement('div');
+      comp.className = 'detail-company';
+      comp.textContent = c.company;
+      top.appendChild(comp);
+    }
+    content.appendChild(top);
+
+    if(c.phone){
+      var pb = document.createElement('div');
+      pb.className = 'field-block';
+      pb.innerHTML = '<div class="lbl">電話番号</div><div class="val">' + escapeHtml(c.phone) + '</div>';
+      var pRow = document.createElement('div');
+      pRow.className = 'copy-row';
+      var pBtn = document.createElement('button');
+      pBtn.className = 'copy-btn';
+      pBtn.textContent = '📋 電話番号をコピー';
+      pBtn.addEventListener('click', async function(){
+        var ok = await copyText(c.phone);
+        notify(ok ? 'コピーしました' : 'コピーできませんでした', ok ? 'success' : 'error');
+      });
+      pRow.appendChild(pBtn);
+      pb.appendChild(pRow);
+      content.appendChild(pb);
+    }
+
+    if(c.email){
+      var eb = document.createElement('div');
+      eb.className = 'field-block';
+      eb.innerHTML = '<div class="lbl">メールアドレス</div><div class="val">' + escapeHtml(c.email) + '</div>';
+      var eRow = document.createElement('div');
+      eRow.className = 'copy-row';
+      var eBtn = document.createElement('button');
+      eBtn.className = 'copy-btn';
+      eBtn.textContent = '📋 メールをコピー';
+      eBtn.addEventListener('click', async function(){
+        var ok = await copyText(c.email);
+        notify(ok ? 'コピーしました' : 'コピーできませんでした', ok ? 'success' : 'error');
+      });
+      eRow.appendChild(eBtn);
+      eb.appendChild(eRow);
+      content.appendChild(eb);
+    }
+
+    if(c.memo){
+      var mb = document.createElement('div');
+      mb.className = 'field-block';
+      mb.innerHTML = '<div class="lbl">メモ</div><div class="val">' + escapeHtml(c.memo) + '</div>';
+      content.appendChild(mb);
+    }
+
+    var actions = document.createElement('div');
+    actions.className = 'action-row';
+    var editBtn = document.createElement('button');
+    editBtn.className = 'btn secondary';
+    editBtn.textContent = '編集';
+    editBtn.addEventListener('click', function(){ openForm(c.id); });
+    var delBtn = document.createElement('button');
+    delBtn.className = 'btn danger';
+    delBtn.textContent = '削除';
+    delBtn.addEventListener('click', function(){ deleteContact(c.id); });
+    actions.appendChild(editBtn);
+    actions.appendChild(delBtn);
+    content.appendChild(actions);
+
+    showScreen('screenDetail');
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(ch){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
+    });
+  }
+
+  function openForm(id){
+    editingId = id || null;
+    var c = id ? contacts.find(function(x){ return x.id === id; }) : null;
+    document.getElementById('formTitle').textContent = id ? '連絡先を編集' : '連絡先を追加';
+    document.getElementById('fName').value = c ? (c.name || '') : '';
+    document.getElementById('fPhone').value = c ? (c.phone || '') : '';
+    document.getElementById('fEmail').value = c ? (c.email || '') : '';
+    document.getElementById('fCompany').value = c ? (c.company || '') : '';
+    document.getElementById('fMemo').value = c ? (c.memo || '') : '';
+    showScreen('screenForm');
+  }
+
+  async function saveForm(){
+    var name = document.getElementById('fName').value.trim();
+    if(!name){
+      notify('氏名を入力してください', 'error');
+      return;
+    }
+    var data = {
+      name: name,
+      phone: document.getElementById('fPhone').value.trim(),
+      email: document.getElementById('fEmail').value.trim(),
+      company: document.getElementById('fCompany').value.trim(),
+      memo: document.getElementById('fMemo').value.trim()
+    };
+    if(editingId){
+      var idx = contacts.findIndex(function(c){ return c.id === editingId; });
+      if(idx !== -1){
+        contacts[idx] = Object.assign({id: editingId}, data);
+      }
+    } else {
+      data.id = 'contact-' + Date.now() + '-' + Math.floor(Math.random()*10000);
+      contacts.push(data);
+    }
+    await saveContacts(contacts);
+    renderList();
+    notify('保存しました', 'success');
+    if(window.GUIOS && window.GUIOS.haptic) GUIOS.haptic();
+    if(editingId){
+      openDetail(editingId);
+    } else {
+      showScreen('screenList');
+    }
+    editingId = null;
+  }
+
+  async function deleteContact(id){
+    if(!confirm('この連絡先を削除しますか？')) return;
+    contacts = contacts.filter(function(c){ return c.id !== id; });
+    await saveContacts(contacts);
+    renderList();
+    showScreen('screenList');
+  }
+
+  document.getElementById('openAddBtn').addEventListener('click', function(){ openForm(null); });
+  document.getElementById('detailBackBtn').addEventListener('click', function(){ showScreen('screenList'); });
+  document.getElementById('formBackBtn').addEventListener('click', function(){
+    editingId = null;
+    showScreen(currentDetailId ? 'screenDetail' : 'screenList');
+  });
+  document.getElementById('formCancelBtn').addEventListener('click', function(){
+    editingId = null;
+    showScreen(currentDetailId ? 'screenDetail' : 'screenList');
+  });
+  document.getElementById('formSaveBtn').addEventListener('click', saveForm);
+  document.getElementById('searchInput').addEventListener('input', function(e){
+    searchTerm = e.target.value;
+    renderList();
+  });
+
+  async function init(){
+    contacts = await loadContacts();
+    renderList();
+  }
+  init();
+</script>
+</body>
+</html>

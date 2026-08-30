@@ -1,0 +1,418 @@
+<!--GUIOS-APP {"id":"water-tracker","name":"水分補給トラッカー","icon":"💧","color":"#0288d1","version":"1.0.0","author":"Claude","description":"1日の水分摂取量を記録し、目標達成度を確認できるトラッカーアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>水分補給トラッカー</title>
+<style>
+  :root{
+    --bg:#081824; --card:#0f2434; --line:#1d3c50;
+    --text:#e6f3fb; --sub:#8fb7cc; --accent:#0288d1; --accent2:#4fc3f7;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; }
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    display:flex; flex-direction:column; align-items:center;
+    padding:16px; padding-bottom:36px;
+  }
+  h1{ font-size:18px; margin:6px 0 16px; text-align:center; }
+
+  .ring-wrap{ position:relative; width:min(58vw, 210px); height:min(58vw, 210px); margin-bottom:10px; }
+  .ring{
+    width:100%; height:100%; border-radius:50%;
+    background:conic-gradient(var(--accent) var(--pct,0%), #102a3a 0);
+    display:flex; align-items:center; justify-content:center;
+    transition:background .3s ease;
+  }
+  .ring.reached{ background:conic-gradient(#26c6da var(--pct,0%), #102a3a 0); }
+  .ring-inner{
+    width:82%; height:82%; border-radius:50%; background:var(--bg);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+  }
+  .amount{ font-size:clamp(24px, 8vw, 32px); font-weight:800; }
+  .amount small{ font-size:14px; font-weight:600; color:var(--sub); }
+  .pct{ font-size:13px; color:var(--accent2); margin-top:2px; font-weight:700; }
+  .goal-line{ font-size:12px; color:var(--sub); margin-bottom:16px; display:flex; align-items:center; gap:6px; }
+  .goal-line button{
+    background:none; border:1px solid var(--line); color:var(--sub); border-radius:8px;
+    padding:4px 10px; font-size:11px; cursor:pointer;
+  }
+
+  .quickadd{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-bottom:12px; width:100%; max-width:360px; }
+  .qbtn{
+    flex:1 1 auto; min-width:88px; background:var(--card); border:1px solid var(--line);
+    color:var(--text); border-radius:12px; padding:12px 8px; font-size:13px; font-weight:700;
+    cursor:pointer; min-height:48px; display:flex; flex-direction:column; align-items:center; gap:2px;
+  }
+  .qbtn:active{ filter:brightness(1.2); }
+  .qbtn .qicon{ font-size:18px; }
+
+  .custom-row{ display:flex; gap:8px; width:100%; max-width:360px; margin-bottom:10px; }
+  .custom-row input{
+    flex:1; padding:12px 14px; border-radius:10px; border:1px solid var(--line);
+    background:#061420; color:var(--text); font-size:16px; outline:none; min-width:0;
+  }
+  .custom-row input:focus{ border-color:var(--accent); }
+  .custom-row button{
+    flex:none; padding:0 18px; border-radius:10px; border:none; background:var(--accent);
+    color:#04121d; font-weight:700; font-size:14px; cursor:pointer; min-height:44px;
+  }
+
+  .undo-row{ margin-bottom:16px; }
+  .undo-btn{
+    background:none; border:1px solid var(--line); color:var(--sub); border-radius:10px;
+    padding:8px 16px; font-size:13px; cursor:pointer; min-height:38px;
+  }
+  .undo-btn:disabled{ opacity:.4; }
+
+  .section{ width:100%; max-width:360px; margin-bottom:14px; }
+  .section h2{ font-size:13px; color:var(--sub); margin:0 0 8px; font-weight:700; }
+
+  .today-list{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:8px 12px; max-height:150px; overflow-y:auto; }
+  .today-item{ display:flex; justify-content:space-between; padding:6px 0; font-size:13px; border-bottom:1px solid var(--line); }
+  .today-item:last-child{ border-bottom:none; }
+  .today-item .t{ color:var(--sub); }
+  .today-empty{ text-align:center; color:var(--sub); font-size:12px; padding:10px 0; }
+
+  .history-bars{
+    display:flex; align-items:flex-end; justify-content:space-between; gap:6px;
+    background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 10px 10px; height:120px;
+  }
+  .hbar-col{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; gap:4px; }
+  .hbar{ width:100%; max-width:26px; border-radius:6px 6px 3px 3px; background:var(--line); position:relative; min-height:4px; }
+  .hbar.filled{ background:linear-gradient(180deg, var(--accent2), var(--accent)); }
+  .hbar-label{ font-size:10px; color:var(--sub); }
+
+  .toast{
+    position:fixed; left:50%; bottom:22px; transform:translateX(-50%) translateY(20px);
+    background:var(--card); color:var(--text); padding:10px 18px; border-radius:10px; border:1px solid var(--line);
+    font-size:13px; opacity:0; transition:opacity .25s, transform .25s; pointer-events:none;
+    max-width:90%; text-align:center; box-shadow:0 6px 18px rgba(0,0,0,.35); z-index:50;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+  <h1>💧 水分補給トラッカー</h1>
+
+  <div class="ring-wrap">
+    <div class="ring" id="ring">
+      <div class="ring-inner">
+        <div class="amount"><span id="totalMl">0</span><small>ml</small></div>
+        <div class="pct" id="pctText">0%</div>
+      </div>
+    </div>
+  </div>
+  <div class="goal-line">
+    目標: <span id="goalText">2000</span>ml
+    <button id="goalBtn">目標を変更</button>
+  </div>
+
+  <div class="quickadd">
+    <button class="qbtn" data-amount="200"><span class="qicon">🥤</span>コップ1杯<br>200ml</button>
+    <button class="qbtn" data-amount="500"><span class="qicon">🧴</span>500ml</button>
+    <button class="qbtn" data-amount="1000"><span class="qicon">🍶</span>1000ml</button>
+  </div>
+
+  <div class="custom-row">
+    <input type="number" id="customInput" placeholder="カスタム量 (ml)" min="1" max="5000">
+    <button id="customAddBtn">追加</button>
+  </div>
+
+  <div class="undo-row">
+    <button class="undo-btn" id="undoBtn" disabled>↩ 直前の記録を取り消す</button>
+  </div>
+
+  <div class="section">
+    <h2>今日の記録</h2>
+    <div class="today-list" id="todayList">
+      <div class="today-empty">まだ記録がありません</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>過去7日間</h2>
+    <div class="history-bars" id="historyBars"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+  var APP_ID = 'water-tracker';
+  var FALLBACK_GOAL_KEY = 'guios-fallback-' + APP_ID + '-goal';
+  var FALLBACK_ENTRIES_KEY = 'guios-fallback-' + APP_ID + '-entries';
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+
+  var toastEl = document.getElementById('toast');
+  var toastTimer = null;
+  function showToast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ toastEl.classList.remove('show'); }, 2200);
+  }
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify) {
+      try { window.GUIOS.notify(msg, { type: type || 'info' }); return; } catch(e){}
+    }
+    showToast(msg);
+  }
+  function haptic(){
+    if (window.GUIOS && window.GUIOS.haptic) {
+      try { window.GUIOS.haptic(); } catch(e){}
+    }
+  }
+
+  function todayLocalStr(){ return dateToLocalStr(new Date()); }
+  function dateToLocalStr(d){
+    var y = d.getFullYear();
+    var m = ('0'+(d.getMonth()+1)).slice(-2);
+    var day = ('0'+d.getDate()).slice(-2);
+    return y+'-'+m+'-'+day;
+  }
+  function addDaysLocal(dateStr, delta){
+    var parts = dateStr.split('-').map(Number);
+    var d = new Date(parts[0], parts[1]-1, parts[2]);
+    d.setDate(d.getDate() + delta);
+    return dateToLocalStr(d);
+  }
+  var WEEKDAY_LABELS = ['日','月','火','水','木','金','土'];
+  function weekdayLabelFor(dateStr){
+    var parts = dateStr.split('-').map(Number);
+    var d = new Date(parts[0], parts[1]-1, parts[2]);
+    return WEEKDAY_LABELS[d.getDay()];
+  }
+  function last7Dates(){
+    var today = todayLocalStr();
+    var arr = [];
+    for (var i = 6; i >= 0; i--) arr.push(addDaysLocal(today, -i));
+    return arr;
+  }
+
+  async function loadGoal(){
+    if (hasSDK) {
+      try {
+        var v = await window.GUIOS.storage.get('goal');
+        return (typeof v === 'number' && v > 0) ? v : 2000;
+      } catch(e){ return 2000; }
+    } else {
+      try {
+        var raw = localStorage.getItem(FALLBACK_GOAL_KEY);
+        var n = raw ? parseInt(raw, 10) : 2000;
+        return (n > 0) ? n : 2000;
+      } catch(e){ return 2000; }
+    }
+  }
+  async function saveGoal(v){
+    if (hasSDK) {
+      try { await window.GUIOS.storage.set('goal', v); } catch(e){}
+    } else {
+      try { localStorage.setItem(FALLBACK_GOAL_KEY, String(v)); } catch(e){}
+    }
+  }
+  async function loadEntries(){
+    if (hasSDK) {
+      try {
+        var v = await window.GUIOS.storage.get('entries');
+        return Array.isArray(v) ? v : [];
+      } catch(e){ return []; }
+    } else {
+      try {
+        var raw = localStorage.getItem(FALLBACK_ENTRIES_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch(e){ return []; }
+    }
+  }
+  async function saveEntries(list){
+    if (hasSDK) {
+      try { await window.GUIOS.storage.set('entries', list); } catch(e){}
+    } else {
+      try { localStorage.setItem(FALLBACK_ENTRIES_KEY, JSON.stringify(list)); } catch(e){}
+    }
+  }
+
+  var goal = 2000;
+  var entries = [];
+  var goalReachedShown = {}; // dateStr -> true, avoid repeat toast per day
+
+  function dayTotal(dateStr){
+    var sum = 0;
+    for (var i = 0; i < entries.length; i++) {
+      if (entries[i].date === dateStr) sum += entries[i].amount;
+    }
+    return sum;
+  }
+
+  function trimOldEntries(){
+    var cutoff = addDaysLocal(todayLocalStr(), -90);
+    entries = entries.filter(function(e){ return e.date >= cutoff; });
+  }
+
+  function renderRing(){
+    var today = todayLocalStr();
+    var total = dayTotal(today);
+    var pct = goal > 0 ? (total / goal * 100) : 0;
+    var clamped = Math.max(0, Math.min(100, pct));
+    document.getElementById('totalMl').textContent = total;
+    document.getElementById('goalText').textContent = goal;
+    document.getElementById('pctText').textContent = Math.round(pct) + '%';
+    var ring = document.getElementById('ring');
+    ring.style.setProperty('--pct', clamped.toFixed(1) + '%');
+    if (pct >= 100) {
+      ring.classList.add('reached');
+      if (!goalReachedShown[today]) {
+        goalReachedShown[today] = true;
+        notify('目標達成です！よくがんばりました 🎉', 'success');
+        haptic();
+      }
+    } else {
+      ring.classList.remove('reached');
+    }
+  }
+
+  function renderTodayList(){
+    var today = todayLocalStr();
+    var todays = entries.filter(function(e){ return e.date === today; })
+                        .sort(function(a,b){ return a.ts - b.ts; });
+    var wrap = document.getElementById('todayList');
+    if (todays.length === 0) {
+      wrap.innerHTML = '<div class="today-empty">まだ記録がありません</div>';
+      document.getElementById('undoBtn').disabled = true;
+      return;
+    }
+    wrap.innerHTML = '';
+    todays.forEach(function(e){
+      var row = document.createElement('div');
+      row.className = 'today-item';
+      var d = new Date(e.ts);
+      var hh = ('0'+d.getHours()).slice(-2);
+      var mm = ('0'+d.getMinutes()).slice(-2);
+      var tSpan = document.createElement('span');
+      tSpan.className = 't';
+      tSpan.textContent = hh + ':' + mm;
+      var aSpan = document.createElement('span');
+      aSpan.textContent = '+' + e.amount + 'ml';
+      row.appendChild(tSpan);
+      row.appendChild(aSpan);
+      wrap.appendChild(row);
+    });
+    document.getElementById('undoBtn').disabled = false;
+  }
+
+  function renderHistory(){
+    var dates = last7Dates();
+    var totals = dates.map(function(d){ return dayTotal(d); });
+    var maxVal = Math.max(goal, totals.reduce(function(a,b){ return Math.max(a,b); }, 0), 1);
+    var wrap = document.getElementById('historyBars');
+    wrap.innerHTML = '';
+    dates.forEach(function(dateStr, i){
+      var col = document.createElement('div');
+      col.className = 'hbar-col';
+      var barHeightPct = Math.max(2, (totals[i] / maxVal) * 100);
+      var bar = document.createElement('div');
+      bar.className = 'hbar' + (totals[i] > 0 ? ' filled' : '');
+      bar.style.height = barHeightPct + '%';
+      bar.title = dateStr + ': ' + totals[i] + 'ml';
+      var label = document.createElement('div');
+      label.className = 'hbar-label';
+      label.textContent = weekdayLabelFor(dateStr);
+      col.appendChild(bar);
+      col.appendChild(label);
+      wrap.appendChild(col);
+    });
+  }
+
+  function renderAll(){
+    renderRing();
+    renderTodayList();
+    renderHistory();
+  }
+
+  async function addEntry(amount){
+    amount = Math.round(amount);
+    if (!amount || amount <= 0) {
+      notify('正しい量を入力してください', 'error');
+      return;
+    }
+    entries.push({
+      id: 'w-' + Date.now() + '-' + Math.floor(Math.random()*10000),
+      date: todayLocalStr(),
+      amount: amount,
+      ts: Date.now()
+    });
+    trimOldEntries();
+    await saveEntries(entries);
+    renderAll();
+    haptic();
+    notify('+' + amount + 'ml 記録しました', 'success');
+  }
+
+  async function undoLast(){
+    var today = todayLocalStr();
+    var todays = entries.filter(function(e){ return e.date === today; });
+    if (todays.length === 0) {
+      notify('取り消せる記録がありません', 'error');
+      return;
+    }
+    var last = todays.reduce(function(a,b){ return a.ts > b.ts ? a : b; });
+    entries = entries.filter(function(e){ return e.id !== last.id; });
+    await saveEntries(entries);
+    renderAll();
+    haptic();
+    notify(last.amount + 'ml の記録を取り消しました', 'info');
+  }
+
+  document.querySelectorAll('.qbtn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      addEntry(parseInt(btn.getAttribute('data-amount'), 10));
+    });
+  });
+  document.getElementById('customAddBtn').addEventListener('click', function(){
+    var input = document.getElementById('customInput');
+    var v = parseInt(input.value, 10);
+    if (v && v > 0) {
+      addEntry(v);
+      input.value = '';
+    } else {
+      notify('カスタム量を入力してください', 'error');
+    }
+  });
+  document.getElementById('customInput').addEventListener('keydown', function(e){
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      document.getElementById('customAddBtn').click();
+    }
+  });
+  document.getElementById('undoBtn').addEventListener('click', undoLast);
+  document.getElementById('goalBtn').addEventListener('click', function(){
+    var input = null;
+    try { input = window.prompt('1日の目標量（ml）を入力してください', String(goal)); } catch(e){ input = null; }
+    if (input === null) return;
+    var v = parseInt(input, 10);
+    if (v && v > 0) {
+      goal = v;
+      saveGoal(goal);
+      goalReachedShown = {};
+      renderAll();
+      notify('目標を' + goal + 'mlに設定しました', 'success');
+    } else {
+      notify('正しい数値を入力してください', 'error');
+    }
+  });
+
+  (async function init(){
+    goal = await loadGoal();
+    entries = await loadEntries();
+    trimOldEntries();
+    renderAll();
+    if (window.GUIOS && window.GUIOS.setTitle) {
+      try { window.GUIOS.setTitle('水分補給トラッカー'); } catch(e){}
+    }
+  })();
+</script>
+</body>
+</html>

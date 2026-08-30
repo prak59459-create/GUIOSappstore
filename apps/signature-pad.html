@@ -1,0 +1,262 @@
+<!--GUIOS-APP {"id":"signature-pad","name":"署名パッド","icon":"✍️","color":"#6d4c41","version":"1.0.0","author":"Claude","description":"指やマウスで手書きの署名を描き、PNG画像として保存できるアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>署名パッド</title>
+<style>
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ overflow-x:hidden; }
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:#1c1512; color:#f0e6e0; min-height:100vh; padding:16px; padding-bottom:32px;
+  }
+  h1{ font-size:18px; margin:0 0 14px; color:#d7ab94; display:flex; align-items:center; gap:8px; }
+  .canvas-wrap{
+    background:#ffffff; border-radius:16px; padding:0; position:relative; overflow:hidden;
+    box-shadow:0 6px 20px rgba(0,0,0,.35); border:1px solid #3a2b24; touch-action:none;
+  }
+  canvas{ display:block; width:100%; height:44vh; min-height:220px; touch-action:none; }
+  .guide-label{
+    position:absolute; left:16px; bottom:34px; font-size:12px; color:#b9a89e; pointer-events:none;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+  }
+  .panel{ margin-top:16px; background:#241a16; border-radius:14px; padding:14px; border:1px solid #3a2b24; }
+  .row{ display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+  .row:last-child{ margin-bottom:0; }
+  .row label{ font-size:13px; color:#c9b6ab; width:76px; flex-shrink:0; }
+  input[type="range"]{ flex:1; accent-color:#d7ab94; height:36px; }
+  .widthval{ width:34px; text-align:right; font-size:13px; color:#d7ab94; font-variant-numeric:tabular-nums; }
+  .colors{ display:flex; gap:10px; flex:1; flex-wrap:wrap; }
+  .swatch{
+    width:36px; height:36px; border-radius:50%; border:2px solid transparent; cursor:pointer;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.15);
+  }
+  .swatch.active{ border-color:#d7ab94; box-shadow:0 0 0 2px #241a16, 0 0 0 4px #d7ab94; }
+  .btn-row{ display:flex; gap:10px; margin-top:16px; }
+  .btn{
+    flex:1; padding:14px; border-radius:12px; border:none; background:#3a2b24;
+    color:#f0e6e0; font-weight:700; font-size:15px; cursor:pointer; min-height:48px;
+  }
+  .btn.primary{ background:#6d4c41; color:#fff2ea; }
+  .toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:#2f221d; color:#f0e6e0; padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; transition:opacity .25s, transform .25s; pointer-events:none;
+    max-width:90%; text-align:center; box-shadow:0 6px 18px rgba(0,0,0,.35); z-index:100;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+  <h1>✍️ 署名パッド</h1>
+
+  <div class="canvas-wrap">
+    <canvas id="pad"></canvas>
+    <div class="guide-label" id="guideLabel">署名してください</div>
+  </div>
+
+  <div class="panel">
+    <div class="row">
+      <label for="widthSlider">ペンの太さ</label>
+      <input type="range" id="widthSlider" min="1" max="12" value="3" step="1">
+      <span class="widthval" id="widthVal">3</span>
+    </div>
+    <div class="row">
+      <label>色</label>
+      <div class="colors" id="colorRow">
+        <div class="swatch active" data-color="#111111" style="background:#111111;"></div>
+        <div class="swatch" data-color="#1e3a8a" style="background:#1e3a8a;"></div>
+        <div class="swatch" data-color="#7f1d1d" style="background:#7f1d1d;"></div>
+        <div class="swatch" data-color="#14532d" style="background:#14532d;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn" id="clearBtn">🗑️ 消去</button>
+    <button class="btn primary" id="saveBtn">💾 PNGとして保存</button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  var canvas = document.getElementById('pad');
+  var ctx = canvas.getContext('2d');
+  var guideLabel = document.getElementById('guideLabel');
+  var toastEl = document.getElementById('toast');
+  var toastTimer = null;
+  var hasSDK = !!(window.GUIOS && window.GUIOS.notify);
+
+  var penColor = '#111111';
+  var penWidth = 3;
+  var drawing = false;
+  var lastX = 0, lastY = 0;
+  var hasStroke = false;
+  var activePointerId = null;
+
+  function showToastFallback(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ toastEl.classList.remove('show'); }, 1800);
+  }
+  function notify(msg, type){
+    if (hasSDK) {
+      try { window.GUIOS.notify(msg, { type: type || 'info' }); return; } catch(e){}
+    }
+    showToastFallback(msg);
+  }
+  function haptic(){
+    if (window.GUIOS && window.GUIOS.haptic) {
+      try { window.GUIOS.haptic(); } catch(e){}
+    }
+  }
+
+  function fillBackground(){
+    ctx.save();
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.restore();
+    drawGuideLine();
+  }
+
+  function drawGuideLine(){
+    var dpr = window.devicePixelRatio || 1;
+    var w = canvas.width / dpr;
+    var h = canvas.height / dpr;
+    ctx.save();
+    ctx.strokeStyle = '#d9d2cc';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([6,6]);
+    ctx.beginPath();
+    ctx.moveTo(w * 0.08, h * 0.72);
+    ctx.lineTo(w * 0.92, h * 0.72);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function resizeCanvas(){
+    var rect = canvas.getBoundingClientRect();
+    var dpr = window.devicePixelRatio || 1;
+    // preserve existing drawing across resize (best-effort)
+    var prev = null;
+    if (canvas.width > 0 && canvas.height > 0) {
+      try { prev = ctx.getImageData(0, 0, canvas.width, canvas.height); } catch(e){ prev = null; }
+    }
+    canvas.width = Math.max(1, Math.round(rect.width * dpr));
+    canvas.height = Math.max(1, Math.round(rect.height * dpr));
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    fillBackground();
+  }
+
+  function getPos(e){
+    var rect = canvas.getBoundingClientRect();
+    return {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    };
+  }
+
+  function pointerDown(e){
+    if (activePointerId !== null) return;
+    activePointerId = e.pointerId;
+    drawing = true;
+    var p = getPos(e);
+    lastX = p.x; lastY = p.y;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, penWidth/2, 0, Math.PI*2);
+    ctx.fillStyle = penColor;
+    ctx.fill();
+    hasStroke = true;
+    try { canvas.setPointerCapture(e.pointerId); } catch(err){}
+    e.preventDefault();
+  }
+  function pointerMove(e){
+    if (!drawing || e.pointerId !== activePointerId) return;
+    var p = getPos(e);
+    ctx.strokeStyle = penColor;
+    ctx.lineWidth = penWidth;
+    ctx.beginPath();
+    ctx.moveTo(lastX, lastY);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    lastX = p.x; lastY = p.y;
+    e.preventDefault();
+  }
+  function pointerUp(e){
+    if (e.pointerId !== activePointerId) return;
+    drawing = false;
+    activePointerId = null;
+    try { canvas.releasePointerCapture(e.pointerId); } catch(err){}
+  }
+
+  canvas.addEventListener('pointerdown', pointerDown);
+  canvas.addEventListener('pointermove', pointerMove);
+  canvas.addEventListener('pointerup', pointerUp);
+  canvas.addEventListener('pointercancel', pointerUp);
+  canvas.addEventListener('pointerleave', function(e){
+    if (drawing && e.pointerId === activePointerId) pointerUp(e);
+  });
+
+  window.addEventListener('resize', function(){
+    // only resize if no strokes yet, to avoid distorting an in-progress signature badly
+    if (!hasStroke) resizeCanvas();
+  });
+
+  document.getElementById('widthSlider').addEventListener('input', function(e){
+    penWidth = parseInt(e.target.value, 10);
+    document.getElementById('widthVal').textContent = penWidth;
+  });
+
+  var colorRow = document.getElementById('colorRow');
+  colorRow.addEventListener('click', function(e){
+    var sw = e.target.closest('.swatch');
+    if (!sw) return;
+    penColor = sw.getAttribute('data-color');
+    var all = colorRow.querySelectorAll('.swatch');
+    for (var i=0;i<all.length;i++) all[i].classList.remove('active');
+    sw.classList.add('active');
+  });
+
+  document.getElementById('clearBtn').addEventListener('click', function(){
+    fillBackground();
+    hasStroke = false;
+    notify('消去しました', 'info');
+    haptic();
+  });
+
+  document.getElementById('saveBtn').addEventListener('click', function(){
+    if (!hasStroke) {
+      notify('署名を描いてから保存してください', 'error');
+      return;
+    }
+    canvas.toBlob(function(blob){
+      if (!blob) {
+        notify('保存に失敗しました', 'error');
+        return;
+      }
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'signature.png';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+      notify('PNGとして保存しました', 'success');
+      haptic();
+    }, 'image/png');
+  });
+
+  // initial setup
+  resizeCanvas();
+})();
+</script>
+</body>
+</html>

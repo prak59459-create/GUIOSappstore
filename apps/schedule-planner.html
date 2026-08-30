@@ -1,0 +1,355 @@
+<!--GUIOS-APP {"id":"schedule-planner","name":"スケジュール帳","icon":"🗓","color":"#3949ab","version":"1.0.0","author":"Claude","description":"日時付きの予定を登録し、一覧で管理できるスケジュール帳アプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>スケジュール帳</title>
+<style>
+  :root{
+    --accent:#5c6bc0;
+    --bg:#10111c;
+    --card:#1a1c2c;
+    --card2:#141525;
+    --text:#e9eaf7;
+    --sub:#9296b8;
+    --line:rgba(255,255,255,0.08);
+    --danger:#e0576b;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text); min-height:100vh; padding:16px; padding-bottom:56px;
+  }
+  h1{ font-size:19px; margin:4px 0 14px; display:flex; align-items:center; gap:8px; }
+  .wrap{ max-width:560px; margin:0 auto; display:flex; flex-direction:column; gap:14px; }
+
+  .add-btn{
+    background:var(--accent); color:#fff; border:none; border-radius:14px; font-weight:700;
+    font-size:15px; padding:14px; min-height:48px; cursor:pointer; width:100%;
+  }
+  .add-btn:active{ filter:brightness(1.1); }
+
+  .toolbar{ display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:13px; color:var(--sub); }
+  .toolbar label{ display:flex; align-items:center; gap:6px; cursor:pointer; }
+  .toolbar input[type="checkbox"]{ width:18px; height:18px; }
+
+  .date-group{ display:flex; flex-direction:column; gap:8px; }
+  .date-header{
+    font-size:12px; color:var(--sub); font-weight:700; margin-top:6px; padding-left:2px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .date-header .rel{
+    background:var(--accent); color:#fff; border-radius:8px; padding:2px 8px; font-size:11px;
+  }
+  .event-card{
+    background:var(--card); border:1px solid var(--line); border-left:4px solid var(--accent);
+    border-radius:14px; padding:12px 14px; display:flex; flex-direction:column; gap:6px;
+  }
+  .event-card.past{ opacity:0.55; border-left-color:var(--sub); }
+  .event-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  .event-title{ font-size:15px; font-weight:700; }
+  .event-time{ font-size:13px; color:var(--accent); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .event-memo{ font-size:12px; color:var(--sub); white-space:pre-wrap; word-break:break-word; }
+  .event-actions{ display:flex; gap:8px; justify-content:flex-end; margin-top:2px; }
+  .icon-btn{
+    background:var(--card2); color:var(--sub); border:1px solid var(--line); border-radius:10px;
+    padding:8px 12px; font-size:12px; min-height:36px; cursor:pointer;
+  }
+  .icon-btn.danger{ color:var(--danger); }
+
+  .empty{ text-align:center; color:var(--sub); font-size:13px; padding:30px 10px; }
+
+  .overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.6); display:flex; align-items:flex-end;
+    justify-content:center; z-index:40;
+  }
+  .overlay[hidden]{ display:none; }
+  .sheet{
+    background:var(--card); width:100%; max-width:560px; border-radius:20px 20px 0 0;
+    padding:18px 18px 26px; max-height:88vh; overflow-y:auto;
+  }
+  .sheet h2{ font-size:16px; margin:0 0 14px; }
+  .field{ margin-bottom:14px; }
+  .field-row{ display:flex; gap:10px; }
+  .field-row .field{ flex:1; }
+  label{ display:block; font-size:12px; color:var(--sub); margin-bottom:6px; }
+  input[type="text"], input[type="date"], input[type="time"], textarea{
+    width:100%; background:var(--card2); border:1px solid var(--line); border-radius:10px;
+    color:var(--text); font-size:15px; padding:12px; box-sizing:border-box;
+  }
+  input[type="text"], input[type="date"], input[type="time"]{ height:48px; }
+  textarea{ min-height:70px; resize:vertical; font-family:inherit; }
+  .sheet-actions{ display:flex; gap:10px; margin-top:6px; }
+  .sheet-actions button{
+    flex:1; padding:14px; border-radius:12px; border:none; font-size:15px; font-weight:700; cursor:pointer;
+    min-height:48px;
+  }
+  .btn-cancel{ background:var(--card2); color:var(--text); }
+  .btn-save{ background:var(--accent); color:#fff; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🗓 スケジュール帳</h1>
+
+    <button class="add-btn" id="openAddBtn">＋ 予定を追加</button>
+
+    <div class="toolbar">
+      <span id="countLabel">予定 0件</span>
+      <label><input type="checkbox" id="showPastToggle"> 過去の予定も表示</label>
+    </div>
+
+    <div class="date-group" id="eventList"></div>
+    <div class="empty" id="emptyMsg" hidden>予定がありません</div>
+  </div>
+
+  <div class="overlay" id="editOverlay" hidden>
+    <div class="sheet">
+      <h2 id="sheetTitle">予定を追加</h2>
+      <div class="field">
+        <label>タイトル</label>
+        <input type="text" id="titleInput" placeholder="例: 会議" maxlength="60">
+      </div>
+      <div class="field">
+        <label>日付</label>
+        <input type="date" id="dateInput">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>開始時刻</label>
+          <input type="time" id="startInput">
+        </div>
+        <div class="field">
+          <label>終了時刻(任意)</label>
+          <input type="time" id="endInput">
+        </div>
+      </div>
+      <div class="field">
+        <label>メモ(任意)</label>
+        <textarea id="memoInput" maxlength="300" placeholder="詳細やメモ"></textarea>
+      </div>
+      <div class="sheet-actions">
+        <button class="btn-cancel" id="cancelBtn">キャンセル</button>
+        <button class="btn-save" id="saveBtn">保存</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var APP_ID = 'schedule-planner';
+  var FALLBACK_KEY = 'guios-fallback-' + APP_ID + '-events';
+  var DAY_NAMES = ['日','月','火','水','木','金','土'];
+
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify) {
+      try { window.GUIOS.notify(msg, { type: type || 'info' }); return; } catch(e){}
+    }
+    var t = document.createElement('div');
+    t.textContent = msg;
+    t.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1a1c2c;color:#e9eaf7;padding:10px 18px;border-radius:10px;font-size:13px;z-index:200;box-shadow:0 6px 18px rgba(0,0,0,.4);';
+    document.body.appendChild(t);
+    setTimeout(function(){ t.remove(); }, 2600);
+  }
+
+  async function loadEvents(){
+    if (hasSDK) {
+      try {
+        var v = await window.GUIOS.storage.get('events');
+        return Array.isArray(v) ? v : [];
+      } catch(e){ return []; }
+    } else {
+      try {
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch(e){ return []; }
+    }
+  }
+  async function saveEvents(list){
+    if (hasSDK) {
+      try { await window.GUIOS.storage.set('events', list); } catch(e){}
+    } else {
+      try { localStorage.setItem(FALLBACK_KEY, JSON.stringify(list)); } catch(e){}
+    }
+  }
+
+  var events = [];
+  var editingId = null;
+  var showPast = false;
+
+  function uid(){ return 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+    });
+  }
+
+  function todayStr(){
+    var d = new Date();
+    return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate());
+  }
+  function pad2(n){ return (n < 10 ? '0' : '') + n; }
+
+  function dateAtMidnight(dateStr){
+    var parts = dateStr.split('-').map(Number);
+    return new Date(parts[0], parts[1]-1, parts[2]);
+  }
+
+  function relativeLabel(dateStr){
+    var today = dateAtMidnight(todayStr());
+    var d = dateAtMidnight(dateStr);
+    var diffDays = Math.round((d - today) / 86400000);
+    if (diffDays === 0) return '今日';
+    if (diffDays === 1) return '明日';
+    if (diffDays === 2) return '明後日';
+    if (diffDays === -1) return '昨日';
+    if (diffDays > 1) return diffDays + '日後';
+    return (-diffDays) + '日前';
+  }
+
+  function formatDateHeader(dateStr){
+    var d = dateAtMidnight(dateStr);
+    return d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日(' + DAY_NAMES[d.getDay()] + ')';
+  }
+
+  function isPastEvent(ev){
+    var today = todayStr();
+    if (ev.date < today) return true;
+    if (ev.date > today) return false;
+    // same day: past if start time already passed
+    if (!ev.start) return false;
+    var now = new Date();
+    var nowHM = pad2(now.getHours()) + ':' + pad2(now.getMinutes());
+    return ev.start < nowHM;
+  }
+
+  function render(){
+    var listEl = document.getElementById('eventList');
+    var emptyEl = document.getElementById('emptyMsg');
+
+    var visible = events.filter(function(ev){ return showPast || !isPastEvent(ev); });
+    visible.sort(function(a, b){
+      var ka = a.date + ' ' + (a.start || '00:00');
+      var kb = b.date + ' ' + (b.start || '00:00');
+      return ka < kb ? -1 : (ka > kb ? 1 : 0);
+    });
+
+    document.getElementById('countLabel').textContent = '予定 ' + events.length + '件';
+
+    if (!visible.length){
+      listEl.innerHTML = '';
+      emptyEl.hidden = false;
+      return;
+    }
+    emptyEl.hidden = true;
+
+    var html = '';
+    var lastDate = null;
+    visible.forEach(function(ev){
+      if (ev.date !== lastDate){
+        lastDate = ev.date;
+        html += '<div class="date-header">' + formatDateHeader(ev.date) +
+          '<span class="rel">' + relativeLabel(ev.date) + '</span></div>';
+      }
+      var timeLabel = ev.start ? (ev.start + (ev.end ? (' 〜 ' + ev.end) : '')) : '終日';
+      html += '' +
+        '<div class="event-card' + (isPastEvent(ev) ? ' past' : '') + '" data-id="' + ev.id + '">' +
+          '<div class="event-top">' +
+            '<div class="event-title">' + escapeHtml(ev.title) + '</div>' +
+            '<div class="event-time">' + timeLabel + '</div>' +
+          '</div>' +
+          (ev.memo ? '<div class="event-memo">' + escapeHtml(ev.memo) + '</div>' : '') +
+          '<div class="event-actions">' +
+            '<button class="icon-btn editBtn" data-id="' + ev.id + '">編集</button>' +
+            '<button class="icon-btn danger deleteBtn" data-id="' + ev.id + '">削除</button>' +
+          '</div>' +
+        '</div>';
+    });
+    listEl.innerHTML = html;
+
+    listEl.querySelectorAll('.editBtn').forEach(function(el){
+      el.addEventListener('click', function(){ openEdit(el.dataset.id); });
+    });
+    listEl.querySelectorAll('.deleteBtn').forEach(function(el){
+      el.addEventListener('click', function(){
+        if (!confirm('この予定を削除しますか？')) return;
+        events = events.filter(function(x){ return x.id !== el.dataset.id; });
+        saveEvents(events);
+        render();
+      });
+    });
+  }
+
+  function openAdd(){
+    editingId = null;
+    document.getElementById('sheetTitle').textContent = '予定を追加';
+    document.getElementById('titleInput').value = '';
+    document.getElementById('dateInput').value = todayStr();
+    document.getElementById('startInput').value = '';
+    document.getElementById('endInput').value = '';
+    document.getElementById('memoInput').value = '';
+    document.getElementById('editOverlay').hidden = false;
+  }
+
+  function openEdit(id){
+    var ev = events.find(function(x){ return x.id === id; });
+    if (!ev) return;
+    editingId = id;
+    document.getElementById('sheetTitle').textContent = '予定を編集';
+    document.getElementById('titleInput').value = ev.title;
+    document.getElementById('dateInput').value = ev.date;
+    document.getElementById('startInput').value = ev.start || '';
+    document.getElementById('endInput').value = ev.end || '';
+    document.getElementById('memoInput').value = ev.memo || '';
+    document.getElementById('editOverlay').hidden = false;
+  }
+
+  document.getElementById('openAddBtn').addEventListener('click', openAdd);
+  document.getElementById('cancelBtn').addEventListener('click', function(){
+    document.getElementById('editOverlay').hidden = true;
+  });
+  document.getElementById('showPastToggle').addEventListener('change', function(e){
+    showPast = e.target.checked;
+    render();
+  });
+
+  document.getElementById('saveBtn').addEventListener('click', function(){
+    var title = document.getElementById('titleInput').value.trim();
+    var date = document.getElementById('dateInput').value;
+    var start = document.getElementById('startInput').value;
+    var end = document.getElementById('endInput').value;
+    var memo = document.getElementById('memoInput').value.trim();
+
+    if (!title) { notify('タイトルを入力してください', 'error'); return; }
+    if (!date) { notify('日付を入力してください', 'error'); return; }
+
+    if (editingId) {
+      var ev = events.find(function(x){ return x.id === editingId; });
+      if (ev) {
+        ev.title = title; ev.date = date; ev.start = start; ev.end = end; ev.memo = memo;
+      }
+    } else {
+      events.push({ id: uid(), title: title, date: date, start: start, end: end, memo: memo });
+    }
+    saveEvents(events);
+    render();
+    document.getElementById('editOverlay').hidden = true;
+  });
+
+  (async function init(){
+    events = await loadEvents();
+    render();
+    if (window.GUIOS && window.GUIOS.setTitle) {
+      try { window.GUIOS.setTitle('スケジュール帳'); } catch(e){}
+    }
+  })();
+
+  // keep relative labels ("今日"/"明日") fresh if left open across midnight
+  var refreshInterval = setInterval(render, 5 * 60 * 1000);
+  window.addEventListener('beforeunload', function(){
+    clearInterval(refreshInterval);
+  });
+</script>
+</body>
+</html>

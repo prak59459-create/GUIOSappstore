@@ -1,0 +1,502 @@
+<!--GUIOS-APP {"id":"alarm-clock","name":"アラーム","icon":"⏰","color":"#c62828","version":"1.0.0","author":"Claude","description":"指定した時刻にアラームを鳴らして知らせてくれる目覚まし時計アプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>アラーム</title>
+<style>
+  :root{
+    --accent:#e5484d;
+    --bg:#170f0f;
+    --card:#241615;
+    --card2:#1b1010;
+    --text:#fbeceb;
+    --sub:#c39a97;
+    --line:rgba(255,255,255,0.08);
+    --ok:#4caf7d;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text); min-height:100vh; padding:16px; padding-bottom:56px;
+  }
+  h1{ font-size:19px; margin:4px 0 4px; display:flex; align-items:center; gap:8px; }
+  .wrap{ max-width:560px; margin:0 auto; display:flex; flex-direction:column; gap:14px; }
+  .notice{
+    font-size:12px; color:var(--sub); background:var(--card2); border:1px solid var(--line);
+    border-radius:10px; padding:10px 12px; line-height:1.6;
+  }
+  .now-clock{
+    text-align:center; font-size:34px; font-weight:700; font-variant-numeric:tabular-nums;
+    letter-spacing:1px; margin:2px 0 0;
+  }
+  .now-date{ text-align:center; font-size:12px; color:var(--sub); margin-bottom:4px; }
+
+  .add-btn{
+    background:var(--accent); color:#2a0505; border:none; border-radius:14px; font-weight:700;
+    font-size:15px; padding:14px; min-height:48px; cursor:pointer; width:100%;
+  }
+  .add-btn:active{ filter:brightness(1.1); }
+
+  .alarm-list{ display:flex; flex-direction:column; gap:10px; }
+  .alarm-card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px 16px;
+    display:flex; flex-direction:column; gap:8px;
+  }
+  .alarm-top{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .alarm-time{ font-size:30px; font-weight:700; font-variant-numeric:tabular-nums; }
+  .alarm-time.disabled{ color:var(--sub); }
+  .alarm-meta{ display:flex; flex-direction:column; gap:2px; }
+  .alarm-label{ font-size:13px; color:var(--text); }
+  .alarm-repeat{ font-size:11px; color:var(--sub); }
+
+  .switch{ position:relative; width:46px; height:26px; flex-shrink:0; }
+  .switch input{ opacity:0; width:100%; height:100%; position:absolute; margin:0; cursor:pointer; }
+  .switch .track{
+    position:absolute; inset:0; background:#3a2726; border-radius:14px; transition:background .2s;
+  }
+  .switch .thumb{
+    position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%;
+    background:#f0dede; transition:transform .2s;
+  }
+  .switch input:checked + .track{ background:var(--accent); }
+  .switch input:checked + .track .thumb{ transform:translateX(20px); }
+
+  .alarm-actions{ display:flex; gap:8px; justify-content:flex-end; }
+  .icon-btn{
+    background:var(--card2); color:var(--sub); border:1px solid var(--line); border-radius:10px;
+    padding:8px 12px; font-size:12px; min-height:36px; cursor:pointer;
+  }
+  .icon-btn.danger{ color:var(--accent); }
+
+  .empty{ text-align:center; color:var(--sub); font-size:13px; padding:30px 10px; }
+
+  /* modal */
+  .overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.6); display:flex; align-items:flex-end;
+    justify-content:center; z-index:40; padding:0;
+  }
+  .overlay[hidden]{ display:none; }
+  .sheet{
+    background:var(--card); width:100%; max-width:560px; border-radius:20px 20px 0 0;
+    padding:18px 18px 26px; max-height:88vh; overflow-y:auto;
+  }
+  .sheet h2{ font-size:16px; margin:0 0 14px; }
+  .field{ margin-bottom:14px; }
+  label{ display:block; font-size:12px; color:var(--sub); margin-bottom:6px; }
+  input[type="time"], input[type="text"]{
+    width:100%; background:var(--card2); border:1px solid var(--line); border-radius:10px;
+    color:var(--text); font-size:16px; padding:12px; height:48px;
+  }
+  .mode-tabs{ display:flex; gap:8px; margin-bottom:10px; }
+  .mode-tab{
+    flex:1; text-align:center; padding:10px; border-radius:10px; background:var(--card2);
+    border:1px solid var(--line); font-size:13px; cursor:pointer; color:var(--sub);
+  }
+  .mode-tab.active{ background:var(--accent); color:#2a0505; border-color:var(--accent); font-weight:700; }
+  .days-row{ display:flex; gap:6px; flex-wrap:wrap; }
+  .day-chip{
+    flex:1; min-width:38px; text-align:center; padding:10px 0; border-radius:10px; background:var(--card2);
+    border:1px solid var(--line); font-size:13px; cursor:pointer; color:var(--sub); user-select:none;
+  }
+  .day-chip.active{ background:var(--accent); color:#2a0505; border-color:var(--accent); font-weight:700; }
+  .sheet-actions{ display:flex; gap:10px; margin-top:6px; }
+  .sheet-actions button{
+    flex:1; padding:14px; border-radius:12px; border:none; font-size:15px; font-weight:700; cursor:pointer;
+    min-height:48px;
+  }
+  .btn-cancel{ background:var(--card2); color:var(--text); }
+  .btn-save{ background:var(--accent); color:#2a0505; }
+
+  /* alarm firing banner */
+  .banner-overlay{
+    position:fixed; inset:0; background:rgba(20,4,4,0.94); display:flex; flex-direction:column;
+    align-items:center; justify-content:center; z-index:80; padding:24px; text-align:center;
+  }
+  .banner-overlay[hidden]{ display:none; }
+  .banner-icon{ font-size:64px; margin-bottom:12px; animation:ring 1s infinite; }
+  @keyframes ring{ 0%,100%{ transform:rotate(0deg);} 25%{ transform:rotate(-12deg);} 75%{ transform:rotate(12deg);} }
+  .banner-title{ font-size:22px; font-weight:700; margin-bottom:6px; }
+  .banner-time{ font-size:44px; font-weight:700; font-variant-numeric:tabular-nums; margin-bottom:24px; }
+  .banner-actions{ display:flex; gap:12px; width:100%; max-width:340px; }
+  .banner-actions button{
+    flex:1; padding:16px; border-radius:14px; border:none; font-size:16px; font-weight:700; cursor:pointer;
+    min-height:52px;
+  }
+  .btn-stop{ background:var(--accent); color:#fff; }
+  .btn-snooze{ background:var(--card2); color:var(--text); border:1px solid var(--line) !important; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>⏰ アラーム</h1>
+    <div class="now-clock" id="nowClock">--:--</div>
+    <div class="now-date" id="nowDate">----年--月--日</div>
+
+    <div class="notice">
+      このアプリを開いたままにしておく必要があります。アプリを閉じるとアラームは鳴りません。
+    </div>
+
+    <button class="add-btn" id="openAddBtn">＋ アラームを追加</button>
+
+    <div class="alarm-list" id="alarmList"></div>
+    <div class="empty" id="emptyMsg" hidden>アラームがありません</div>
+  </div>
+
+  <div class="overlay" id="editOverlay" hidden>
+    <div class="sheet">
+      <h2 id="sheetTitle">アラームを追加</h2>
+      <div class="field">
+        <label>時刻</label>
+        <input type="time" id="timeInput" value="07:00">
+      </div>
+      <div class="field">
+        <label>ラベル(任意)</label>
+        <input type="text" id="labelInput" placeholder="例: 起床" maxlength="30">
+      </div>
+      <div class="field">
+        <label>繰り返し</label>
+        <div class="mode-tabs">
+          <div class="mode-tab active" id="tabOnce" data-mode="once">1回のみ</div>
+          <div class="mode-tab" id="tabRepeat" data-mode="repeat">曜日を指定</div>
+        </div>
+        <div class="days-row" id="daysRow" hidden>
+          <div class="day-chip" data-day="0">日</div>
+          <div class="day-chip" data-day="1">月</div>
+          <div class="day-chip" data-day="2">火</div>
+          <div class="day-chip" data-day="3">水</div>
+          <div class="day-chip" data-day="4">木</div>
+          <div class="day-chip" data-day="5">金</div>
+          <div class="day-chip" data-day="6">土</div>
+        </div>
+      </div>
+      <div class="sheet-actions">
+        <button class="btn-cancel" id="cancelBtn">キャンセル</button>
+        <button class="btn-save" id="saveBtn">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="banner-overlay" id="fireBanner" hidden>
+    <div class="banner-icon">⏰</div>
+    <div class="banner-title" id="fireLabel">アラーム</div>
+    <div class="banner-time" id="fireTime">--:--</div>
+    <div class="banner-actions">
+      <button class="btn-snooze" id="snoozeBtn">スヌーズ(5分後)</button>
+      <button class="btn-stop" id="stopBtn">停止</button>
+    </div>
+  </div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var APP_ID = 'alarm-clock';
+  var FALLBACK_KEY = 'guios-fallback-' + APP_ID + '-alarms';
+  var DAY_NAMES = ['日','月','火','水','木','金','土'];
+
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify) {
+      try { window.GUIOS.notify(msg, { type: type || 'info' }); return; } catch(e){}
+    }
+    // simple fallback toast
+    var t = document.createElement('div');
+    t.textContent = msg;
+    t.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#241615;color:#fbeceb;padding:10px 18px;border-radius:10px;font-size:13px;z-index:200;box-shadow:0 6px 18px rgba(0,0,0,.4);';
+    document.body.appendChild(t);
+    setTimeout(function(){ t.remove(); }, 3000);
+  }
+  function haptic(){
+    if (window.GUIOS && window.GUIOS.haptic) {
+      try { window.GUIOS.haptic(); } catch(e){}
+    }
+  }
+
+  async function loadAlarms(){
+    if (hasSDK) {
+      try {
+        var v = await window.GUIOS.storage.get('alarms');
+        return Array.isArray(v) ? v : [];
+      } catch(e){ return []; }
+    } else {
+      try {
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch(e){ return []; }
+    }
+  }
+  async function saveAlarms(list){
+    if (hasSDK) {
+      try { await window.GUIOS.storage.set('alarms', list); } catch(e){}
+    } else {
+      try { localStorage.setItem(FALLBACK_KEY, JSON.stringify(list)); } catch(e){}
+    }
+  }
+
+  var alarms = [];
+  var editingId = null;
+  var currentMode = 'once';
+  var selectedDays = [];
+
+  function pad2(n){ return (n < 10 ? '0' : '') + n; }
+  function uid(){ return 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+  function repeatText(a){
+    if (a.mode === 'once') return '1回のみ';
+    if (!a.days || !a.days.length) return '曜日未設定';
+    if (a.days.length === 7) return '毎日';
+    var sorted = a.days.slice().sort();
+    return sorted.map(function(d){ return DAY_NAMES[d]; }).join('');
+  }
+
+  function renderList(){
+    var listEl = document.getElementById('alarmList');
+    var emptyEl = document.getElementById('emptyMsg');
+    if (!alarms.length){
+      listEl.innerHTML = '';
+      emptyEl.hidden = false;
+      return;
+    }
+    emptyEl.hidden = true;
+    var sorted = alarms.slice().sort(function(a,b){ return a.time < b.time ? -1 : (a.time > b.time ? 1 : 0); });
+    listEl.innerHTML = sorted.map(function(a){
+      return '' +
+      '<div class="alarm-card" data-id="' + a.id + '">' +
+        '<div class="alarm-top">' +
+          '<div class="alarm-time' + (a.enabled ? '' : ' disabled') + '">' + a.time + '</div>' +
+          '<label class="switch">' +
+            '<input type="checkbox" class="toggleInput" data-id="' + a.id + '" ' + (a.enabled ? 'checked' : '') + '>' +
+            '<span class="track"><span class="thumb"></span></span>' +
+          '</label>' +
+        '</div>' +
+        '<div class="alarm-meta">' +
+          '<div class="alarm-label">' + (a.label ? escapeHtml(a.label) : '(ラベルなし)') + '</div>' +
+          '<div class="alarm-repeat">' + repeatText(a) + '</div>' +
+        '</div>' +
+        '<div class="alarm-actions">' +
+          '<button class="icon-btn editBtn" data-id="' + a.id + '">編集</button>' +
+          '<button class="icon-btn danger deleteBtn" data-id="' + a.id + '">削除</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    listEl.querySelectorAll('.toggleInput').forEach(function(el){
+      el.addEventListener('change', function(){
+        var a = alarms.find(function(x){ return x.id === el.dataset.id; });
+        if (a) { a.enabled = el.checked; saveAlarms(alarms); renderList(); }
+      });
+    });
+    listEl.querySelectorAll('.editBtn').forEach(function(el){
+      el.addEventListener('click', function(){ openEdit(el.dataset.id); });
+    });
+    listEl.querySelectorAll('.deleteBtn').forEach(function(el){
+      el.addEventListener('click', function(){
+        if (!confirm('このアラームを削除しますか？')) return;
+        alarms = alarms.filter(function(x){ return x.id !== el.dataset.id; });
+        saveAlarms(alarms);
+        renderList();
+      });
+    });
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+    });
+  }
+
+  function setMode(mode){
+    currentMode = mode;
+    document.getElementById('tabOnce').classList.toggle('active', mode === 'once');
+    document.getElementById('tabRepeat').classList.toggle('active', mode === 'repeat');
+    document.getElementById('daysRow').hidden = (mode !== 'repeat');
+  }
+
+  function renderDayChips(){
+    document.querySelectorAll('.day-chip').forEach(function(chip){
+      var d = parseInt(chip.dataset.day, 10);
+      chip.classList.toggle('active', selectedDays.indexOf(d) !== -1);
+    });
+  }
+
+  document.querySelectorAll('.day-chip').forEach(function(chip){
+    chip.addEventListener('click', function(){
+      var d = parseInt(chip.dataset.day, 10);
+      var idx = selectedDays.indexOf(d);
+      if (idx === -1) selectedDays.push(d); else selectedDays.splice(idx, 1);
+      renderDayChips();
+    });
+  });
+
+  document.getElementById('tabOnce').addEventListener('click', function(){ setMode('once'); });
+  document.getElementById('tabRepeat').addEventListener('click', function(){ setMode('repeat'); });
+
+  function openAdd(){
+    editingId = null;
+    document.getElementById('sheetTitle').textContent = 'アラームを追加';
+    document.getElementById('timeInput').value = '07:00';
+    document.getElementById('labelInput').value = '';
+    selectedDays = [];
+    setMode('once');
+    renderDayChips();
+    document.getElementById('editOverlay').hidden = false;
+  }
+
+  function openEdit(id){
+    var a = alarms.find(function(x){ return x.id === id; });
+    if (!a) return;
+    editingId = id;
+    document.getElementById('sheetTitle').textContent = 'アラームを編集';
+    document.getElementById('timeInput').value = a.time;
+    document.getElementById('labelInput').value = a.label || '';
+    selectedDays = (a.days || []).slice();
+    setMode(a.mode || 'once');
+    renderDayChips();
+    document.getElementById('editOverlay').hidden = false;
+  }
+
+  document.getElementById('openAddBtn').addEventListener('click', openAdd);
+  document.getElementById('cancelBtn').addEventListener('click', function(){
+    document.getElementById('editOverlay').hidden = true;
+  });
+
+  document.getElementById('saveBtn').addEventListener('click', function(){
+    var time = document.getElementById('timeInput').value;
+    if (!time) { notify('時刻を入力してください', 'error'); return; }
+    var label = document.getElementById('labelInput').value.trim();
+
+    if (editingId) {
+      var a = alarms.find(function(x){ return x.id === editingId; });
+      if (a) {
+        a.time = time;
+        a.label = label;
+        a.mode = currentMode;
+        a.days = currentMode === 'repeat' ? selectedDays.slice() : [];
+        a.enabled = true;
+        a.firedKey = null;
+      }
+    } else {
+      alarms.push({
+        id: uid(),
+        time: time,
+        label: label,
+        mode: currentMode,
+        days: currentMode === 'repeat' ? selectedDays.slice() : [],
+        enabled: true,
+        firedKey: null
+      });
+    }
+    saveAlarms(alarms);
+    renderList();
+    document.getElementById('editOverlay').hidden = true;
+  });
+
+  // --- clock display ---
+  function tickClock(){
+    var now = new Date();
+    document.getElementById('nowClock').textContent = pad2(now.getHours()) + ':' + pad2(now.getMinutes());
+    document.getElementById('nowDate').textContent =
+      now.getFullYear() + '年' + (now.getMonth()+1) + '月' + now.getDate() + '日(' + DAY_NAMES[now.getDay()] + ')';
+  }
+
+  // --- alarm firing logic ---
+  var activeFire = null; // { alarm, isSnooze }
+  var snoozeTimer = null;
+
+  function minuteKey(d){
+    return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate()) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+  }
+
+  function checkAlarms(){
+    if (activeFire) return; // one banner at a time
+    var now = new Date();
+    var hm = pad2(now.getHours()) + ':' + pad2(now.getMinutes());
+    var mKey = minuteKey(now);
+    var dow = now.getDay();
+    var fired = false;
+
+    alarms.forEach(function(a){
+      if (fired || !a.enabled) return;
+      if (a.time !== hm) return;
+      if (a.firedKey === mKey) return;
+      if (a.mode === 'repeat' && (!a.days || a.days.indexOf(dow) === -1)) return;
+
+      a.firedKey = mKey;
+      if (a.mode === 'once') a.enabled = false;
+      fired = true;
+      fireAlarm(a, hm);
+    });
+
+    if (fired) { saveAlarms(alarms); renderList(); }
+  }
+
+  function fireAlarm(alarm, hm){
+    activeFire = { alarm: alarm };
+    document.getElementById('fireLabel').textContent = 'アラーム' + (alarm.label ? ': ' + alarm.label : '');
+    document.getElementById('fireTime').textContent = hm;
+    document.getElementById('fireBanner').hidden = false;
+    notify('アラーム' + (alarm.label ? (': ' + alarm.label) : '') + ' (' + hm + ')', 'info');
+    haptic();
+  }
+
+  function dismissBanner(){
+    document.getElementById('fireBanner').hidden = true;
+    activeFire = null;
+  }
+
+  document.getElementById('stopBtn').addEventListener('click', function(){
+    if (snoozeTimer) { clearTimeout(snoozeTimer); snoozeTimer = null; }
+    dismissBanner();
+  });
+
+  document.getElementById('snoozeBtn').addEventListener('click', function(){
+    var snoozed = activeFire ? activeFire.alarm : null;
+    dismissBanner();
+    if (snoozeTimer) { clearTimeout(snoozeTimer); snoozeTimer = null; }
+    notify('5分後に再度お知らせします', 'info');
+    snoozeTimer = setTimeout(function(){
+      snoozeTimer = null;
+      var now = new Date();
+      var hm = pad2(now.getHours()) + ':' + pad2(now.getMinutes());
+      activeFire = { alarm: snoozed || { label: '' } };
+      document.getElementById('fireLabel').textContent = 'アラーム(スヌーズ)' + (snoozed && snoozed.label ? ': ' + snoozed.label : '');
+      document.getElementById('fireTime').textContent = hm;
+      document.getElementById('fireBanner').hidden = false;
+      notify('スヌーズ: アラームの時間です', 'info');
+      haptic();
+    }, 5 * 60 * 1000);
+  });
+
+  var clockInterval = null;
+  var checkInterval = null;
+
+  function startTimers(){
+    if (clockInterval === null) {
+      tickClock();
+      clockInterval = setInterval(tickClock, 1000);
+    }
+    if (checkInterval === null) {
+      checkInterval = setInterval(checkAlarms, 1000);
+    }
+  }
+  function stopTimers(){
+    if (clockInterval !== null) { clearInterval(clockInterval); clockInterval = null; }
+    if (checkInterval !== null) { clearInterval(checkInterval); checkInterval = null; }
+  }
+
+  window.addEventListener('beforeunload', function(){
+    stopTimers();
+    if (snoozeTimer) { clearTimeout(snoozeTimer); snoozeTimer = null; }
+  });
+  window.addEventListener('pagehide', stopTimers);
+
+  (async function init(){
+    alarms = await loadAlarms();
+    renderList();
+    startTimers();
+    if (window.GUIOS && window.GUIOS.setTitle) {
+      try { window.GUIOS.setTitle('アラーム'); } catch(e){}
+    }
+  })();
+</script>
+</body>
+</html>

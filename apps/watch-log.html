@@ -1,0 +1,463 @@
+<!--GUIOS-APP {"id":"watch-log","name":"視聴記録","icon":"🎬","color":"#880e4f","version":"1.0.0","author":"Claude","description":"見た映画やドラマのタイトル・感想・評価を記録できる視聴記録アプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>視聴記録</title>
+<style>
+  :root{
+    --accent:#e0568f;
+    --accent-dark:#880e4f;
+    --bg:#1b0a13;
+    --card:#26101c;
+    --card2:#2f1523;
+    --text:#f9e8f0;
+    --sub:#cf9bb4;
+    --line:#432235;
+    --input:#150710;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; }
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text); min-height:100vh; padding:16px; padding-bottom:48px;
+  }
+  h1{ font-size:19px; margin:4px 0 4px; display:flex; align-items:center; gap:8px; }
+  .wrap{ max-width:600px; margin:0 auto; display:flex; flex-direction:column; gap:14px; }
+  .sub-tag{ font-size:12px; color:var(--sub); margin:0 0 2px; }
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px;
+  }
+  .section-title{ font-size:13px; color:var(--sub); margin:0 0 10px; font-weight:600; }
+  label{ display:block; font-size:12px; color:var(--sub); margin-bottom:6px; }
+  .field{ margin-bottom:12px; }
+  .field:last-child{ margin-bottom:0; }
+  .row2{ display:flex; gap:10px; }
+  .row2 > *{ flex:1; min-width:0; }
+  input[type=text], input[type=date], select, textarea{
+    width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--line);
+    background:var(--input); color:var(--text); font-size:15px; outline:none; color-scheme:dark;
+    font-family:inherit;
+  }
+  textarea{ resize:vertical; min-height:70px; }
+  input:focus, select:focus, textarea:focus{ border-color:var(--accent); }
+  .star-picker{ display:flex; gap:6px; }
+  .star-picker button{
+    background:none; border:none; font-size:28px; padding:2px; cursor:pointer; color:var(--line);
+    min-height:44px; min-width:36px; flex:none;
+  }
+  .star-picker button.filled{ color:#f7c948; }
+  button.primary{
+    padding:12px 22px; border-radius:10px; border:none; background:var(--accent);
+    color:#3a0022; font-weight:700; font-size:15px; cursor:pointer; min-height:46px; width:100%;
+  }
+  button.secondary{
+    background:transparent; color:var(--sub); border:1px solid var(--line); font-weight:600;
+    padding:10px 16px; border-radius:10px; min-height:40px; cursor:pointer;
+  }
+  .filter-row{ display:flex; gap:8px; flex-wrap:wrap; }
+  .filter-row select{ flex:1; min-width:110px; }
+  .stat-box{
+    display:flex; justify-content:space-between; align-items:center; background:var(--input);
+    border:1px solid var(--line); border-radius:12px; padding:12px 14px;
+  }
+  .stat-box .v{ font-size:20px; font-weight:800; color:var(--accent); }
+  .stat-box .l{ font-size:12px; color:var(--sub); }
+  .entry-list{ display:flex; flex-direction:column; gap:10px; }
+  .entry{
+    background:var(--input); border:1px solid var(--line); border-radius:14px; padding:14px;
+  }
+  .entry-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  .entry-title{ font-size:16px; font-weight:700; }
+  .entry-meta{ font-size:12px; color:var(--sub); margin-top:3px; display:flex; gap:8px; flex-wrap:wrap; }
+  .badge{
+    display:inline-block; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:600;
+    background:var(--card2); color:var(--sub);
+  }
+  .badge.status-watching{ background:#3d2b0b; color:#f0b95c; }
+  .badge.status-done{ background:#0f3d2b; color:#6fd6a0; }
+  .badge.status-want{ background:#2b1f3d; color:#b39be0; }
+  .entry-stars{ font-size:15px; color:#f7c948; margin-top:6px; letter-spacing:1px; }
+  .entry-memo{ font-size:13px; color:var(--sub); margin-top:8px; line-height:1.5; white-space:pre-wrap; }
+  .entry-actions{ display:flex; gap:6px; flex:none; }
+  .entry-actions button{
+    width:34px; height:34px; min-height:34px; padding:0; border-radius:8px;
+    background:transparent; border:1px solid var(--line); color:var(--sub); font-size:14px;
+  }
+  .empty{ color:var(--sub); text-align:center; padding:30px 10px; font-size:13px; }
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.6); display:none;
+    align-items:flex-end; justify-content:center; z-index:100; padding:0;
+  }
+  .modal-overlay.show{ display:flex; }
+  .modal{
+    background:var(--card); border-radius:20px 20px 0 0; padding:20px; width:100%; max-width:600px;
+    border:1px solid var(--line); border-bottom:none; max-height:90vh; overflow-y:auto;
+  }
+  .modal h2{ font-size:16px; margin:0 0 14px; }
+  .modal .modal-actions{ display:flex; gap:10px; margin-top:6px; }
+  .modal .modal-actions button{ flex:1; }
+  .toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:var(--card2); color:var(--text); padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; transition:opacity .25s, transform .25s; pointer-events:none;
+    max-width:90%; text-align:center; box-shadow:0 6px 18px rgba(0,0,0,.35); z-index:200;
+    border:1px solid var(--line);
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🎬 視聴記録</h1>
+    <p class="sub-tag">見た映画やドラマ・アニメを記録できます</p>
+
+    <div class="card">
+      <div class="stat-box">
+        <span class="l">今年（<span id="yearLabel"></span>）の視聴数</span>
+        <span class="v" id="yearCount">0</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">新しく記録する</div>
+      <button class="primary" id="openAddBtn">＋ 記録を追加</button>
+    </div>
+
+    <div class="card">
+      <div class="section-title">絞り込み・並び替え</div>
+      <div class="filter-row">
+        <select id="filterType">
+          <option value="">種別: すべて</option>
+          <option value="映画">映画</option>
+          <option value="ドラマ">ドラマ</option>
+          <option value="アニメ">アニメ</option>
+          <option value="その他">その他</option>
+        </select>
+        <select id="filterStatus">
+          <option value="">状態: すべて</option>
+          <option value="見たい">見たい</option>
+          <option value="視聴中">視聴中</option>
+          <option value="視聴済み">視聴済み</option>
+        </select>
+        <select id="sortOrder">
+          <option value="date-desc">視聴日: 新しい順</option>
+          <option value="date-asc">視聴日: 古い順</option>
+          <option value="rating-desc">評価: 高い順</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title" id="listCountLabel">記録一覧</div>
+      <div id="listWrap">
+        <div class="empty">まだ記録がありません</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+      <h2 id="modalTitle">記録を追加</h2>
+      <input type="hidden" id="editId">
+      <div class="field">
+        <label for="fTitle">タイトル</label>
+        <input type="text" id="fTitle" placeholder="例: 君の名は。" maxlength="100">
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label for="fType">種別</label>
+          <select id="fType">
+            <option value="映画">映画</option>
+            <option value="ドラマ">ドラマ</option>
+            <option value="アニメ">アニメ</option>
+            <option value="その他">その他</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="fStatus">状態</label>
+          <select id="fStatus">
+            <option value="見たい">見たい</option>
+            <option value="視聴中">視聴中</option>
+            <option value="視聴済み">視聴済み</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="fDate">視聴日</label>
+        <input type="date" id="fDate">
+      </div>
+      <div class="field">
+        <label>評価</label>
+        <div class="star-picker" id="starPicker">
+          <button type="button" data-v="1">★</button>
+          <button type="button" data-v="2">★</button>
+          <button type="button" data-v="3">★</button>
+          <button type="button" data-v="4">★</button>
+          <button type="button" data-v="5">★</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="fMemo">感想・メモ</label>
+        <textarea id="fMemo" placeholder="感想を書いておこう" maxlength="1000"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="secondary" id="modalCancelBtn">キャンセル</button>
+        <button class="primary" id="modalSaveBtn">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+  var APP_ID = 'watch-log';
+  var FALLBACK_KEY = 'guios-fallback-' + APP_ID + '-entries';
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+
+  var toastEl = document.getElementById('toast');
+  var toastTimer = null;
+  function showToast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ toastEl.classList.remove('show'); }, 1800);
+  }
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify) {
+      try { window.GUIOS.notify(msg, { type: type || 'info' }); return; } catch(e){}
+    }
+    showToast(msg);
+  }
+  function haptic(){
+    if (window.GUIOS && window.GUIOS.haptic) {
+      try { window.GUIOS.haptic(); } catch(e){}
+    }
+  }
+  function uid(){ return Date.now() + '-' + Math.random().toString(36).slice(2,8); }
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+    });
+  }
+  function pad2(n){ return n < 10 ? '0'+n : ''+n; }
+  function todayStr(){
+    var d = new Date();
+    return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate());
+  }
+  function fmtDate(s){
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || '');
+    if (!m) return '日付未設定';
+    return m[1] + '/' + m[2] + '/' + m[3];
+  }
+
+  async function loadEntries(){
+    if (hasSDK) {
+      try {
+        var v = await window.GUIOS.storage.get('entries');
+        return Array.isArray(v) ? v : [];
+      } catch(e){ return []; }
+    } else {
+      try {
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        var arr = raw ? JSON.parse(raw) : [];
+        return Array.isArray(arr) ? arr : [];
+      } catch(e){ return []; }
+    }
+  }
+  async function saveEntries(arr){
+    if (hasSDK) {
+      try { await window.GUIOS.storage.set('entries', arr); } catch(e){}
+    } else {
+      try { localStorage.setItem(FALLBACK_KEY, JSON.stringify(arr)); } catch(e){}
+    }
+  }
+
+  var entries = []; // {id, title, type, status, date, rating, memo}
+  var currentRating = 0;
+
+  var STATUS_CLASS = { '見たい':'status-want', '視聴中':'status-watching', '視聴済み':'status-done' };
+
+  function renderYearStat(){
+    var year = new Date().getFullYear();
+    document.getElementById('yearLabel').textContent = year;
+    var count = entries.filter(function(e){
+      if (!e.date) return false;
+      var m = /^(\d{4})-/.exec(e.date);
+      return m && parseInt(m[1],10) === year;
+    }).length;
+    document.getElementById('yearCount').textContent = count;
+  }
+
+  function getFilteredSorted(){
+    var typeF = document.getElementById('filterType').value;
+    var statusF = document.getElementById('filterStatus').value;
+    var sortV = document.getElementById('sortOrder').value;
+    var list = entries.filter(function(e){
+      if (typeF && e.type !== typeF) return false;
+      if (statusF && e.status !== statusF) return false;
+      return true;
+    });
+    list = list.slice();
+    if (sortV === 'date-desc') {
+      list.sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
+    } else if (sortV === 'date-asc') {
+      list.sort(function(a,b){ return (a.date||'').localeCompare(b.date||''); });
+    } else if (sortV === 'rating-desc') {
+      list.sort(function(a,b){ return (b.rating||0) - (a.rating||0); });
+    }
+    return list;
+  }
+
+  function renderList(){
+    var wrap = document.getElementById('listWrap');
+    var list = getFilteredSorted();
+    document.getElementById('listCountLabel').textContent = '記録一覧（' + list.length + '件）';
+    if (list.length === 0) {
+      wrap.innerHTML = '<div class="empty">該当する記録がありません</div>';
+      return;
+    }
+    wrap.innerHTML = '';
+    var container = document.createElement('div');
+    container.className = 'entry-list';
+    list.forEach(function(e){
+      var card = document.createElement('div');
+      card.className = 'entry';
+      var stars = '★★★★★'.slice(0, e.rating||0) + '☆☆☆☆☆'.slice(0, 5 - (e.rating||0));
+      var statusCls = STATUS_CLASS[e.status] || '';
+      card.innerHTML =
+        '<div class="entry-top">' +
+          '<div>' +
+            '<div class="entry-title">' + escapeHtml(e.title) + '</div>' +
+            '<div class="entry-meta">' +
+              '<span class="badge">' + escapeHtml(e.type||'その他') + '</span>' +
+              '<span class="badge ' + statusCls + '">' + escapeHtml(e.status||'') + '</span>' +
+              '<span>' + fmtDate(e.date) + '</span>' +
+            '</div>' +
+            '<div class="entry-stars">' + stars + '</div>' +
+          '</div>' +
+          '<div class="entry-actions">' +
+            '<button class="edit-btn" data-id="' + e.id + '">✎</button>' +
+            '<button class="del-btn" data-id="' + e.id + '">✕</button>' +
+          '</div>' +
+        '</div>' +
+        (e.memo ? '<div class="entry-memo">' + escapeHtml(e.memo) + '</div>' : '');
+      container.appendChild(card);
+    });
+    wrap.appendChild(container);
+  }
+
+  document.getElementById('listWrap').addEventListener('click', async function(e){
+    var editBtn = e.target.closest('.edit-btn');
+    var delBtn = e.target.closest('.del-btn');
+    if (editBtn) {
+      openEditModal(editBtn.dataset.id);
+      return;
+    }
+    if (delBtn) {
+      if (!confirm('この記録を削除しますか？')) return;
+      entries = entries.filter(function(x){ return x.id !== delBtn.dataset.id; });
+      await saveEntries(entries);
+      renderYearStat();
+      renderList();
+      notify('削除しました', 'success');
+      return;
+    }
+  });
+
+  ['filterType','filterStatus','sortOrder'].forEach(function(id){
+    document.getElementById(id).addEventListener('change', renderList);
+  });
+
+  /* ---- modal / form ---- */
+  var modalOverlay = document.getElementById('modalOverlay');
+  function setStars(v){
+    currentRating = v;
+    var btns = document.querySelectorAll('#starPicker button');
+    btns.forEach(function(b){
+      var bv = parseInt(b.dataset.v, 10);
+      b.classList.toggle('filled', bv <= v);
+    });
+  }
+  document.querySelectorAll('#starPicker button').forEach(function(b){
+    b.addEventListener('click', function(){
+      var v = parseInt(b.dataset.v, 10);
+      setStars(v === currentRating ? 0 : v);
+    });
+  });
+
+  function openAddModal(){
+    document.getElementById('modalTitle').textContent = '記録を追加';
+    document.getElementById('editId').value = '';
+    document.getElementById('fTitle').value = '';
+    document.getElementById('fType').value = '映画';
+    document.getElementById('fStatus').value = '視聴済み';
+    document.getElementById('fDate').value = todayStr();
+    document.getElementById('fMemo').value = '';
+    setStars(0);
+    modalOverlay.classList.add('show');
+    setTimeout(function(){ document.getElementById('fTitle').focus(); }, 50);
+  }
+  function openEditModal(id){
+    var entry = entries.find(function(e){ return e.id === id; });
+    if (!entry) return;
+    document.getElementById('modalTitle').textContent = '記録を編集';
+    document.getElementById('editId').value = entry.id;
+    document.getElementById('fTitle').value = entry.title;
+    document.getElementById('fType').value = entry.type || '映画';
+    document.getElementById('fStatus').value = entry.status || '視聴済み';
+    document.getElementById('fDate').value = entry.date || '';
+    document.getElementById('fMemo').value = entry.memo || '';
+    setStars(entry.rating || 0);
+    modalOverlay.classList.add('show');
+  }
+  function closeModal(){
+    modalOverlay.classList.remove('show');
+  }
+  document.getElementById('openAddBtn').addEventListener('click', openAddModal);
+  document.getElementById('modalCancelBtn').addEventListener('click', closeModal);
+  modalOverlay.addEventListener('click', function(e){
+    if (e.target === modalOverlay) closeModal();
+  });
+
+  document.getElementById('modalSaveBtn').addEventListener('click', async function(){
+    var title = document.getElementById('fTitle').value.trim();
+    if (!title) {
+      notify('タイトルを入力してください', 'error');
+      return;
+    }
+    var editId = document.getElementById('editId').value;
+    var entryData = {
+      title: title,
+      type: document.getElementById('fType').value,
+      status: document.getElementById('fStatus').value,
+      date: document.getElementById('fDate').value || '',
+      rating: currentRating,
+      memo: document.getElementById('fMemo').value.trim()
+    };
+    if (editId) {
+      var idx = entries.findIndex(function(e){ return e.id === editId; });
+      if (idx >= 0) {
+        entries[idx] = Object.assign({}, entries[idx], entryData);
+      }
+    } else {
+      entryData.id = uid();
+      entries.push(entryData);
+    }
+    await saveEntries(entries);
+    closeModal();
+    renderYearStat();
+    renderList();
+    notify(editId ? '更新しました' : '記録しました', 'success');
+    haptic();
+  });
+
+  (async function init(){
+    entries = await loadEntries();
+    renderYearStat();
+    renderList();
+  })();
+</script>
+</body>
+</html>

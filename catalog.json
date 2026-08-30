@@ -10,6 +10,16 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/age-calculator.html"
   },
   {
+    "id": "alarm-clock",
+    "name": "アラーム",
+    "version": "1.0.0",
+    "icon": "⏰",
+    "color": "#c62828",
+    "description": "指定した時刻にアラームを鳴らして知らせてくれる目覚まし時計アプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/alarm-clock.html"
+  },
+  {
     "id": "anniversary-countdown",
     "name": "記念日カウントダウン",
     "version": "1.0.0",
@@ -30,6 +40,16 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/base64-tool.html"
   },
   {
+    "id": "blood-pressure-log",
+    "name": "血圧記録",
+    "version": "1.0.0",
+    "icon": "🩺",
+    "color": "#b71c1c",
+    "description": "収縮期・拡張期血圧と脈拍を記録し、履歴を確認できる健康記録アプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/blood-pressure-log.html"
+  },
+  {
     "id": "bmi-calculator",
     "name": "BMI計算機",
     "version": "1.0.0",
@@ -38,6 +58,16 @@
     "description": "身長と体重からBMIを計算し、履歴を記録できるアプリ。",
     "author": "Claude",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/bmi-calculator.html"
+  },
+  {
+    "id": "bookmark-manager",
+    "name": "ブックマーク帳",
+    "version": "1.0.0",
+    "icon": "⭐",
+    "color": "#b8860b",
+    "description": "URLをタイトル・タグ・メモ付きで整理できるブックマーク管理アプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/bookmark-manager.html"
   },
   {
     "id": "calculator",
@@ -70,6 +100,16 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/char-counter.html"
   },
   {
+    "id": "chore-tracker",
+    "name": "家事分担表",
+    "version": "1.0.0",
+    "icon": "🧹",
+    "color": "#33691e",
+    "description": "家事タスクを担当者・頻度付きで管理できる家事分担表アプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/chore-tracker.html"
+  },
+  {
     "id": "coin-flip",
     "name": "コイントス",
     "version": "1.0.0",
@@ -88,6 +128,36 @@
     "description": "色を選んでHEX・RGB・HSLに変換し、お気に入り登録できるアプリ。",
     "author": "Claude",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/color-picker.html"
+  },
+  {
+    "id": "coloring-book",
+    "name": "ぬりえ",
+    "version": "1.0.0",
+    "icon": "🖍",
+    "color": "#ec407a",
+    "description": "線画を選んで色を塗って楽しめるデジタルぬりえアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/coloring-book.html"
+  },
+  {
+    "id": "connect-four",
+    "name": "四目並べ",
+    "version": "1.0.0",
+    "icon": "🔴",
+    "color": "#0d47a1",
+    "description": "交互に石を落として縦横斜め4つ並べたら勝ちの対戦ゲーム。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/connect-four.html"
+  },
+  {
+    "id": "contacts",
+    "name": "連絡先",
+    "version": "1.0.0",
+    "icon": "👤",
+    "color": "#00796b",
+    "description": "氏名・電話番号・メールなどを登録して管理できる連絡先アプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/contacts.html"
   },
   {
     "id": "countdown-timer",
@@ -110,6 +180,16 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/dice-roller.html"
   },
   {
+    "id": "drawing-pad",
+    "name": "お絵かき帳",
+    "version": "1.0.0",
+    "icon": "🎨",
+    "color": "#d81b60",
+    "description": "指やマウスで自由に絵を描けるシンプルなお絵かきアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/drawing-pad.html"
+  },
+  {
     "id": "expense-tracker",
     "name": "家計簿",
     "version": "1.0.0",
@@ -118,6 +198,16 @@
     "description": "日々の支出を記録し、カテゴリ別・月別に集計できる家計簿アプリ。",
     "author": "Claude",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/expense-tracker.html"
+  },
+  {
+    "id": "fifteen-puzzle",
+    "name": "15パズル",
+    "version": "1.0.0",
+    "icon": "🧩",
+    "color": "#5e35b1",
+    "description": "数字タイルをスライドさせて順番に並べ替える15パズルゲーム。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/fifteen-puzzle.html"
   },
   {
     "id": "flashcards",
@@ -140,6 +230,26 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/habit-tracker.html"
   },
   {
+    "id": "interval-timer",
+    "name": "インターバルタイマー",
+    "version": "1.0.0",
+    "icon": "💪",
+    "color": "#d84315",
+    "description": "運動と休憩を繰り返すインターバルトレーニング用のタイマーアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/interval-timer.html"
+  },
+  {
+    "id": "invoice-maker",
+    "name": "請求書メーカー",
+    "version": "1.0.0",
+    "icon": "🧾",
+    "color": "#2e7d32",
+    "description": "品目・数量・単価を入力して請求書を作成し、印刷できるアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/invoice-maker.html"
+  },
+  {
     "id": "janken",
     "name": "じゃんけん",
     "version": "1.0.0",
@@ -158,6 +268,36 @@
     "description": "JSONデータを見やすく整形・圧縮できるツール。",
     "author": "Claude",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/json-formatter.html"
+  },
+  {
+    "id": "loan-calculator",
+    "name": "ローン計算機",
+    "version": "1.0.0",
+    "icon": "🏦",
+    "color": "#4e342e",
+    "description": "借入額・金利・返済期間から月々の返済額を計算するローン計算機。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/loan-calculator.html"
+  },
+  {
+    "id": "markdown-editor",
+    "name": "Markdownエディタ",
+    "version": "1.0.0",
+    "icon": "📄",
+    "color": "#455a64",
+    "description": "Markdownを書きながらリアルタイムでプレビューできるエディタアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/markdown-editor.html"
+  },
+  {
+    "id": "meditation-timer",
+    "name": "瞑想タイマー",
+    "version": "1.0.0",
+    "icon": "🧘",
+    "color": "#6a1b9a",
+    "description": "開始・終了時にベルの音が鳴る瞑想用のシンプルなタイマーアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/meditation-timer.html"
   },
   {
     "id": "memory-game",
@@ -180,6 +320,26 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/metronome.html"
   },
   {
+    "id": "minesweeper",
+    "name": "マインスイーパー",
+    "version": "1.0.0",
+    "icon": "💣",
+    "color": "#757575",
+    "description": "地雷を避けながら安全なマスを開いていくマインスイーパーゲーム。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/minesweeper.html"
+  },
+  {
+    "id": "mini-browser",
+    "name": "簡易ブラウザ",
+    "version": "1.0.0",
+    "icon": "🌐",
+    "color": "#2f6690",
+    "description": "貼り付けたHTML/CSS/JSをその場でプレビューできる簡易ブラウザ風ツール。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/mini-browser.html"
+  },
+  {
     "id": "mini-games-50",
     "name": "50in1ミニゲーム",
     "version": "3.0.0",
@@ -188,6 +348,26 @@
     "description": "50種類のミニゲームが遊べる究極アプリ。ブロック崩しから物理シミュレーションまで、HTML5ゲームを一つにまとめました。",
     "author": "あなた",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/50Games.html"
+  },
+  {
+    "id": "moon-calendar",
+    "name": "月齢カレンダー",
+    "version": "1.0.0",
+    "icon": "🌙",
+    "color": "#303f9f",
+    "description": "今日の月齢・満ち欠けを計算して表示するカレンダーアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/moon-calendar.html"
+  },
+  {
+    "id": "morse-code",
+    "name": "モールス信号変換",
+    "version": "1.0.0",
+    "icon": "📡",
+    "color": "#263238",
+    "description": "テキストとモールス信号を相互に変換し、音でも再生できるアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/morse-code.html"
   },
   {
     "id": "multi-timer",
@@ -230,6 +410,16 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/omikuji.html"
   },
   {
+    "id": "packing-list",
+    "name": "持ち物リスト",
+    "version": "1.0.0",
+    "icon": "🎒",
+    "color": "#795548",
+    "description": "旅行や外出前に持ち物をチェックリストで確認できるアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/packing-list.html"
+  },
+  {
     "id": "password-generator",
     "name": "パスワード生成",
     "version": "1.0.0",
@@ -238,6 +428,16 @@
     "description": "条件を指定して安全なランダムパスワードを生成できるツール。",
     "author": "Claude",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/password-generator.html"
+  },
+  {
+    "id": "password-vault",
+    "name": "パスワード保管庫",
+    "version": "1.0.0",
+    "icon": "🔒",
+    "color": "#4a4a6a",
+    "description": "マスターパスワードで暗号化して複数サイトのログイン情報を保管する金庫アプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/password-vault.html"
   },
   {
     "id": "pomodoro-timer",
@@ -270,6 +470,106 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/reaction-test.html"
   },
   {
+    "id": "reading-log",
+    "name": "読書記録",
+    "version": "1.0.0",
+    "icon": "📚",
+    "color": "#4527a0",
+    "description": "読んだ本のタイトル・感想・評価を記録できる読書記録アプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/reading-log.html"
+  },
+  {
+    "id": "recipe-book",
+    "name": "レシピ帳",
+    "version": "1.0.0",
+    "icon": "🍳",
+    "color": "#e65100",
+    "description": "材料・手順を記録していつでも見返せるレシピ管理アプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/recipe-book.html"
+  },
+  {
+    "id": "regex-tester",
+    "name": "正規表現テスター",
+    "version": "1.0.0",
+    "icon": "🧪",
+    "color": "#7a3b69",
+    "description": "正規表現とテスト文字列をその場で試せる正規表現テストツール。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/regex-tester.html"
+  },
+  {
+    "id": "resume-builder",
+    "name": "履歴書メーカー",
+    "version": "1.0.0",
+    "icon": "📋",
+    "color": "#5d4037",
+    "description": "氏名・学歴・職歴などを入力して履歴書を作成し、印刷できるアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/resume-builder.html"
+  },
+  {
+    "id": "reversi",
+    "name": "リバーシ",
+    "version": "1.0.0",
+    "icon": "⚫",
+    "color": "#212121",
+    "description": "黒と白の石を挟んでひっくり返す陣取りゲーム、CPU対戦対応。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/reversi.html"
+  },
+  {
+    "id": "savings-simulator",
+    "name": "積立シミュレーター",
+    "version": "1.0.0",
+    "icon": "📈",
+    "color": "#1b5e63",
+    "description": "毎月の積立額と利回りから将来の資産額をシミュレーションするツール。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/savings-simulator.html"
+  },
+  {
+    "id": "schedule-planner",
+    "name": "スケジュール帳",
+    "version": "1.0.0",
+    "icon": "🗓",
+    "color": "#3949ab",
+    "description": "日時付きの予定を登録し、一覧で管理できるスケジュール帳アプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/schedule-planner.html"
+  },
+  {
+    "id": "shopping-list",
+    "name": "買い物リスト",
+    "version": "1.0.0",
+    "icon": "🛒",
+    "color": "#f9a825",
+    "description": "買い物したい商品をチェックリスト形式で管理できるアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/shopping-list.html"
+  },
+  {
+    "id": "signature-pad",
+    "name": "署名パッド",
+    "version": "1.0.0",
+    "icon": "✍️",
+    "color": "#6d4c41",
+    "description": "指やマウスで手書きの署名を描き、PNG画像として保存できるアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/signature-pad.html"
+  },
+  {
+    "id": "simon-says",
+    "name": "色当てゲーム",
+    "version": "1.0.0",
+    "icon": "🎨",
+    "color": "#8e24aa",
+    "description": "光る順番を覚えて再現する記憶力ゲーム(Simon風)。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/simon-says.html"
+  },
+  {
     "id": "sticky-notes",
     "name": "付箋ボード",
     "version": "1.0.0",
@@ -288,6 +588,36 @@
     "description": "計測とラップタイムの記録ができるストップウォッチアプリ。",
     "author": "Claude",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/stopwatch.html"
+  },
+  {
+    "id": "sudoku",
+    "name": "ナンプレ",
+    "version": "1.0.0",
+    "icon": "🔢",
+    "color": "#004d40",
+    "description": "9x9マスに1〜9の数字を重複なく埋めていく数独パズルゲーム。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/sudoku.html"
+  },
+  {
+    "id": "tax-calculator",
+    "name": "消費税計算機",
+    "version": "1.0.0",
+    "icon": "💴",
+    "color": "#00695c",
+    "description": "税抜・税込金額を消費税率から相互に計算できるツール。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/tax-calculator.html"
+  },
+  {
+    "id": "text-diff",
+    "name": "テキスト差分チェッカー",
+    "version": "1.0.0",
+    "icon": "🔍",
+    "color": "#3a6b6b",
+    "description": "2つのテキストを比較して追加・削除された行を色分け表示するツール。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/text-diff.html"
   },
   {
     "id": "tic-tac-toe",
@@ -340,6 +670,46 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/unit-converter.html"
   },
   {
+    "id": "url-encoder",
+    "name": "URLエンコード/デコード",
+    "version": "1.0.0",
+    "icon": "🔗",
+    "color": "#34618e",
+    "description": "文字列をURLエンコード・デコードできるシンプルな変換ツール。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/url-encoder.html"
+  },
+  {
+    "id": "watch-log",
+    "name": "視聴記録",
+    "version": "1.0.0",
+    "icon": "🎬",
+    "color": "#880e4f",
+    "description": "見た映画やドラマのタイトル・感想・評価を記録できる視聴記録アプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/watch-log.html"
+  },
+  {
+    "id": "water-tracker",
+    "name": "水分補給トラッカー",
+    "version": "1.0.0",
+    "icon": "💧",
+    "color": "#0288d1",
+    "description": "1日の水分摂取量を記録し、目標達成度を確認できるトラッカーアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/water-tracker.html"
+  },
+  {
+    "id": "weight-tracker",
+    "name": "体重記録",
+    "version": "1.0.0",
+    "icon": "⚖️",
+    "color": "#ad1457",
+    "description": "毎日の体重を記録してグラフで推移を確認できる健康管理アプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/weight-tracker.html"
+  },
+  {
     "id": "whack-a-mole",
     "name": "もぐらたたき",
     "version": "1.0.0",
@@ -348,6 +718,16 @@
     "description": "制限時間内にモグラをタップしてスコアを競うもぐらたたきゲーム。",
     "author": "Claude",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/whack-a-mole.html"
+  },
+  {
+    "id": "wiki-notes",
+    "name": "パーソナルWiki",
+    "version": "1.0.0",
+    "icon": "🔗",
+    "color": "#5c8a3a",
+    "description": "ページ同士を [[リンク]] でつなげて自由に行き来できるメモ帳型Wikiアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/wiki-notes.html"
   },
   {
     "id": "world-clock",

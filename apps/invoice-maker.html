@@ -1,0 +1,401 @@
+<!--GUIOS-APP {"id":"invoice-maker","name":"請求書メーカー","icon":"🧾","color":"#2e7d32","version":"1.0.0","author":"Claude","description":"品目・数量・単価を入力して請求書を作成し、印刷できるアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>請求書メーカー</title>
+<style>
+  :root{
+    --accent:#2e7d32;
+    --accent2:#66bb6a;
+    --bg:#0d1710;
+    --card:#152219;
+    --text:#e9f5ea;
+    --sub:#a6c6ab;
+    --line:#22392a;
+    --danger:#c0554f;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    padding:16px; padding-bottom:56px;
+  }
+  h1{font-size:20px; margin:4px 0 16px; display:flex; align-items:center; gap:8px;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:16px; margin-bottom:16px;
+  }
+  .section-title{font-size:14px; font-weight:800; margin:0 0 12px; color:var(--text);}
+  label{display:block; font-size:12px; color:var(--sub); margin-bottom:6px;}
+  .field{margin-bottom:12px;}
+  input[type=text], input[type=date], input[type=number], textarea{
+    width:100%; padding:11px 12px; border-radius:10px; border:1px solid var(--line);
+    background:#0a140d; color:var(--text); font-size:15px; outline:none; font-family:inherit;
+  }
+  input:focus, textarea:focus{border-color:var(--accent2);}
+  textarea{min-height:60px; resize:vertical;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  @media (max-width:480px){ .grid2{grid-template-columns:1fr;} }
+
+  .lineItem{
+    border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:10px;
+    background:#0a140d;
+  }
+  .lineItemGrid{display:grid; grid-template-columns:1fr; gap:8px;}
+  .lineItemRow2{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+  .lineSubtotal{
+    display:flex; justify-content:space-between; align-items:center; margin-top:8px;
+    font-size:13px; color:var(--sub);
+  }
+  .lineSubtotal b{color:var(--text); font-size:15px;}
+  .removeBtn{
+    background:transparent; border:1px solid var(--danger); color:var(--danger);
+    border-radius:8px; padding:8px 12px; font-size:13px; font-weight:700; cursor:pointer; min-height:36px;
+  }
+  .addBtn{
+    width:100%; padding:12px; border-radius:10px; border:1px dashed var(--accent2);
+    background:transparent; color:var(--accent2); font-weight:700; font-size:14px; cursor:pointer; min-height:48px;
+  }
+  .taxRow{display:flex; align-items:center; gap:10px; margin-top:12px;}
+  .taxRow input[type=checkbox]{width:20px; height:20px;}
+  .taxRow label{margin:0; font-size:13px; color:var(--text);}
+
+  .actionsRow{display:flex; gap:10px; margin-top:6px; flex-wrap:wrap;}
+  .actionsRow button{
+    flex:1; min-width:120px; padding:14px 10px; border-radius:12px; border:none;
+    background:var(--accent); color:#fff; font-weight:800; font-size:15px; cursor:pointer; min-height:50px;
+  }
+  .actionsRow button.secondary{background:transparent; border:1px solid var(--line); color:var(--text);}
+
+  /* ---- Invoice preview ---- */
+  .invoice-preview{
+    background:#fff; color:#1a1a1a; border-radius:12px; padding:28px 24px;
+    font-family:"Hiragino Sans","Noto Sans JP",-apple-system,sans-serif;
+  }
+  .invoice-preview h2{ font-size:22px; margin:0 0 4px; text-align:center; letter-spacing:4px; }
+  .invoice-preview .invMeta{ display:flex; justify-content:space-between; font-size:12px; color:#555; margin:0 0 18px; }
+  .invoice-preview .invParties{ display:flex; justify-content:space-between; gap:16px; margin-bottom:20px; flex-wrap:wrap; }
+  .invoice-preview .invParties .to{ font-size:16px; font-weight:700; border-bottom:2px solid #1a1a1a; padding-bottom:6px; min-width:200px; }
+  .invoice-preview .invParties .from{ font-size:12px; text-align:right; color:#333; line-height:1.6; }
+  .invoice-preview .totalBanner{
+    background:#f0f5f1; border:1px solid #cfe0d2; border-radius:8px; padding:12px 16px; margin-bottom:20px;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .invoice-preview .totalBanner .lbl{ font-size:13px; color:#444; }
+  .invoice-preview .totalBanner .val{ font-size:24px; font-weight:800; color:#1b5e20; }
+  .invoice-preview table{ width:100%; border-collapse:collapse; font-size:13px; margin-bottom:16px; }
+  .invoice-preview th{ background:#eef3ef; color:#333; text-align:left; padding:8px 8px; border-bottom:2px solid #ccc; }
+  .invoice-preview th.num, .invoice-preview td.num{ text-align:right; }
+  .invoice-preview td{ padding:8px 8px; border-bottom:1px solid #e2e2e2; }
+  .invoice-preview .sumTable{ width:100%; max-width:280px; margin-left:auto; font-size:13px; }
+  .invoice-preview .sumTable tr td{ padding:6px 4px; }
+  .invoice-preview .sumTable tr.grand td{ font-size:16px; font-weight:800; border-top:2px solid #1a1a1a; color:#1b5e20; }
+  .invoice-preview .sumTable td:last-child{ text-align:right; }
+  .invoice-preview .empty-note{ color:#999; font-size:12px; text-align:center; padding:20px 0; }
+
+  @media print{
+    body{ background:#fff; color:#000; padding:0; }
+    .no-print{ display:none !important; }
+    .card.previewCard{ border:none; background:#fff; padding:0; border-radius:0; }
+    .invoice-preview{ padding:0; }
+    h1{ display:none; }
+  }
+</style>
+</head>
+<body>
+  <h1 class="no-print">🧾 請求書メーカー</h1>
+
+  <div class="card no-print">
+    <p class="section-title">発行者情報</p>
+    <div class="field">
+      <label for="issuerName">発行者名（会社名・個人名）</label>
+      <input type="text" id="issuerName" placeholder="例: 株式会社サンプル">
+    </div>
+    <div class="field">
+      <label for="issuerAddress">住所・連絡先（任意）</label>
+      <textarea id="issuerAddress" placeholder="住所、電話番号、メールアドレスなど"></textarea>
+    </div>
+  </div>
+
+  <div class="card no-print">
+    <p class="section-title">請求先・請求情報</p>
+    <div class="field">
+      <label for="clientName">宛先（お客様名）</label>
+      <input type="text" id="clientName" placeholder="例: 山田太郎 様">
+    </div>
+    <div class="grid2">
+      <div class="field">
+        <label for="invoiceNumber">請求書番号</label>
+        <input type="text" id="invoiceNumber" placeholder="例: INV-0001">
+      </div>
+      <div class="field">
+        <label for="issueDate">発行日</label>
+        <input type="date" id="issueDate">
+      </div>
+    </div>
+  </div>
+
+  <div class="card no-print">
+    <p class="section-title">品目</p>
+    <div id="lineItems"></div>
+    <button type="button" class="addBtn" id="addLineItem">＋ 品目を追加</button>
+
+    <div class="taxRow">
+      <input type="checkbox" id="taxToggle" checked>
+      <label for="taxToggle">消費税（10%）を加算する</label>
+    </div>
+  </div>
+
+  <div class="actionsRow no-print">
+    <button type="button" id="btnPrint">🖨️ 印刷 / PDF保存</button>
+    <button type="button" id="btnReset" class="secondary">リセット</button>
+  </div>
+
+  <div class="card previewCard" id="previewCard">
+    <div class="invoice-preview" id="preview"></div>
+  </div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var STORAGE_KEY = 'invoiceData';
+  var FALLBACK_KEY = 'guios-fallback-invoice-maker-invoiceData';
+
+  var issuerNameEl = document.getElementById('issuerName');
+  var issuerAddressEl = document.getElementById('issuerAddress');
+  var clientNameEl = document.getElementById('clientName');
+  var invoiceNumberEl = document.getElementById('invoiceNumber');
+  var issueDateEl = document.getElementById('issueDate');
+  var lineItemsEl = document.getElementById('lineItems');
+  var taxToggleEl = document.getElementById('taxToggle');
+  var previewEl = document.getElementById('preview');
+
+  var itemSeq = 0;
+
+  function yen(n){
+    if(!isFinite(n)) n = 0;
+    return '¥' + Math.round(n).toLocaleString('ja-JP');
+  }
+
+  function todayStr(){
+    var d = new Date();
+    var m = ('0' + (d.getMonth()+1)).slice(-2);
+    var day = ('0' + d.getDate()).slice(-2);
+    return d.getFullYear() + '-' + m + '-' + day;
+  }
+
+  function createLineItemRow(data){
+    itemSeq++;
+    var id = 'li' + itemSeq;
+    var row = document.createElement('div');
+    row.className = 'lineItem';
+    row.dataset.id = id;
+    row.innerHTML =
+      '<div class="lineItemGrid">' +
+        '<div class="field" style="margin-bottom:8px;">' +
+          '<label>品目名</label>' +
+          '<input type="text" class="li-name" placeholder="例: コンサルティング費用">' +
+        '</div>' +
+        '<div class="lineItemRow2">' +
+          '<div class="field" style="margin-bottom:0;">' +
+            '<label>数量</label>' +
+            '<input type="number" class="li-qty" inputmode="decimal" min="0" step="1" value="1">' +
+          '</div>' +
+          '<div class="field" style="margin-bottom:0;">' +
+            '<label>単価（円）</label>' +
+            '<input type="number" class="li-price" inputmode="numeric" min="0" step="1" value="0">' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="lineSubtotal">' +
+        '<span>小計: <b class="li-subtotal">¥0</b></span>' +
+        '<button type="button" class="removeBtn">削除</button>' +
+      '</div>';
+
+    lineItemsEl.appendChild(row);
+
+    var nameInput = row.querySelector('.li-name');
+    var qtyInput = row.querySelector('.li-qty');
+    var priceInput = row.querySelector('.li-price');
+    var removeBtn = row.querySelector('.removeBtn');
+
+    if(data){
+      nameInput.value = data.name || '';
+      qtyInput.value = (data.qty !== undefined) ? data.qty : 1;
+      priceInput.value = (data.price !== undefined) ? data.price : 0;
+    }
+
+    function onChange(){ updateRowSubtotal(row); renderAll(); }
+    nameInput.addEventListener('input', onChange);
+    qtyInput.addEventListener('input', onChange);
+    priceInput.addEventListener('input', onChange);
+    removeBtn.addEventListener('click', function(){
+      row.remove();
+      renderAll();
+    });
+
+    updateRowSubtotal(row);
+    return row;
+  }
+
+  function updateRowSubtotal(row){
+    var qty = parseFloat(row.querySelector('.li-qty').value) || 0;
+    var price = parseFloat(row.querySelector('.li-price').value) || 0;
+    row.querySelector('.li-subtotal').textContent = yen(qty * price);
+  }
+
+  function collectLineItems(){
+    var rows = lineItemsEl.querySelectorAll('.lineItem');
+    var items = [];
+    rows.forEach(function(row){
+      var name = row.querySelector('.li-name').value;
+      var qty = parseFloat(row.querySelector('.li-qty').value) || 0;
+      var price = parseFloat(row.querySelector('.li-price').value) || 0;
+      items.push({ name: name, qty: qty, price: price });
+    });
+    return items;
+  }
+
+  function escapeHtml(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  function renderPreview(){
+    var items = collectLineItems();
+    var subtotal = items.reduce(function(sum, it){ return sum + (it.qty * it.price); }, 0);
+    var taxOn = taxToggleEl.checked;
+    var tax = taxOn ? Math.floor(subtotal * 0.10) : 0;
+    var grandTotal = subtotal + tax;
+
+    var itemRowsHtml = '';
+    if(items.length === 0){
+      itemRowsHtml = '<tr><td colspan="4" class="empty-note">品目が登録されていません</td></tr>';
+    } else {
+      items.forEach(function(it){
+        itemRowsHtml += '<tr>' +
+          '<td>' + escapeHtml(it.name || '(未入力)') + '</td>' +
+          '<td class="num">' + it.qty.toLocaleString('ja-JP') + '</td>' +
+          '<td class="num">' + yen(it.price) + '</td>' +
+          '<td class="num">' + yen(it.qty * it.price) + '</td>' +
+          '</tr>';
+      });
+    }
+
+    var issuerName = issuerNameEl.value || '(発行者名未入力)';
+    var issuerAddress = issuerAddressEl.value || '';
+    var clientName = clientNameEl.value || '(宛先未入力)';
+    var invoiceNumber = invoiceNumberEl.value || '-';
+    var issueDate = issueDateEl.value || '-';
+
+    var html = '';
+    html += '<h2>請求書</h2>';
+    html += '<div class="invMeta"><span>請求書番号: ' + escapeHtml(invoiceNumber) + '</span><span>発行日: ' + escapeHtml(issueDate) + '</span></div>';
+    html += '<div class="invParties">';
+    html += '<div class="to">' + escapeHtml(clientName) + '</div>';
+    html += '<div class="from">' + escapeHtml(issuerName) + (issuerAddress ? '<br>' + escapeHtml(issuerAddress).replace(/\n/g,'<br>') : '') + '</div>';
+    html += '</div>';
+    html += '<div class="totalBanner"><span class="lbl">ご請求金額（税込）</span><span class="val">' + yen(grandTotal) + '</span></div>';
+    html += '<table><thead><tr><th>品目</th><th class="num">数量</th><th class="num">単価</th><th class="num">金額</th></tr></thead><tbody>' + itemRowsHtml + '</tbody></table>';
+    html += '<table class="sumTable">';
+    html += '<tr><td>小計</td><td>' + yen(subtotal) + '</td></tr>';
+    if(taxOn){
+      html += '<tr><td>消費税（10%）</td><td>' + yen(tax) + '</td></tr>';
+    }
+    html += '<tr class="grand"><td>合計</td><td>' + yen(grandTotal) + '</td></tr>';
+    html += '</table>';
+
+    previewEl.innerHTML = html;
+  }
+
+  function renderAll(){
+    renderPreview();
+    save();
+  }
+
+  document.getElementById('addLineItem').addEventListener('click', function(){
+    createLineItemRow(null);
+    renderAll();
+  });
+
+  [issuerNameEl, issuerAddressEl, clientNameEl, invoiceNumberEl, issueDateEl].forEach(function(el){
+    el.addEventListener('input', renderAll);
+  });
+  taxToggleEl.addEventListener('change', renderAll);
+
+  document.getElementById('btnPrint').addEventListener('click', function(){
+    window.print();
+  });
+
+  document.getElementById('btnReset').addEventListener('click', function(){
+    var doReset = window.confirm ? window.confirm('入力内容をすべて消去しますか？') : true;
+    if(!doReset) return;
+    issuerNameEl.value = '';
+    issuerAddressEl.value = '';
+    clientNameEl.value = '';
+    invoiceNumberEl.value = '';
+    issueDateEl.value = todayStr();
+    lineItemsEl.innerHTML = '';
+    createLineItemRow(null);
+    taxToggleEl.checked = true;
+    renderAll();
+  });
+
+  var saveTimer = null;
+  function save(){
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(async function(){
+      var data = {
+        issuerName: issuerNameEl.value,
+        issuerAddress: issuerAddressEl.value,
+        clientName: clientNameEl.value,
+        invoiceNumber: invoiceNumberEl.value,
+        issueDate: issueDateEl.value,
+        taxOn: taxToggleEl.checked,
+        items: collectLineItems()
+      };
+      if(hasSDK){
+        try{ await GUIOS.storage.set(STORAGE_KEY, data); }catch(e){}
+      } else {
+        try{ localStorage.setItem(FALLBACK_KEY, JSON.stringify(data)); }catch(e){}
+      }
+    }, 300);
+  }
+
+  async function restore(){
+    var data = null;
+    if(hasSDK){
+      try{ data = await GUIOS.storage.get(STORAGE_KEY); }catch(e){}
+    } else {
+      try{
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        data = raw ? JSON.parse(raw) : null;
+      }catch(e){}
+    }
+    if(data){
+      issuerNameEl.value = data.issuerName || '';
+      issuerAddressEl.value = data.issuerAddress || '';
+      clientNameEl.value = data.clientName || '';
+      invoiceNumberEl.value = data.invoiceNumber || '';
+      issueDateEl.value = data.issueDate || todayStr();
+      taxToggleEl.checked = (data.taxOn !== undefined) ? !!data.taxOn : true;
+      lineItemsEl.innerHTML = '';
+      if(data.items && data.items.length){
+        data.items.forEach(function(it){ createLineItemRow(it); });
+      } else {
+        createLineItemRow(null);
+      }
+    } else {
+      issueDateEl.value = todayStr();
+      createLineItemRow(null);
+    }
+    renderAll();
+  }
+
+  restore();
+</script>
+</body>
+</html>

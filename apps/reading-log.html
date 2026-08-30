@@ -1,0 +1,456 @@
+<!--GUIOS-APP {"id":"reading-log","name":"読書記録","icon":"📚","color":"#4527a0","version":"1.0.0","author":"Claude","description":"読んだ本のタイトル・感想・評価を記録できる読書記録アプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>読書記録</title>
+<style>
+  :root{
+    --accent:#7c5cd6;
+    --accent-strong:#4527a0;
+    --accent-soft:rgba(124,92,214,0.18);
+    --bg:#160f22;
+    --card:#20172f;
+    --field:#100a1a;
+    --text:#f1ecfb;
+    --sub:#b6a9d6;
+    --line:#332448;
+    --danger:#e0685a;
+    --star:#f4c14e;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{height:100%; overflow-x:hidden;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+  }
+  .screen{display:none;}
+  .screen.active{display:block;}
+  .topbar{
+    padding:16px 16px 8px; display:flex; align-items:center; gap:10px;
+    position:sticky; top:0; background:var(--bg); z-index:5;
+  }
+  .topbar h1{font-size:18px; margin:0; flex:1; display:flex; align-items:center; gap:8px;}
+  .backbtn{
+    flex:none; background:none; border:none; color:var(--accent); font-size:15px; font-weight:700;
+    cursor:pointer; padding:8px 4px; min-height:44px;
+  }
+  .iconbtn{
+    flex:none; background:var(--accent-strong); color:#fff; border:none; border-radius:10px;
+    padding:0 16px; min-height:44px; font-weight:700; font-size:14px; cursor:pointer;
+  }
+  .stat-card{
+    margin:6px 16px 14px; background:linear-gradient(135deg, var(--accent-strong), #2c1866);
+    border-radius:14px; padding:16px; display:flex; align-items:center; justify-content:space-between;
+  }
+  .stat-card .label{font-size:13px; color:#d9cff5;}
+  .stat-card .value{font-size:26px; font-weight:800; color:#fff;}
+  .filter-row{display:flex; gap:8px; padding:0 16px 10px; overflow-x:auto;}
+  .filter-chip{
+    flex:none; padding:8px 14px; border-radius:999px; border:1px solid var(--line); background:var(--field);
+    color:var(--sub); font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap; min-height:36px;
+  }
+  .filter-chip.active{background:var(--accent-strong); border-color:var(--accent-strong); color:#fff;}
+  .sort-row{padding:0 16px 12px;}
+  .sort-row select{
+    width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--line);
+    background:var(--field); color:var(--text); font-size:13px; outline:none;
+  }
+  .list-wrap{padding:4px 16px 24px;}
+  .empty{color:var(--sub); text-align:center; padding:60px 20px; font-size:14px; line-height:1.7;}
+  .book-card{
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:14px 16px; margin-bottom:10px; cursor:pointer;
+  }
+  .book-card:active{border-color:var(--accent);}
+  .book-title{font-size:15px; font-weight:700; margin-bottom:4px; word-break:break-word;}
+  .book-author{font-size:12px; color:var(--sub); margin-bottom:8px;}
+  .book-meta{display:flex; flex-wrap:wrap; align-items:center; gap:8px;}
+  .status-chip{font-size:11px; font-weight:700; padding:3px 10px; border-radius:999px; white-space:nowrap;}
+  .status-want{background:rgba(150,150,150,.2); color:#c8c2d6;}
+  .status-reading{background:rgba(66,165,245,.2); color:#7ec4f7;}
+  .status-done{background:var(--accent-soft); color:var(--accent);}
+  .stars{font-size:13px; color:var(--star); letter-spacing:1px;}
+  .date-chip{font-size:11px; color:var(--sub);}
+  .form-wrap, .detail-wrap{padding:6px 16px 32px;}
+  .form-wrap label{display:block; font-size:13px; color:var(--sub); margin:16px 0 6px;}
+  .form-wrap input[type="text"], .form-wrap input[type="date"], .form-wrap select, .form-wrap textarea{
+    width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--line);
+    background:var(--field); color:var(--text); font-size:15px; outline:none; font-family:inherit;
+  }
+  .form-wrap textarea{resize:vertical; min-height:90px;}
+  .form-wrap input:focus, .form-wrap select:focus, .form-wrap textarea:focus{border-color:var(--accent);}
+  .star-picker{display:flex; gap:6px; margin-top:2px;}
+  .star-btn{
+    flex:none; width:44px; height:44px; border-radius:10px; border:1px solid var(--line);
+    background:var(--field); font-size:20px; color:var(--line); cursor:pointer; display:flex;
+    align-items:center; justify-content:center;
+  }
+  .star-btn.on{color:var(--star); border-color:var(--star);}
+  .status-picker{display:flex; gap:8px;}
+  .status-opt{
+    flex:1; padding:11px 4px; border-radius:10px; border:1px solid var(--line); background:var(--field);
+    color:var(--sub); font-size:13px; font-weight:700; cursor:pointer; text-align:center; min-height:44px;
+  }
+  .status-opt.active{background:var(--accent-strong); border-color:var(--accent-strong); color:#fff;}
+  .btn-row{margin-top:26px;}
+  .btn{width:100%; padding:14px; border-radius:12px; border:none; font-weight:700; font-size:15px; cursor:pointer; min-height:48px;}
+  .btn.primary{background:var(--accent-strong); color:#fff;}
+  .btn.ghost{background:transparent; color:var(--sub); border:1px solid var(--line); margin-top:10px;}
+  .btn.danger{background:transparent; color:var(--danger); border:1px solid var(--line); margin-top:10px;}
+  .detail-title{font-size:22px; font-weight:800; margin:4px 0 2px; word-break:break-word;}
+  .detail-author{font-size:13px; color:var(--sub); margin-bottom:12px;}
+  .detail-meta{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:18px;}
+  .detail-stars{font-size:20px; color:var(--star); letter-spacing:2px; margin-bottom:16px;}
+  .detail-section{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:14px;}
+  .detail-section h2{font-size:14px; margin:0 0 8px; color:var(--accent);}
+  .detail-section p{margin:0; font-size:14px; line-height:1.7; white-space:pre-wrap; word-break:break-word; color:var(--text);}
+  .toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:#241a3a; color:var(--text); padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; pointer-events:none; transition:all .25s; border:1px solid var(--line);
+    max-width:90%; text-align:center; z-index:999;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+
+  <div class="screen active" id="screenList">
+    <div class="topbar">
+      <h1>📚 読書記録</h1>
+      <button class="iconbtn" id="addBtn">＋ 追加</button>
+    </div>
+    <div class="stat-card">
+      <div>
+        <div class="label">今年読んだ本</div>
+        <div class="value" id="yearCount">0冊</div>
+      </div>
+      <div style="font-size:34px;">📖</div>
+    </div>
+    <div class="filter-row" id="filterRow">
+      <button class="filter-chip active" data-status="all">すべて</button>
+      <button class="filter-chip" data-status="want">読みたい</button>
+      <button class="filter-chip" data-status="reading">読書中</button>
+      <button class="filter-chip" data-status="done">読了</button>
+    </div>
+    <div class="sort-row">
+      <select id="sortSelect">
+        <option value="date_desc">日付が新しい順</option>
+        <option value="date_asc">日付が古い順</option>
+      </select>
+    </div>
+    <div class="list-wrap" id="listWrap"></div>
+  </div>
+
+  <div class="screen" id="screenForm">
+    <div class="topbar">
+      <button class="backbtn" id="formBackBtn">← 戻る</button>
+      <h1 id="formTitle">本を追加</h1>
+    </div>
+    <div class="form-wrap">
+      <label>タイトル *</label>
+      <input type="text" id="fTitle" placeholder="例: 吾輩は猫である">
+
+      <label>著者（任意）</label>
+      <input type="text" id="fAuthor" placeholder="例: 夏目漱石">
+
+      <label>ステータス</label>
+      <div class="status-picker" id="statusPicker">
+        <button type="button" class="status-opt" data-value="want">読みたい</button>
+        <button type="button" class="status-opt" data-value="reading">読書中</button>
+        <button type="button" class="status-opt" data-value="done">読了</button>
+      </div>
+
+      <label>読了日（任意）</label>
+      <input type="date" id="fDate">
+
+      <label>評価</label>
+      <div class="star-picker" id="starPicker">
+        <button type="button" class="star-btn" data-value="1">★</button>
+        <button type="button" class="star-btn" data-value="2">★</button>
+        <button type="button" class="star-btn" data-value="3">★</button>
+        <button type="button" class="star-btn" data-value="4">★</button>
+        <button type="button" class="star-btn" data-value="5">★</button>
+      </div>
+
+      <label>感想・メモ</label>
+      <textarea id="fMemo" placeholder="感想を自由に書いてください..."></textarea>
+
+      <div class="btn-row">
+        <button class="btn primary" id="saveBtn">保存</button>
+        <button class="btn ghost" id="cancelBtn">キャンセル</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen" id="screenDetail">
+    <div class="topbar">
+      <button class="backbtn" id="detailBackBtn">← 戻る</button>
+      <h1>詳細</h1>
+    </div>
+    <div class="detail-wrap" id="detailWrap"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var STORAGE_KEY = 'books';
+  var FALLBACK_KEY = 'guios-fallback-reading-log-books';
+
+  var books = [];
+  var editingId = null;
+  var currentFilter = 'all';
+  var currentSort = 'date_desc';
+
+  var STATUS_LABEL = { want: '読みたい', reading: '読書中', done: '読了' };
+
+  function escapeHtml(str){
+    return String(str==null?'':str).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  var toastEl = document.getElementById('toast');
+  var toastTimer = null;
+  function showToastFallback(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ toastEl.classList.remove('show'); }, 1700);
+  }
+  function notify(msg, type){
+    if(window.GUIOS && window.GUIOS.notify){
+      try{ GUIOS.notify(msg, {type: type || 'info'}); return; }catch(e){}
+    }
+    showToastFallback(msg);
+  }
+  function haptic(){
+    if(window.GUIOS && window.GUIOS.haptic){ try{ GUIOS.haptic(); }catch(e){} }
+  }
+
+  async function loadBooks(){
+    if(hasSDK){
+      var v = await GUIOS.storage.get(STORAGE_KEY);
+      return Array.isArray(v) ? v : [];
+    }else{
+      try{
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        return raw ? JSON.parse(raw) : [];
+      }catch(e){ return []; }
+    }
+  }
+  async function saveBooks(list){
+    if(hasSDK){
+      await GUIOS.storage.set(STORAGE_KEY, list);
+    }else{
+      try{ localStorage.setItem(FALLBACK_KEY, JSON.stringify(list)); }catch(e){}
+    }
+  }
+
+  function showScreen(id){
+    document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
+    document.getElementById(id).classList.add('active');
+  }
+
+  function starsStr(rating){
+    rating = rating || 0;
+    var s = '';
+    for(var i=1;i<=5;i++) s += (i<=rating ? '★' : '☆');
+    return s;
+  }
+
+  function updateYearStat(){
+    var thisYear = new Date().getFullYear();
+    var count = books.filter(function(b){
+      if(!b.readDate) return false;
+      var y = parseInt(b.readDate.slice(0,4), 10);
+      return y === thisYear;
+    }).length;
+    document.getElementById('yearCount').textContent = count + '冊';
+  }
+
+  // ---------- LIST ----------
+  function renderList(){
+    updateYearStat();
+    var wrap = document.getElementById('listWrap');
+    var filtered = books.filter(function(b){
+      return currentFilter === 'all' || b.status === currentFilter;
+    });
+    if(filtered.length === 0){
+      wrap.innerHTML = '<div class="empty">' + (books.length===0 ? 'まだ記録がありません。右上の「＋追加」から登録しましょう。' : '該当する本が見つかりません。') + '</div>';
+      return;
+    }
+    var sorted = filtered.slice().sort(function(a,b){
+      var da = a.readDate || '';
+      var db = b.readDate || '';
+      if(!da && !db){ return (b.createdAt||0) - (a.createdAt||0); }
+      if(!da) return 1;
+      if(!db) return -1;
+      return currentSort === 'date_asc' ? da.localeCompare(db) : db.localeCompare(da);
+    });
+    wrap.innerHTML = sorted.map(function(b){
+      var authorHtml = b.author ? '<div class="book-author">' + escapeHtml(b.author) + '</div>' : '';
+      var dateHtml = b.readDate ? '<span class="date-chip">📅 ' + escapeHtml(b.readDate) + '</span>' : '';
+      return '<div class="book-card" data-id="' + b.id + '">' +
+        '<div class="book-title">' + escapeHtml(b.title) + '</div>' +
+        authorHtml +
+        '<div class="book-meta">' +
+        '<span class="status-chip status-' + b.status + '">' + STATUS_LABEL[b.status] + '</span>' +
+        '<span class="stars">' + starsStr(b.rating) + '</span>' +
+        dateHtml +
+        '</div></div>';
+    }).join('');
+    wrap.querySelectorAll('.book-card').forEach(function(card){
+      card.addEventListener('click', function(){ openDetail(card.getAttribute('data-id')); });
+    });
+  }
+
+  document.getElementById('filterRow').addEventListener('click', function(e){
+    var chip = e.target.closest('.filter-chip');
+    if(!chip) return;
+    currentFilter = chip.getAttribute('data-status');
+    document.querySelectorAll('.filter-chip').forEach(function(c){ c.classList.remove('active'); });
+    chip.classList.add('active');
+    renderList();
+  });
+  document.getElementById('sortSelect').addEventListener('change', function(e){
+    currentSort = e.target.value;
+    renderList();
+  });
+  document.getElementById('addBtn').addEventListener('click', function(){ openForm(null); });
+
+  // ---------- FORM ----------
+  var formStatus = 'want';
+  var formRating = 0;
+
+  function setFormStatus(v){
+    formStatus = v;
+    document.querySelectorAll('.status-opt').forEach(function(el){
+      el.classList.toggle('active', el.getAttribute('data-value') === v);
+    });
+  }
+  function setFormRating(v){
+    formRating = v;
+    document.querySelectorAll('.star-btn').forEach(function(el){
+      el.classList.toggle('on', parseInt(el.getAttribute('data-value'),10) <= v);
+    });
+  }
+  document.getElementById('statusPicker').addEventListener('click', function(e){
+    var btn = e.target.closest('.status-opt');
+    if(!btn) return;
+    setFormStatus(btn.getAttribute('data-value'));
+  });
+  document.getElementById('starPicker').addEventListener('click', function(e){
+    var btn = e.target.closest('.star-btn');
+    if(!btn) return;
+    var v = parseInt(btn.getAttribute('data-value'), 10);
+    setFormRating(formRating === v ? 0 : v);
+  });
+
+  function openForm(id){
+    editingId = id;
+    if(id){
+      var b = books.find(function(x){ return x.id === id; });
+      if(!b) return;
+      document.getElementById('formTitle').textContent = '本を編集';
+      document.getElementById('fTitle').value = b.title || '';
+      document.getElementById('fAuthor').value = b.author || '';
+      document.getElementById('fDate').value = b.readDate || '';
+      document.getElementById('fMemo').value = b.memo || '';
+      setFormStatus(b.status || 'want');
+      setFormRating(b.rating || 0);
+    }else{
+      document.getElementById('formTitle').textContent = '本を追加';
+      document.getElementById('fTitle').value = '';
+      document.getElementById('fAuthor').value = '';
+      document.getElementById('fDate').value = '';
+      document.getElementById('fMemo').value = '';
+      setFormStatus('want');
+      setFormRating(0);
+    }
+    showScreen('screenForm');
+  }
+
+  document.getElementById('formBackBtn').addEventListener('click', function(){ showScreen('screenList'); });
+  document.getElementById('cancelBtn').addEventListener('click', function(){ showScreen('screenList'); });
+
+  document.getElementById('saveBtn').addEventListener('click', async function(){
+    var title = document.getElementById('fTitle').value.trim();
+    if(!title){
+      notify('タイトルを入力してください', 'error');
+      return;
+    }
+    var author = document.getElementById('fAuthor').value.trim();
+    var readDate = document.getElementById('fDate').value;
+    var memo = document.getElementById('fMemo').value.trim();
+    var now = Date.now();
+
+    if(editingId){
+      var b = books.find(function(x){ return x.id === editingId; });
+      if(b){
+        b.title = title; b.author = author; b.status = formStatus;
+        b.readDate = readDate; b.rating = formRating; b.memo = memo; b.updatedAt = now;
+      }
+    }else{
+      books.push({
+        id: 'book-' + now + '-' + Math.floor(Math.random()*10000),
+        title: title, author: author, status: formStatus,
+        readDate: readDate, rating: formRating, memo: memo,
+        createdAt: now, updatedAt: now
+      });
+    }
+    await saveBooks(books);
+    notify('保存しました', 'success');
+    haptic();
+    editingId = null;
+    renderList();
+    showScreen('screenList');
+  });
+
+  // ---------- DETAIL ----------
+  function openDetail(id){
+    var b = books.find(function(x){ return x.id === id; });
+    if(!b) return;
+    var authorHtml = b.author ? '<div class="detail-author">' + escapeHtml(b.author) + '</div>' : '<div class="detail-author">著者未設定</div>';
+    var dateHtml = b.readDate ? '<span class="date-chip">📅 ' + escapeHtml(b.readDate) + '</span>' : '';
+    var memoHtml = b.memo ? escapeHtml(b.memo) : '（感想はまだ記録されていません）';
+    var wrap = document.getElementById('detailWrap');
+    wrap.innerHTML =
+      '<div class="detail-title">' + escapeHtml(b.title) + '</div>' +
+      authorHtml +
+      '<div class="detail-meta">' +
+      '<span class="status-chip status-' + b.status + '">' + STATUS_LABEL[b.status] + '</span>' +
+      dateHtml +
+      '</div>' +
+      '<div class="detail-stars">' + starsStr(b.rating) + '</div>' +
+      '<div class="detail-section"><h2>感想・メモ</h2><p>' + memoHtml + '</p></div>' +
+      '<button class="btn primary" id="editBtn">編集する</button>' +
+      '<button class="btn danger" id="delBtn">削除する</button>';
+    document.getElementById('editBtn').addEventListener('click', function(){ openForm(id); });
+    document.getElementById('delBtn').addEventListener('click', async function(){
+      if(!confirm('「' + b.title + '」の記録を削除しますか？')) return;
+      books = books.filter(function(x){ return x.id !== id; });
+      await saveBooks(books);
+      notify('削除しました', 'info');
+      renderList();
+      showScreen('screenList');
+    });
+    showScreen('screenDetail');
+  }
+
+  document.getElementById('detailBackBtn').addEventListener('click', function(){ showScreen('screenList'); });
+
+  async function init(){
+    books = await loadBooks();
+    renderList();
+  }
+  init();
+})();
+</script>
+</body>
+</html>

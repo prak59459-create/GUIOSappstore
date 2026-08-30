@@ -1,0 +1,315 @@
+<!--GUIOS-APP {"id":"simon-says","name":"色当てゲーム","icon":"🎨","color":"#8e24aa","version":"1.0.0","author":"Claude","description":"光る順番を覚えて再現する記憶力ゲーム(Simon風)。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>色当てゲーム</title>
+<style>
+  :root{ color-scheme: dark; }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; padding:0; height:100%; overscroll-behavior:none; }
+  body{
+    background: radial-gradient(circle at 50% 0%, #2a1533 0%, #150a1c 60%, #0d0712 100%);
+    color:#f2e9f7;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Kaku Gothic ProN",sans-serif;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+    user-select:none;
+  }
+  .wrap{ width:100%; max-width:440px; display:flex; flex-direction:column; align-items:center; gap:14px; }
+  h1{ font-size:20px; margin:4px 0 0; letter-spacing:.04em; color:#e3bfee; }
+  .stats{
+    display:flex; gap:10px; width:100%;
+  }
+  .card{
+    flex:1; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1);
+    border-radius:14px; padding:10px 12px; text-align:center;
+  }
+  .card .label{ font-size:11px; opacity:.65; margin-bottom:2px; }
+  .card .value{ font-size:22px; font-weight:700; }
+  .status{
+    min-height:26px; font-size:14px; opacity:.85; text-align:center;
+  }
+  .board{
+    width:100%; aspect-ratio:1/1; display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr;
+    gap:12px; padding:14px; border-radius:24px; background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.08);
+  }
+  .panel{
+    border:none; border-radius:16px; cursor:pointer; touch-action:manipulation;
+    filter:brightness(0.55) saturate(0.9);
+    transition:filter .08s ease, transform .08s ease;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .panel:active{ transform:scale(0.97); }
+  .panel.lit{ filter:brightness(1.35) saturate(1.2); box-shadow:0 0 24px 4px currentColor; }
+  .panel[disabled]{ cursor:default; }
+  .p0{ background:#2e7d32; color:#2e7d32; border-top-left-radius:44%; }
+  .p1{ background:#c62828; color:#c62828; border-top-right-radius:44%; }
+  .p2{ background:#f9a825; color:#f9a825; border-bottom-left-radius:44%; }
+  .p3{ background:#1565c0; color:#1565c0; border-bottom-right-radius:44%; }
+  .controls{ display:flex; gap:10px; width:100%; }
+  button.action{
+    flex:1; padding:14px 10px; border-radius:14px; border:none; font-size:16px; font-weight:700;
+    background:#8e24aa; color:#fff; cursor:pointer; touch-action:manipulation;
+  }
+  button.action.secondary{ background:rgba(255,255,255,0.1); color:#f2e9f7; font-weight:500; font-size:13px; flex:0 0 auto; padding:14px 16px; }
+  button.action:disabled{ opacity:.45; }
+  .toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:rgba(20,20,24,0.95); color:#fff; padding:10px 18px; border-radius:999px;
+    font-size:13px; opacity:0; transition:opacity .25s ease, transform .25s ease; pointer-events:none;
+    max-width:86vw; text-align:center; z-index:999; border:1px solid rgba(255,255,255,0.12);
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🎨 色当てゲーム</h1>
+    <div class="stats">
+      <div class="card"><div class="label">ラウンド</div><div class="value" id="roundVal">0</div></div>
+      <div class="card"><div class="label">ベスト</div><div class="value" id="bestVal">0</div></div>
+    </div>
+    <div class="status" id="statusText">「スタート」を押して開始</div>
+    <div class="board" id="board">
+      <button class="panel p0" data-idx="0" disabled></button>
+      <button class="panel p1" data-idx="1" disabled></button>
+      <button class="panel p2" data-idx="2" disabled></button>
+      <button class="panel p3" data-idx="3" disabled></button>
+    </div>
+    <div class="controls">
+      <button class="action" id="startBtn">スタート</button>
+      <button class="action secondary" id="resetBestBtn">ベストをリセット</button>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  var APP_ID = "simon-says";
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+
+  function storageGet(key, def){
+    if(hasSDK){
+      return GUIOS.storage.get(key).then(function(v){ return (v===undefined||v===null) ? def : v; }).catch(function(){ return def; });
+    }
+    try{
+      var raw = localStorage.getItem(APP_ID + "_" + key);
+      return Promise.resolve(raw===null ? def : JSON.parse(raw));
+    }catch(e){ return Promise.resolve(def); }
+  }
+  function storageSet(key, value){
+    if(hasSDK){
+      return GUIOS.storage.set(key, value).catch(function(){ return false; });
+    }
+    try{
+      localStorage.setItem(APP_ID + "_" + key, JSON.stringify(value));
+      return Promise.resolve(true);
+    }catch(e){ return Promise.resolve(false); }
+  }
+  var toastEl = document.getElementById("toast");
+  var toastTimer = null;
+  function notify(msg, opts){
+    if(window.GUIOS && GUIOS.notify){
+      try{ GUIOS.notify(msg, opts); return; }catch(e){}
+    }
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    if(toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ toastEl.classList.remove("show"); }, 1800);
+  }
+  function haptic(){
+    if(window.GUIOS && GUIOS.haptic){ try{ GUIOS.haptic(); }catch(e){} }
+  }
+
+  var panels = Array.prototype.slice.call(document.querySelectorAll(".panel"));
+  var roundValEl = document.getElementById("roundVal");
+  var bestValEl = document.getElementById("bestVal");
+  var statusEl = document.getElementById("statusText");
+  var startBtn = document.getElementById("startBtn");
+  var resetBestBtn = document.getElementById("resetBestBtn");
+
+  var FREQS = [329.63, 261.63, 392.00, 523.25]; // per-panel tones
+  var audioCtx = null;
+  function ensureAudio(){
+    if(audioCtx) return;
+    try{
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if(Ctx) audioCtx = new Ctx();
+    }catch(e){ audioCtx = null; }
+  }
+  function playTone(idx){
+    if(!audioCtx) return;
+    try{
+      var o = audioCtx.createOscillator();
+      var g = audioCtx.createGain();
+      o.type = "sine";
+      o.frequency.value = FREQS[idx] || 300;
+      g.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.22, audioCtx.currentTime + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.32);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start();
+      o.stop(audioCtx.currentTime + 0.33);
+    }catch(e){}
+  }
+
+  var best = 0;
+  var state = {
+    sequence: [],
+    round: 0,
+    userStep: 0,
+    playing: false,   // true = input must be ignored (sequence playback or transition)
+    active: false      // true = a game is currently running
+  };
+  var timers = [];
+
+  function pushTimer(id){ timers.push(id); return id; }
+  function clearAllTimers(){
+    timers.forEach(function(id){ clearTimeout(id); });
+    timers = [];
+  }
+
+  function setPanelsEnabled(enabled){
+    panels.forEach(function(p){ p.disabled = !enabled; });
+  }
+  function lightPanel(idx, on){
+    var p = panels[idx];
+    if(!p) return;
+    if(on) p.classList.add("lit"); else p.classList.remove("lit");
+  }
+
+  function updateRoundDisplay(){
+    roundValEl.textContent = String(state.round);
+  }
+  function updateBestDisplay(){
+    bestValEl.textContent = String(best);
+  }
+
+  function randomColor(){ return Math.floor(Math.random() * 4); }
+
+  function playSequence(onDone){
+    state.playing = true;
+    setPanelsEnabled(false);
+    var i = 0;
+    var LIT_MS = 380;
+    var GAP_MS = 220;
+    function step(){
+      if(i >= state.sequence.length){
+        state.playing = false;
+        setPanelsEnabled(true);
+        onDone();
+        return;
+      }
+      var idx = state.sequence[i];
+      lightPanel(idx, true);
+      playTone(idx);
+      pushTimer(setTimeout(function(){
+        lightPanel(idx, false);
+        pushTimer(setTimeout(function(){
+          i++;
+          step();
+        }, GAP_MS));
+      }, LIT_MS));
+    }
+    pushTimer(setTimeout(step, 500));
+  }
+
+  function nextRound(){
+    state.round++;
+    state.sequence.push(randomColor());
+    state.userStep = 0;
+    updateRoundDisplay();
+    statusEl.textContent = "よく見て覚えてね…";
+    playSequence(function(){
+      statusEl.textContent = "同じ順番でタップ！";
+    });
+  }
+
+  function startGame(){
+    ensureAudio();
+    clearAllTimers();
+    setPanelsEnabled(false);
+    state.sequence = [];
+    state.round = 0;
+    state.userStep = 0;
+    state.active = true;
+    state.playing = true;
+    startBtn.disabled = true;
+    startBtn.textContent = "ゲーム中…";
+    nextRound();
+  }
+
+  function endGame(){
+    state.active = false;
+    state.playing = true;
+    clearAllTimers();
+    setPanelsEnabled(false);
+    startBtn.disabled = false;
+    startBtn.textContent = "もう一度スタート";
+    var completed = state.round - 1;
+    statusEl.textContent = "ゲームオーバー（ラウンド " + state.round + " で失敗）";
+    notify("ゲームオーバー！ 到達ラウンド: " + completed, {type:"error"});
+    if(completed > best){
+      best = completed;
+      updateBestDisplay();
+      storageSet("best", best);
+    }
+  }
+
+  function onPanelTap(idx){
+    if(!state.active || state.playing) return; // ignore taps while sequence plays / not running
+    lightPanel(idx, true);
+    playTone(idx);
+    pushTimer(setTimeout(function(){ lightPanel(idx, false); }, 260));
+
+    if(idx === state.sequence[state.userStep]){
+      state.userStep++;
+      if(state.userStep === state.sequence.length){
+        // round cleared
+        state.playing = true;
+        setPanelsEnabled(false);
+        statusEl.textContent = "せいかい！ 次のラウンドへ…";
+        haptic();
+        pushTimer(setTimeout(function(){
+          if(state.active) nextRound();
+        }, 750));
+      }
+    }else{
+      haptic();
+      endGame();
+    }
+  }
+
+  panels.forEach(function(p){
+    p.addEventListener("click", function(){
+      var idx = parseInt(p.getAttribute("data-idx"), 10);
+      onPanelTap(idx);
+    });
+  });
+
+  startBtn.addEventListener("click", function(){
+    startGame();
+  });
+
+  resetBestBtn.addEventListener("click", function(){
+    if(!confirm("ベスト記録をリセットしますか？")) return;
+    best = 0;
+    updateBestDisplay();
+    storageSet("best", 0);
+    notify("ベスト記録をリセットしました");
+  });
+
+  storageGet("best", 0).then(function(v){
+    best = (typeof v === "number" && isFinite(v)) ? v : 0;
+    updateBestDisplay();
+  });
+})();
+</script>
+</body>
+</html>

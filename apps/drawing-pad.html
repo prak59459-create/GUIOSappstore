@@ -1,0 +1,355 @@
+<!--GUIOS-APP {"id":"drawing-pad","name":"お絵かき帳","icon":"🎨","color":"#d81b60","version":"1.0.0","author":"Claude","description":"指やマウスで自由に絵を描けるシンプルなお絵かきアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>お絵かき帳</title>
+<style>
+  :root{
+    --accent:#f06292;
+    --accent-dark:#d81b60;
+    --bg:#160910;
+    --card:#221019;
+    --card2:#1a0c14;
+    --text:#fbe9f0;
+    --sub:#c99cae;
+    --line:rgba(255,255,255,0.09);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html, body{
+    margin:0; height:100%;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    overflow:hidden;
+  }
+  body{ display:flex; flex-direction:column; }
+  h1{font-size:17px; margin:0; padding:10px 14px; display:flex; align-items:center; gap:8px; flex:0 0 auto;}
+  .canvas-wrap{
+    flex:1 1 auto; min-height:0; position:relative; margin:0 10px; border-radius:14px; overflow:hidden;
+    border:1px solid var(--line); background:#ffffff;
+    touch-action:none;
+  }
+  canvas{ display:block; width:100%; height:100%; touch-action:none; }
+  .toolbar{
+    flex:0 0 auto; padding:10px; display:flex; flex-direction:column; gap:8px;
+  }
+  .row{ display:flex; gap:8px; align-items:center; overflow-x:auto; padding-bottom:2px; }
+  .row::-webkit-scrollbar{ height:4px; }
+  .swatch{
+    width:34px; height:34px; border-radius:50%; border:2px solid var(--line); flex:0 0 auto; cursor:pointer; padding:0;
+  }
+  .swatch.active{ border-color:#fff; box-shadow:0 0 0 2px var(--accent-dark); }
+  #colorPicker{
+    width:38px; height:38px; border-radius:50%; border:2px solid var(--line); padding:0; background:none; flex:0 0 auto; cursor:pointer;
+    overflow:hidden;
+  }
+  #colorPicker::-webkit-color-swatch-wrapper{ padding:0; }
+  #colorPicker::-webkit-color-swatch{ border:none; border-radius:50%; }
+  .size-row{ display:flex; align-items:center; gap:10px; }
+  .size-row label{ font-size:12px; color:var(--sub); white-space:nowrap; flex:0 0 auto; }
+  input[type=range]{ flex:1; accent-color:var(--accent-dark); }
+  .size-preview{
+    width:20px; height:20px; border-radius:50%; background:var(--text); flex:0 0 auto;
+  }
+  .actions{ display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; }
+  .actions button{
+    padding:10px 4px; border-radius:10px; border:1px solid var(--line); background:var(--card2);
+    color:var(--text); font-size:12px; font-weight:700; cursor:pointer; min-height:46px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+  }
+  .actions button.on{ background:var(--accent-dark); border-color:var(--accent); color:#fff; }
+  .actions button:disabled{ opacity:0.4; }
+  .actions button .ic{ font-size:16px; }
+  .toast{
+    position:fixed; left:50%; bottom:20px; transform:translateX(-50%) translateY(20px);
+    background:#222; color:#fff; padding:11px 18px; border-radius:10px; font-size:13px;
+    opacity:0; transition:opacity .25s, transform .25s; pointer-events:none; z-index:999; max-width:88vw; text-align:center;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+  .toast.error{background:#5a1e1e;}
+  .toast.success{background:#1e4a2a;}
+</style>
+</head>
+<body>
+<h1>🎨 お絵かき帳</h1>
+
+<div class="canvas-wrap" id="canvasWrap">
+  <canvas id="canvas"></canvas>
+</div>
+
+<div class="toolbar">
+  <div class="row" id="paletteRow">
+    <button type="button" class="swatch active" style="background:#000000" data-color="#000000"></button>
+    <button type="button" class="swatch" style="background:#e53935" data-color="#e53935"></button>
+    <button type="button" class="swatch" style="background:#fb8c00" data-color="#fb8c00"></button>
+    <button type="button" class="swatch" style="background:#fdd835" data-color="#fdd835"></button>
+    <button type="button" class="swatch" style="background:#43a047" data-color="#43a047"></button>
+    <button type="button" class="swatch" style="background:#1e88e5" data-color="#1e88e5"></button>
+    <button type="button" class="swatch" style="background:#8e24aa" data-color="#8e24aa"></button>
+    <button type="button" class="swatch" style="background:#6d4c41" data-color="#6d4c41"></button>
+    <button type="button" class="swatch" style="background:#ffffff; box-shadow:inset 0 0 0 1px #999;" data-color="#ffffff"></button>
+    <input type="color" id="colorPicker" value="#000000" title="色を選ぶ">
+  </div>
+  <div class="size-row">
+    <label for="sizeRange">太さ</label>
+    <input type="range" id="sizeRange" min="1" max="40" value="4">
+    <div class="size-preview" id="sizePreview"></div>
+  </div>
+  <div class="actions">
+    <button type="button" id="eraserBtn"><span class="ic">🧽</span>消しゴム</button>
+    <button type="button" id="undoBtn"><span class="ic">↩️</span>元に戻す</button>
+    <button type="button" id="clearBtn"><span class="ic">🗑️</span>全消去</button>
+    <button type="button" id="saveBtn"><span class="ic">💾</span>PNG保存</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  var APP_ID = "drawing-pad";
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+
+  function toast(msg, type){
+    if(hasSDK && window.GUIOS.notify){
+      try{ window.GUIOS.notify(msg, {type: type||'info'}); return; }catch(e){}
+    }
+    var el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'toast show' + (type ? (' '+type) : '');
+    clearTimeout(el._t);
+    el._t = setTimeout(function(){ el.className = 'toast'; }, 2200);
+  }
+  function haptic(){
+    if(hasSDK && window.GUIOS.haptic){ try{ window.GUIOS.haptic(); }catch(e){} }
+  }
+
+  var wrap = document.getElementById('canvasWrap');
+  var canvas = document.getElementById('canvas');
+  var ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+  var BG_COLOR = '#ffffff';
+  var currentColor = '#000000';
+  var brushSize = 4;
+  var isErasing = false;
+  var isDrawing = false;
+  var lastX = 0, lastY = 0;
+  var activePointerId = null;
+
+  var undoStack = [];
+  var UNDO_LIMIT = 18;
+
+  function fillBackground(){
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = BG_COLOR;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.restore();
+  }
+
+  function resizeCanvas(){
+    var rect = wrap.getBoundingClientRect();
+    var dpr = window.devicePixelRatio || 1;
+    var newW = Math.max(1, Math.round(rect.width * dpr));
+    var newH = Math.max(1, Math.round(rect.height * dpr));
+    if(newW === canvas.width && newH === canvas.height) return;
+
+    var prevW = canvas.width, prevH = canvas.height;
+    var snapshot = null;
+    if(prevW > 0 && prevH > 0){
+      try{ snapshot = ctx.getImageData(0, 0, prevW, prevH); }catch(e){ snapshot = null; }
+    }
+    canvas.width = newW;
+    canvas.height = newH;
+    fillBackground();
+    if(snapshot){
+      // draw old content scaled into new size via an offscreen canvas
+      try{
+        var off = document.createElement('canvas');
+        off.width = prevW; off.height = prevH;
+        off.getContext('2d').putImageData(snapshot, 0, 0);
+        ctx.drawImage(off, 0, 0, prevW, prevH, 0, 0, newW, newH);
+      }catch(e){}
+    }
+  }
+
+  function pushUndo(){
+    try{
+      var snap = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      undoStack.push(snap);
+      if(undoStack.length > UNDO_LIMIT) undoStack.shift();
+    }catch(e){}
+  }
+
+  function undo(){
+    if(undoStack.length === 0){
+      toast('これ以上戻せません', 'info');
+      return;
+    }
+    var snap = undoStack.pop();
+    try{
+      if(snap.width !== canvas.width || snap.height !== canvas.height){
+        // size mismatch (rare, after resize) - just clear instead of crashing
+        fillBackground();
+      } else {
+        ctx.putImageData(snap, 0, 0);
+      }
+    }catch(e){}
+  }
+
+  function getPos(e){
+    var rect = canvas.getBoundingClientRect();
+    var scaleX = canvas.width / rect.width;
+    var scaleY = canvas.height / rect.height;
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY
+    };
+  }
+
+  function strokeTo(x1, y1, x2, y2){
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    var dpr = window.devicePixelRatio || 1;
+    ctx.lineWidth = Math.max(1, brushSize * dpr);
+    ctx.strokeStyle = isErasing ? BG_COLOR : currentColor;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function onPointerDown(e){
+    if(activePointerId !== null) return;
+    activePointerId = e.pointerId;
+    try{ canvas.setPointerCapture(e.pointerId); }catch(err){}
+    pushUndo();
+    isDrawing = true;
+    var p = getPos(e);
+    lastX = p.x; lastY = p.y;
+    // draw a dot for a single tap
+    strokeTo(p.x, p.y, p.x + 0.01, p.y + 0.01);
+    e.preventDefault();
+  }
+  function onPointerMove(e){
+    if(!isDrawing || e.pointerId !== activePointerId) return;
+    var p = getPos(e);
+    strokeTo(lastX, lastY, p.x, p.y);
+    lastX = p.x; lastY = p.y;
+    e.preventDefault();
+  }
+  function onPointerUp(e){
+    if(e.pointerId !== activePointerId) return;
+    isDrawing = false;
+    activePointerId = null;
+    try{ canvas.releasePointerCapture(e.pointerId); }catch(err){}
+  }
+
+  canvas.addEventListener('pointerdown', onPointerDown);
+  canvas.addEventListener('pointermove', onPointerMove);
+  window.addEventListener('pointerup', onPointerUp);
+  window.addEventListener('pointercancel', onPointerUp);
+  canvas.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+
+  // palette
+  function setActiveSwatch(colorBtn){
+    var swatches = document.querySelectorAll('.swatch');
+    for(var i=0;i<swatches.length;i++) swatches[i].classList.remove('active');
+    if(colorBtn) colorBtn.classList.add('active');
+  }
+  document.getElementById('paletteRow').addEventListener('click', function(e){
+    var btn = e.target.closest ? e.target.closest('.swatch') : null;
+    if(!btn) return;
+    currentColor = btn.getAttribute('data-color');
+    isErasing = false;
+    document.getElementById('eraserBtn').classList.remove('on');
+    document.getElementById('colorPicker').value = currentColor;
+    setActiveSwatch(btn);
+  });
+  document.getElementById('colorPicker').addEventListener('input', function(e){
+    currentColor = e.target.value;
+    isErasing = false;
+    document.getElementById('eraserBtn').classList.remove('on');
+    setActiveSwatch(null);
+  });
+
+  var sizeRange = document.getElementById('sizeRange');
+  var sizePreview = document.getElementById('sizePreview');
+  function updateSizePreview(){
+    var s = Math.min(24, Math.max(4, parseInt(sizeRange.value, 10)));
+    sizePreview.style.width = s + 'px';
+    sizePreview.style.height = s + 'px';
+    sizePreview.style.background = isErasing ? '#cccccc' : currentColor;
+  }
+  sizeRange.addEventListener('input', function(){
+    brushSize = parseInt(sizeRange.value, 10) || 1;
+    updateSizePreview();
+  });
+
+  document.getElementById('eraserBtn').addEventListener('click', function(){
+    isErasing = !isErasing;
+    this.classList.toggle('on', isErasing);
+    if(isErasing) setActiveSwatch(null);
+    updateSizePreview();
+  });
+
+  document.getElementById('undoBtn').addEventListener('click', function(){
+    haptic();
+    undo();
+  });
+
+  document.getElementById('clearBtn').addEventListener('click', function(){
+    pushUndo();
+    fillBackground();
+    haptic();
+    toast('全消去しました', 'info');
+  });
+
+  document.getElementById('saveBtn').addEventListener('click', function(){
+    try{
+      canvas.toBlob(function(blob){
+        if(!blob){ toast('保存に失敗しました', 'error'); return; }
+        try{
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = 'drawing-' + Date.now() + '.png';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+          toast('PNGを保存しました', 'success');
+        }catch(err){
+          toast('保存に失敗しました', 'error');
+        }
+      }, 'image/png');
+    }catch(e){
+      toast('保存に失敗しました', 'error');
+    }
+  });
+
+  var resizeTimer = null;
+  window.addEventListener('resize', function(){
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(resizeCanvas, 120);
+  });
+
+  function init(){
+    resizeCanvas();
+    updateSizePreview();
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>

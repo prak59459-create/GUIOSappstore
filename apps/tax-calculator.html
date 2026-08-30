@@ -1,0 +1,230 @@
+<!--GUIOS-APP {"id":"tax-calculator","name":"消費税計算機","icon":"💴","color":"#00695c","version":"1.0.0","author":"Claude","description":"税抜・税込金額を消費税率から相互に計算できるツール。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>消費税計算機</title>
+<style>
+  :root{
+    --accent:#00695c;
+    --bg:#0b1615;
+    --card:#12211f;
+    --text:#e7f5f2;
+    --sub:#9fc3bc;
+    --line:#1e3532;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    padding:16px; padding-bottom:40px;
+  }
+  h1{font-size:20px; margin:4px 0 16px; display:flex; align-items:center; gap:8px;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:16px; margin-bottom:16px;
+  }
+  label{display:block; font-size:13px; color:var(--sub); margin-bottom:6px;}
+  .field{margin-bottom:14px;}
+  input[type=number]{
+    width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--line);
+    background:#081310; color:var(--text); font-size:16px; outline:none;
+  }
+  input[type=number]:focus{border-color:var(--accent);}
+  .modeRow{display:flex; gap:8px; margin-bottom:6px; flex-wrap:wrap;}
+  .modeRow button{
+    flex:1; min-width:120px; padding:10px 6px; border-radius:10px; border:1px solid var(--line);
+    background:transparent; color:var(--sub); font-weight:700; font-size:13px; cursor:pointer; min-height:44px;
+  }
+  .modeRow button.active{background:var(--accent); color:#eafff9; border-color:var(--accent);}
+  .quickrow{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;}
+  .quickrow button{
+    flex:1; min-width:64px; padding:10px 6px; border-radius:10px; border:1px solid var(--line);
+    background:transparent; color:var(--sub); font-weight:700; font-size:14px; cursor:pointer; min-height:44px;
+  }
+  .quickrow button.active{background:var(--accent); color:#eafff9; border-color:var(--accent);}
+  .customRateRow{display:flex; align-items:center; gap:8px; margin-top:10px;}
+  .customRateRow input{width:100%;}
+  .results{display:flex; flex-direction:column; gap:10px; margin-top:4px;}
+  .result-row{
+    display:flex; justify-content:space-between; align-items:center;
+    background:#081310; border:1px solid var(--line); border-radius:10px; padding:12px 14px;
+  }
+  .result-row .rlabel{font-size:13px; color:var(--sub);}
+  .result-row .rval{font-size:18px; font-weight:800;}
+  .result-row.main{background:var(--accent); border-color:var(--accent);}
+  .result-row.main .rlabel{color:#eafff9;}
+  .result-row.main .rval{color:#eafff9; font-size:24px;}
+  .note{font-size:12px; color:var(--sub); margin-top:10px; line-height:1.6;}
+</style>
+</head>
+<body>
+  <h1>💴 消費税計算機</h1>
+
+  <div class="card">
+    <p style="font-size:13px; color:var(--sub); margin:0 0 8px; font-weight:700;">計算方向</p>
+    <div class="modeRow" id="dirRow">
+      <button type="button" data-dir="fromExcl" class="active">税抜→税込</button>
+      <button type="button" data-dir="fromIncl">税込→税抜</button>
+    </div>
+
+    <div class="field" style="margin-top:14px;">
+      <label id="amountLabel" for="amount">税抜金額（円）</label>
+      <input type="number" id="amount" inputmode="numeric" placeholder="例: 10000" min="0" step="1">
+    </div>
+
+    <div class="field">
+      <label>税率</label>
+      <div class="quickrow" id="quickRates">
+        <button type="button" data-rate="10" class="active">標準 10%</button>
+        <button type="button" data-rate="8">軽減 8%</button>
+        <button type="button" data-rate="custom">その他</button>
+      </div>
+      <div class="customRateRow" id="customRateRow" style="display:none;">
+        <input type="number" id="customRate" inputmode="decimal" min="0" step="0.1" value="10" placeholder="税率(%)">
+        <span>%</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="results">
+      <div class="result-row">
+        <span class="rlabel">税抜金額</span>
+        <span class="rval" id="rExcl">¥0</span>
+      </div>
+      <div class="result-row">
+        <span class="rlabel">消費税額</span>
+        <span class="rval" id="rTax">¥0</span>
+      </div>
+      <div class="result-row main">
+        <span class="rlabel">税込金額</span>
+        <span class="rval" id="rIncl">¥0</span>
+      </div>
+    </div>
+    <p class="note">※ 1円未満は切り捨てで計算しています。実際の税額計算方法は事業者や請求書の単位により異なる場合があります。</p>
+  </div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var STORAGE_KEY = 'lastState';
+  var FALLBACK_KEY = 'guios-fallback-tax-calculator-lastState';
+
+  var amountEl = document.getElementById('amount');
+  var amountLabel = document.getElementById('amountLabel');
+  var dirRow = document.getElementById('dirRow');
+  var quickRates = document.getElementById('quickRates');
+  var customRateRow = document.getElementById('customRateRow');
+  var customRateEl = document.getElementById('customRate');
+
+  var direction = 'fromExcl'; // fromExcl | fromIncl
+  var rateMode = '10'; // '10' | '8' | 'custom'
+
+  function yen(n){
+    if(!isFinite(n)) n = 0;
+    return '¥' + Math.floor(n).toLocaleString('ja-JP');
+  }
+
+  function currentRate(){
+    if(rateMode === '10') return 10;
+    if(rateMode === '8') return 8;
+    var v = parseFloat(customRateEl.value);
+    return isFinite(v) && v >= 0 ? v : 0;
+  }
+
+  function recalc(){
+    var amount = parseFloat(amountEl.value) || 0;
+    var rate = currentRate();
+    var excl, tax, incl;
+
+    if(direction === 'fromExcl'){
+      excl = amount;
+      tax = Math.floor(excl * (rate/100));
+      incl = excl + tax;
+    } else {
+      incl = amount;
+      excl = Math.floor(incl / (1 + rate/100));
+      tax = incl - excl;
+    }
+
+    document.getElementById('rExcl').textContent = yen(excl);
+    document.getElementById('rTax').textContent = yen(tax);
+    document.getElementById('rIncl').textContent = yen(incl);
+
+    save();
+  }
+
+  function setDirection(dir){
+    direction = dir;
+    var btns = dirRow.querySelectorAll('button');
+    btns.forEach(function(b){ b.classList.toggle('active', b.dataset.dir === dir); });
+    amountLabel.textContent = (dir === 'fromExcl') ? '税抜金額（円）' : '税込金額（円）';
+  }
+
+  function setRateMode(mode){
+    rateMode = mode;
+    var btns = quickRates.querySelectorAll('button');
+    btns.forEach(function(b){ b.classList.toggle('active', b.dataset.rate === mode); });
+    customRateRow.style.display = (mode === 'custom') ? 'flex' : 'none';
+  }
+
+  dirRow.addEventListener('click', function(e){
+    var btn = e.target.closest('button');
+    if(!btn) return;
+    setDirection(btn.dataset.dir);
+    recalc();
+  });
+
+  quickRates.addEventListener('click', function(e){
+    var btn = e.target.closest('button');
+    if(!btn) return;
+    setRateMode(btn.dataset.rate);
+    recalc();
+  });
+
+  amountEl.addEventListener('input', recalc);
+  customRateEl.addEventListener('input', recalc);
+
+  var saveTimer = null;
+  function save(){
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(async function(){
+      var data = {
+        amount: amountEl.value,
+        direction: direction,
+        rateMode: rateMode,
+        customRate: customRateEl.value
+      };
+      if(hasSDK){
+        try{ await GUIOS.storage.set(STORAGE_KEY, data); }catch(e){}
+      } else {
+        try{ localStorage.setItem(FALLBACK_KEY, JSON.stringify(data)); }catch(e){}
+      }
+    }, 300);
+  }
+
+  async function restore(){
+    var data = null;
+    if(hasSDK){
+      try{ data = await GUIOS.storage.get(STORAGE_KEY); }catch(e){}
+    } else {
+      try{
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        data = raw ? JSON.parse(raw) : null;
+      }catch(e){}
+    }
+    if(data){
+      if(data.amount !== undefined && data.amount !== '') amountEl.value = data.amount;
+      if(data.direction) setDirection(data.direction);
+      if(data.customRate !== undefined && data.customRate !== '') customRateEl.value = data.customRate;
+      if(data.rateMode) setRateMode(data.rateMode);
+    }
+    recalc();
+  }
+
+  restore();
+</script>
+</body>
+</html>

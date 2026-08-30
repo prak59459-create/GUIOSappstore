@@ -1,0 +1,414 @@
+<!--GUIOS-APP {"id":"yacht-dice","name":"ヨットダイスゲーム","icon":"🎲","color":"#5e35b1","version":"1.0.0","author":"Claude","description":"5個のサイコロで役を揃えて得点を競うヨット(ヤッツィー風)ダイスゲーム。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ヨットダイスゲーム</title>
+<style>
+  :root{
+    --bg:#120f1e;
+    --panel:#1c1830;
+    --panel2:#241f3d;
+    --border:#3a3364;
+    --text:#f1eefb;
+    --sub:#a79fce;
+    --accent:#5e35b1;
+    --accent2:#9575cd;
+    --gold:#e0b93c;
+    --lock:#4caf7d;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;height:100%;overflow-x:hidden;}
+  #app{max-width:520px;margin:0 auto;padding:14px 14px 28px;min-height:100%;}
+  h1{font-size:18px;margin:0 0 4px;text-align:center;}
+  #bestRow{text-align:center;font-size:12px;color:var(--sub);margin-bottom:14px;}
+  #bestRow b{color:var(--gold);}
+  #diceRow{display:flex;gap:8px;justify-content:center;margin-bottom:12px;flex-wrap:wrap;}
+  .die{
+    width:56px;height:56px;
+    background:var(--panel2);
+    border:2px solid var(--border);
+    border-radius:10px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:26px;
+    font-weight:800;
+    cursor:pointer;
+    user-select:none;
+    position:relative;
+    transition:transform .1s ease;
+  }
+  .die.held{background:var(--lock);border-color:var(--lock);color:#fff;}
+  .die.rolling{animation:shake .3s ease;}
+  @keyframes shake{
+    0%,100%{transform:rotate(0deg);}
+    25%{transform:rotate(-8deg);}
+    75%{transform:rotate(8deg);}
+  }
+  .die-label{position:absolute;bottom:2px;right:4px;font-size:8px;color:var(--sub);}
+  #rollInfo{text-align:center;font-size:13px;color:var(--sub);margin-bottom:10px;}
+  #rollBtnRow{display:flex;justify-content:center;margin-bottom:16px;}
+  button.roll-btn{
+    background:var(--accent);
+    color:#fff;
+    border:none;
+    border-radius:10px;
+    padding:13px 28px;
+    font-size:15px;
+    font-weight:800;
+    cursor:pointer;
+    min-height:48px;
+  }
+  button.roll-btn:disabled{background:#3a3450;color:#6a6485;cursor:not-allowed;}
+  button.roll-btn:active:not(:disabled){filter:brightness(1.15);}
+  #scoreTable{
+    width:100%;
+    border-collapse:collapse;
+    margin-bottom:14px;
+  }
+  #scoreTable td{
+    padding:9px 8px;
+    border-bottom:1px solid var(--border);
+    font-size:13px;
+  }
+  .cat-name{color:var(--text);}
+  .cat-score{
+    text-align:right;
+    font-weight:700;
+    color:var(--sub);
+    cursor:pointer;
+    min-width:44px;
+  }
+  .cat-score.available{color:var(--accent2);}
+  .cat-score.used{color:var(--sub);cursor:default;}
+  .cat-score.disabled-row{opacity:.5;cursor:default;}
+  #totalRow{
+    display:flex;justify-content:space-between;
+    padding:10px 8px;
+    background:var(--panel);
+    border-radius:8px;
+    font-weight:800;
+    font-size:15px;
+    margin-bottom:14px;
+  }
+  #totalRow span.val{color:var(--gold);}
+  #finalMsg{
+    text-align:center;
+    font-size:15px;
+    font-weight:700;
+    color:var(--gold);
+    min-height:20px;
+    margin-bottom:10px;
+  }
+  #actions{display:flex;justify-content:center;}
+  button.main-btn{
+    background:var(--panel2);
+    color:var(--text);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:11px 20px;
+    font-size:13px;
+    font-weight:700;
+    cursor:pointer;
+    min-height:44px;
+  }
+  button.main-btn:active{filter:brightness(1.2);}
+  #toast{
+    position:fixed;left:50%;top:16px;transform:translateX(-50%) translateY(-30px);
+    background:#2b2b2d;color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;
+    opacity:0;transition:all .25s ease;pointer-events:none;z-index:999;max-width:90%;text-align:center;
+    border:1px solid var(--border);
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>🎲 ヨットダイスゲーム</h1>
+  <div id="bestRow">自己ベスト: <b id="bestScore">0</b> 点</div>
+
+  <div id="diceRow"></div>
+  <div id="rollInfo">残りロール回数: <span id="rollsLeft">2</span></div>
+  <div id="rollBtnRow">
+    <button class="roll-btn" id="rollBtn">サイコロを振る</button>
+  </div>
+
+  <table id="scoreTable"></table>
+  <div id="totalRow">合計 <span class="val" id="totalScore">0</span> 点</div>
+  <div id="finalMsg"></div>
+  <div id="actions">
+    <button class="main-btn" id="newGameBtn">もう一度</button>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  var APP_ID = "yacht-dice";
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+
+  var CATEGORIES = [
+    { key: "ones",   name: "1の目",   type: "number", n: 1 },
+    { key: "twos",   name: "2の目",   type: "number", n: 2 },
+    { key: "threes", name: "3の目",   type: "number", n: 3 },
+    { key: "fours",  name: "4の目",   type: "number", n: 4 },
+    { key: "fives",  name: "5の目",   type: "number", n: 5 },
+    { key: "sixes",  name: "6の目",   type: "number", n: 6 },
+    { key: "fullhouse", name: "フルハウス", type: "fullhouse" },
+    { key: "fourkind",  name: "4カード", type: "fourkind" },
+    { key: "smallstraight", name: "小さいストレート", type: "smallstraight" },
+    { key: "largestraight", name: "大きいストレート", type: "largestraight" },
+    { key: "yacht", name: "ヨット", type: "yacht" }
+  ];
+
+  var dice = [1,1,1,1,1];
+  var held = [false,false,false,false,false];
+  var rollsLeft = 2;
+  var hasRolledThisTurn = false;
+  var scores = {}; // key -> number|null (null = unused)
+  var bestScore = 0;
+
+  var diceRowEl = document.getElementById("diceRow");
+  var rollsLeftEl = document.getElementById("rollsLeft");
+  var rollBtn = document.getElementById("rollBtn");
+  var scoreTableEl = document.getElementById("scoreTable");
+  var totalScoreEl = document.getElementById("totalScore");
+  var finalMsgEl = document.getElementById("finalMsg");
+  var bestScoreEl = document.getElementById("bestScore");
+  var newGameBtn = document.getElementById("newGameBtn");
+  var toastEl = document.getElementById("toast");
+
+  function toast(msg, type){
+    if (window.GUIOS && window.GUIOS.notify){
+      GUIOS.notify(msg, {type: type || "info"});
+      return;
+    }
+    toastEl.textContent = msg;
+    toastEl.className = "show";
+    setTimeout(function(){ toastEl.className = ""; }, 1800);
+  }
+  function haptic(){
+    if (window.GUIOS && window.GUIOS.haptic){ try{ GUIOS.haptic(); }catch(e){} }
+  }
+
+  async function loadBest(){
+    if (hasSDK){
+      try{
+        var v = await GUIOS.storage.get("bestScore");
+        if (typeof v === "number") bestScore = v;
+      }catch(e){}
+    } else {
+      try{
+        var raw = localStorage.getItem(APP_ID + "_best");
+        if (raw) bestScore = parseInt(raw, 10) || 0;
+      }catch(e){}
+    }
+    bestScoreEl.textContent = bestScore;
+  }
+  async function saveBest(){
+    if (hasSDK){
+      try{ await GUIOS.storage.set("bestScore", bestScore); }catch(e){}
+    } else {
+      try{ localStorage.setItem(APP_ID + "_best", String(bestScore)); }catch(e){}
+    }
+  }
+
+  function counts(diceArr){
+    var c = {1:0,2:0,3:0,4:0,5:0,6:0};
+    diceArr.forEach(function(d){ c[d]++; });
+    return c;
+  }
+
+  function calcScore(catType, n, diceArr){
+    var c = counts(diceArr);
+    var sum = diceArr.reduce(function(a,b){ return a+b; }, 0);
+    var vals = Object.keys(c).map(function(k){ return c[k]; });
+
+    if (catType === "number"){
+      return c[n] * n;
+    }
+    if (catType === "fullhouse"){
+      var hasThree = vals.indexOf(3) !== -1;
+      var hasTwo = vals.indexOf(2) !== -1;
+      // classic full house: exactly a 3-of-a-kind and a pair (5 dice, two distinct values)
+      if (hasThree && hasTwo) return 25;
+      return 0;
+    }
+    if (catType === "fourkind"){
+      var hasFourPlus = vals.some(function(v){ return v >= 4; });
+      return hasFourPlus ? sum : 0;
+    }
+    if (catType === "smallstraight"){
+      var uniq = Object.keys(c).filter(function(k){ return c[k] > 0; }).map(Number).sort(function(a,b){return a-b;});
+      var seqs = [[1,2,3,4],[2,3,4,5],[3,4,5,6]];
+      var uniqSet = {};
+      uniq.forEach(function(u){ uniqSet[u] = true; });
+      var match = seqs.some(function(seq){
+        return seq.every(function(v){ return uniqSet[v]; });
+      });
+      return match ? 30 : 0;
+    }
+    if (catType === "largestraight"){
+      var uniq2 = Object.keys(c).filter(function(k){ return c[k] > 0; }).map(Number).sort(function(a,b){return a-b;});
+      var s1 = [1,2,3,4,5], s2 = [2,3,4,5,6];
+      var isS1 = uniq2.length === 5 && uniq2.every(function(v,i){ return v === s1[i]; });
+      var isS2 = uniq2.length === 5 && uniq2.every(function(v,i){ return v === s2[i]; });
+      return (isS1 || isS2) ? 40 : 0;
+    }
+    if (catType === "yacht"){
+      var isYacht = vals.some(function(v){ return v === 5; });
+      return isYacht ? 50 : 0;
+    }
+    return 0;
+  }
+
+  function renderDice(){
+    diceRowEl.innerHTML = "";
+    dice.forEach(function(val, idx){
+      var d = document.createElement("div");
+      d.className = "die" + (held[idx] ? " held" : "");
+      d.textContent = String(val);
+      d.dataset.idx = idx;
+      var label = document.createElement("span");
+      label.className = "die-label";
+      label.textContent = held[idx] ? "固定" : "";
+      d.appendChild(label);
+      d.addEventListener("click", function(){
+        if (!hasRolledThisTurn) return;
+        var i = parseInt(this.dataset.idx, 10);
+        held[i] = !held[i];
+        renderDice();
+        haptic();
+      });
+      diceRowEl.appendChild(d);
+    });
+  }
+
+  function renderScoreTable(){
+    scoreTableEl.innerHTML = "";
+    CATEGORIES.forEach(function(cat){
+      var tr = document.createElement("tr");
+      var tdName = document.createElement("td");
+      tdName.className = "cat-name";
+      tdName.textContent = cat.name;
+      var tdScore = document.createElement("td");
+      var used = scores[cat.key] !== undefined && scores[cat.key] !== null;
+
+      if (used){
+        tdScore.className = "cat-score used";
+        tdScore.textContent = scores[cat.key];
+      } else if (hasRolledThisTurn){
+        var preview = calcScore(cat.type, cat.n, dice);
+        tdScore.className = "cat-score available";
+        tdScore.textContent = preview;
+        tdScore.dataset.key = cat.key;
+        tdScore.addEventListener("click", function(){
+          finalizeCategory(this.dataset.key);
+        });
+      } else {
+        tdScore.className = "cat-score disabled-row";
+        tdScore.textContent = "-";
+      }
+      tr.appendChild(tdName);
+      tr.appendChild(tdScore);
+      scoreTableEl.appendChild(tr);
+    });
+  }
+
+  function computeTotal(){
+    var total = 0;
+    CATEGORIES.forEach(function(cat){
+      if (scores[cat.key] !== undefined && scores[cat.key] !== null){
+        total += scores[cat.key];
+      }
+    });
+    return total;
+  }
+
+  function finalizeCategory(key){
+    if (scores[key] !== undefined && scores[key] !== null) return;
+    if (!hasRolledThisTurn) return;
+    var cat = CATEGORIES.filter(function(c){ return c.key === key; })[0];
+    var score = calcScore(cat.type, cat.n, dice);
+    scores[key] = score;
+    totalScoreEl.textContent = computeTotal();
+    haptic();
+    toast(cat.name + ": " + score + "点", "success");
+
+    // start next turn
+    hasRolledThisTurn = false;
+    held = [false,false,false,false,false];
+    rollsLeft = 2;
+    rollsLeftEl.textContent = rollsLeft;
+    rollBtn.disabled = false;
+    rollBtn.textContent = "サイコロを振る";
+    renderDice();
+    renderScoreTable();
+
+    checkGameEnd();
+  }
+
+  function checkGameEnd(){
+    var allUsed = CATEGORIES.every(function(cat){
+      return scores[cat.key] !== undefined && scores[cat.key] !== null;
+    });
+    if (allUsed){
+      var total = computeTotal();
+      finalMsgEl.textContent = "🎉 ゲーム終了！ 最終スコア: " + total + " 点";
+      if (total > bestScore){
+        bestScore = total;
+        bestScoreEl.textContent = bestScore;
+        saveBest();
+        finalMsgEl.textContent += "（自己ベスト更新！）";
+        toast("自己ベスト更新！", "success");
+      }
+      rollBtn.disabled = true;
+    }
+  }
+
+  function rollDice(){
+    if (rollsLeft <= 0) return;
+    var allUsed = CATEGORIES.every(function(cat){
+      return scores[cat.key] !== undefined && scores[cat.key] !== null;
+    });
+    if (allUsed) return;
+
+    for (var i = 0; i < 5; i++){
+      if (!held[i]){
+        dice[i] = 1 + Math.floor(Math.random() * 6);
+      }
+    }
+    rollsLeft--;
+    hasRolledThisTurn = true;
+    rollsLeftEl.textContent = rollsLeft;
+    rollBtn.disabled = rollsLeft <= 0;
+    rollBtn.textContent = rollsLeft <= 0 ? "役を選んでください" : "サイコロを振る";
+    haptic();
+    renderDice();
+    renderScoreTable();
+  }
+
+  function newGame(){
+    dice = [1,1,1,1,1];
+    held = [false,false,false,false,false];
+    rollsLeft = 2;
+    hasRolledThisTurn = false;
+    scores = {};
+    finalMsgEl.textContent = "";
+    rollBtn.disabled = false;
+    rollBtn.textContent = "サイコロを振る";
+    rollsLeftEl.textContent = rollsLeft;
+    totalScoreEl.textContent = "0";
+    renderDice();
+    renderScoreTable();
+  }
+
+  rollBtn.addEventListener("click", rollDice);
+  newGameBtn.addEventListener("click", newGame);
+
+  loadBest().then(newGame);
+})();
+</script>
+</body>
+</html>

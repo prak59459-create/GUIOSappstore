@@ -1,0 +1,414 @@
+<!--GUIOS-APP {"id":"word-guess","name":"英単語当てゲーム","icon":"🟩","color":"#538d4e","version":"1.0.0","author":"Claude","description":"5文字の英単語を6回以内に当てるWordle風の単語当てゲーム。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>英単語当てゲーム</title>
+<style>
+  :root{
+    --bg:#121213;
+    --panel:#1c1c1e;
+    --border:#3a3a3c;
+    --text:#f1f1f1;
+    --sub:#9a9a9a;
+    --green:#538d4e;
+    --yellow:#b59f3b;
+    --gray:#3a3a3c;
+    --accent:#538d4e;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;height:100%;overflow-x:hidden;}
+  #app{max-width:480px;margin:0 auto;padding:12px 12px 24px;min-height:100%;display:flex;flex-direction:column;align-items:center;}
+  header{width:100%;display:flex;align-items:center;justify-content:space-between;padding:8px 4px 14px;border-bottom:1px solid var(--border);margin-bottom:14px;}
+  h1{font-size:18px;margin:0;letter-spacing:.5px;}
+  .stats{font-size:12px;color:var(--sub);text-align:right;line-height:1.5;}
+  .stats b{color:var(--text);}
+  #board{display:grid;grid-template-rows:repeat(6,1fr);gap:6px;margin:0 auto 16px;width:100%;max-width:330px;}
+  .row{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;}
+  .tile{
+    aspect-ratio:1/1;
+    border:2px solid var(--border);
+    border-radius:6px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:clamp(18px,6vw,26px);
+    font-weight:700;
+    background:var(--panel);
+    color:var(--text);
+    text-transform:uppercase;
+    transition:transform .15s ease;
+  }
+  .tile.filled{border-color:#565758;}
+  .tile.pop{transform:scale(1.08);}
+  .tile.correct{background:var(--green);border-color:var(--green);color:#fff;}
+  .tile.present{background:var(--yellow);border-color:var(--yellow);color:#fff;}
+  .tile.absent{background:var(--gray);border-color:var(--gray);color:#d7d7d7;}
+  .tile.flip{animation:flip .5s ease;}
+  @keyframes flip{
+    0%{transform:rotateX(0deg);}
+    50%{transform:rotateX(90deg);}
+    100%{transform:rotateX(0deg);}
+  }
+  #message{min-height:22px;font-size:13px;color:var(--sub);margin-bottom:10px;text-align:center;}
+  #message.win{color:var(--green);font-weight:700;}
+  #message.lose{color:#c74e4e;font-weight:700;}
+  #keyboard{width:100%;max-width:480px;display:flex;flex-direction:column;gap:6px;margin-top:auto;}
+  .krow{display:flex;gap:5px;justify-content:center;}
+  .key{
+    flex:1;
+    min-width:0;
+    max-width:40px;
+    height:48px;
+    border:none;
+    border-radius:5px;
+    background:#3a3a3c;
+    color:var(--text);
+    font-size:13px;
+    font-weight:600;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+    user-select:none;
+    text-transform:uppercase;
+  }
+  .key.wide{max-width:64px;font-size:11px;}
+  .key.correct{background:var(--green);color:#fff;}
+  .key.present{background:var(--yellow);color:#fff;}
+  .key.absent{background:#232324;color:#6a6a6a;}
+  .key:active{filter:brightness(1.2);}
+  #actions{display:flex;gap:10px;margin-top:14px;width:100%;justify-content:center;}
+  button.main-btn{
+    background:var(--accent);
+    color:#fff;
+    border:none;
+    border-radius:8px;
+    padding:12px 20px;
+    font-size:14px;
+    font-weight:700;
+    cursor:pointer;
+    min-height:44px;
+  }
+  button.main-btn:active{filter:brightness(1.15);}
+  #toast{
+    position:fixed;left:50%;top:16px;transform:translateX(-50%) translateY(-30px);
+    background:#2b2b2d;color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;
+    opacity:0;transition:all .25s ease;pointer-events:none;z-index:999;max-width:90%;text-align:center;
+    border:1px solid var(--border);
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>🟩 英単語当てゲーム</h1>
+    <div class="stats">
+      勝率 <b id="statWin">0</b>/<b id="statTotal">0</b><br>
+      連勝 <b id="statStreak">0</b>
+    </div>
+  </header>
+  <div id="message"></div>
+  <div id="board"></div>
+  <div id="keyboard"></div>
+  <div id="actions">
+    <button class="main-btn" id="newGameBtn">もう一度</button>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  var APP_ID = "word-guess";
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+
+  var WORDS = [
+    "apple","brave","chalk","dance","eager","fable","glide","house","input","joker",
+    "knife","lemon","mango","noble","ocean","piano","quiet","robot","stone","table",
+    "unity","valid","water","xenon","youth","zebra","angle","bench","crisp","dream",
+    "eagle","flame","grape","habit","ideal","jolly","karma","light","mount","nudge",
+    "olive","pride","quilt","raise","smile","trace","umbra","vivid","wheat","yield",
+    "zesty","aroma","blank","cabin","daisy","elbow","frost","globe","hinge","irony",
+    "jelly","kite","level","mirth","nifty","orbit","pouch","quest","rider","sugar",
+    "tiger","urban","vapor","windy","abbey","alien","allow","after"
+  ].filter(function(w){ return w.length === 5; });
+
+  var MAX_GUESSES = 6;
+  var WORD_LEN = 5;
+  var answer = "";
+  var currentGuess = "";
+  var guesses = []; // {word, colors:[..]}
+  var gameOver = false;
+  var stats = { wins: 0, total: 0, streak: 0 };
+
+  var boardEl = document.getElementById("board");
+  var messageEl = document.getElementById("message");
+  var keyboardEl = document.getElementById("keyboard");
+  var toastEl = document.getElementById("toast");
+  var newGameBtn = document.getElementById("newGameBtn");
+
+  function toast(msg, type){
+    if (window.GUIOS && window.GUIOS.notify){
+      GUIOS.notify(msg, {type: type || "info"});
+      return;
+    }
+    toastEl.textContent = msg;
+    toastEl.className = "show";
+    setTimeout(function(){ toastEl.className = ""; }, 1800);
+  }
+
+  function haptic(){
+    if (window.GUIOS && window.GUIOS.haptic){ try{ GUIOS.haptic(); }catch(e){} }
+  }
+
+  async function loadStats(){
+    if (hasSDK){
+      try{
+        var s = await GUIOS.storage.get("stats");
+        if (s && typeof s === "object"){
+          stats.wins = s.wins || 0;
+          stats.total = s.total || 0;
+          stats.streak = s.streak || 0;
+        }
+      }catch(e){}
+    } else {
+      try{
+        var raw = localStorage.getItem(APP_ID + "_stats");
+        if (raw){
+          var s2 = JSON.parse(raw);
+          stats.wins = s2.wins || 0;
+          stats.total = s2.total || 0;
+          stats.streak = s2.streak || 0;
+        }
+      }catch(e){}
+    }
+    renderStats();
+  }
+
+  async function saveStats(){
+    if (hasSDK){
+      try{ await GUIOS.storage.set("stats", stats); }catch(e){}
+    } else {
+      try{ localStorage.setItem(APP_ID + "_stats", JSON.stringify(stats)); }catch(e){}
+    }
+  }
+
+  function renderStats(){
+    document.getElementById("statWin").textContent = stats.wins;
+    document.getElementById("statTotal").textContent = stats.total;
+    document.getElementById("statStreak").textContent = stats.streak;
+  }
+
+  // Classic Wordle coloring algorithm, duplicate-letter safe.
+  // Returns array of "correct" | "present" | "absent", length WORD_LEN
+  function scoreGuess(guess, ans){
+    var result = new Array(WORD_LEN).fill("absent");
+    var ansArr = ans.split("");
+    var guessArr = guess.split("");
+    var counts = {};
+    // pass 1: exact matches consume letters from counts pool
+    for (var i = 0; i < WORD_LEN; i++){
+      if (guessArr[i] === ansArr[i]){
+        result[i] = "correct";
+      }
+    }
+    // build remaining letter counts from ans positions NOT matched exactly
+    for (var j = 0; j < WORD_LEN; j++){
+      if (result[j] !== "correct"){
+        counts[ansArr[j]] = (counts[ansArr[j]] || 0) + 1;
+      }
+    }
+    // pass 2: yellows, consuming from remaining counts, left to right
+    for (var k = 0; k < WORD_LEN; k++){
+      if (result[k] === "correct") continue;
+      var ch = guessArr[k];
+      if (counts[ch] > 0){
+        result[k] = "present";
+        counts[ch]--;
+      } else {
+        result[k] = "absent";
+      }
+    }
+    return result;
+  }
+
+  function pickAnswer(){
+    return WORDS[Math.floor(Math.random() * WORDS.length)];
+  }
+
+  function buildBoard(){
+    boardEl.innerHTML = "";
+    for (var r = 0; r < MAX_GUESSES; r++){
+      var row = document.createElement("div");
+      row.className = "row";
+      row.id = "row-" + r;
+      for (var c = 0; c < WORD_LEN; c++){
+        var tile = document.createElement("div");
+        tile.className = "tile";
+        tile.id = "tile-" + r + "-" + c;
+        row.appendChild(tile);
+      }
+      boardEl.appendChild(row);
+    }
+  }
+
+  var KEY_ROWS = ["qwertyuiop", "asdfghjkl", "zxcvbnm"];
+  var keyState = {}; // letter -> best status
+
+  function buildKeyboard(){
+    keyboardEl.innerHTML = "";
+    keyState = {};
+    KEY_ROWS.forEach(function(rowStr, idx){
+      var krow = document.createElement("div");
+      krow.className = "krow";
+      if (idx === 2){
+        var enterKey = document.createElement("button");
+        enterKey.className = "key wide";
+        enterKey.textContent = "決定";
+        enterKey.type = "button";
+        enterKey.addEventListener("click", submitGuess);
+        krow.appendChild(enterKey);
+      }
+      rowStr.split("").forEach(function(letter){
+        var key = document.createElement("button");
+        key.className = "key";
+        key.textContent = letter;
+        key.type = "button";
+        key.dataset.key = letter;
+        key.addEventListener("click", function(){ pressLetter(this.dataset.key); });
+        krow.appendChild(key);
+      });
+      if (idx === 2){
+        var delKey = document.createElement("button");
+        delKey.className = "key wide";
+        delKey.textContent = "削除";
+        delKey.type = "button";
+        delKey.addEventListener("click", backspace);
+        krow.appendChild(delKey);
+      }
+      keyboardEl.appendChild(krow);
+    });
+  }
+
+  function pressLetter(letter){
+    if (gameOver) return;
+    if (currentGuess.length >= WORD_LEN) return;
+    currentGuess += letter;
+    renderCurrentRow();
+    haptic();
+  }
+
+  function backspace(){
+    if (gameOver) return;
+    currentGuess = currentGuess.slice(0, -1);
+    renderCurrentRow();
+  }
+
+  function renderCurrentRow(){
+    var r = guesses.length;
+    for (var c = 0; c < WORD_LEN; c++){
+      var tile = document.getElementById("tile-" + r + "-" + c);
+      if (!tile) continue;
+      var ch = currentGuess[c] || "";
+      tile.textContent = ch;
+      tile.classList.toggle("filled", !!ch);
+    }
+  }
+
+  function setMessage(msg, cls){
+    messageEl.textContent = msg;
+    messageEl.className = cls || "";
+  }
+
+  function updateKeyboardColors(word, colors){
+    var rank = { absent: 0, present: 1, correct: 2 };
+    for (var i = 0; i < word.length; i++){
+      var ch = word[i];
+      var st = colors[i];
+      if (!keyState[ch] || rank[st] > rank[keyState[ch]]){
+        keyState[ch] = st;
+      }
+    }
+    var keys = keyboardEl.querySelectorAll(".key[data-key]");
+    keys.forEach(function(k){
+      var letter = k.dataset.key;
+      k.classList.remove("correct", "present", "absent");
+      if (keyState[letter]){
+        k.classList.add(keyState[letter]);
+      }
+    });
+  }
+
+  async function submitGuess(){
+    if (gameOver) return;
+    if (currentGuess.length !== WORD_LEN){
+      toast("5文字入力してください", "error");
+      return;
+    }
+    if (!/^[a-zA-Z]{5}$/.test(currentGuess)){
+      toast("アルファベットのみ使用できます", "error");
+      return;
+    }
+    var guessLower = currentGuess.toLowerCase();
+    var colors = scoreGuess(guessLower, answer);
+    var r = guesses.length;
+
+    for (var c = 0; c < WORD_LEN; c++){
+      (function(c){
+        var tile = document.getElementById("tile-" + r + "-" + c);
+        setTimeout(function(){
+          tile.classList.add("flip");
+          tile.classList.add(colors[c]);
+        }, c * 120);
+      })(c);
+    }
+
+    guesses.push({ word: guessLower, colors: colors });
+    updateKeyboardColors(guessLower, colors);
+
+    var won = colors.every(function(s){ return s === "correct"; });
+    currentGuess = "";
+
+    setTimeout(async function(){
+      if (won){
+        gameOver = true;
+        setMessage("🎉 正解！ " + guesses.length + "/" + MAX_GUESSES + " で当てました", "win");
+        stats.wins++; stats.total++; stats.streak++;
+        await saveStats(); renderStats();
+        toast("正解！", "success");
+      } else if (guesses.length >= MAX_GUESSES){
+        gameOver = true;
+        setMessage("残念…正解は " + answer.toUpperCase() + " でした", "lose");
+        stats.total++; stats.streak = 0;
+        await saveStats(); renderStats();
+        toast("ゲームオーバー", "error");
+      } else {
+        setMessage((MAX_GUESSES - guesses.length) + "回のチャンスが残っています");
+      }
+    }, WORD_LEN * 120 + 200);
+  }
+
+  function newGame(){
+    answer = pickAnswer();
+    currentGuess = "";
+    guesses = [];
+    gameOver = false;
+    buildBoard();
+    buildKeyboard();
+    setMessage("5文字の英単語を推測してください");
+  }
+
+  document.addEventListener("keydown", function(e){
+    if (gameOver) return;
+    var k = e.key;
+    if (k === "Enter"){ submitGuess(); }
+    else if (k === "Backspace"){ backspace(); }
+    else if (/^[a-zA-Z]$/.test(k)){ pressLetter(k.toLowerCase()); }
+  });
+
+  newGameBtn.addEventListener("click", newGame);
+
+  loadStats().then(newGame);
+})();
+</script>
+</body>
+</html>

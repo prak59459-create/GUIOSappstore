@@ -1,0 +1,429 @@
+<!--GUIOS-APP {"id":"shiritori","name":"しりとり","icon":"🔤","color":"#c2185b","version":"1.0.0","author":"Claude","description":"CPUと交互に単語をつなげていく日本語のしりとりゲーム。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>しりとり</title>
+<style>
+  :root{
+    --bg:#141013;
+    --panel:#221a1f;
+    --panel2:#2b2126;
+    --border:#4a333f;
+    --text:#f2eef0;
+    --sub:#b09aa3;
+    --accent:#c2185b;
+    --accent2:#e05585;
+    --you:#2b6d5e;
+    --cpu:#7a3b5a;
+    --danger:#c74e4e;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;height:100%;overflow-x:hidden;}
+  #app{max-width:480px;margin:0 auto;padding:14px 14px 24px;min-height:100%;display:flex;flex-direction:column;}
+  header{display:flex;align-items:center;justify-content:space-between;padding-bottom:12px;border-bottom:1px solid var(--border);margin-bottom:12px;}
+  h1{font-size:18px;margin:0;}
+  .stats{font-size:12px;color:var(--sub);text-align:right;line-height:1.5;}
+  .stats b{color:var(--text);}
+  #chainWrap{
+    flex:1;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:10px;
+    margin-bottom:12px;
+    min-height:220px;
+    max-height:46vh;
+    overflow-y:auto;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  .bubble{
+    max-width:80%;
+    padding:9px 13px;
+    border-radius:14px;
+    font-size:15px;
+    line-height:1.4;
+    word-break:break-word;
+  }
+  .bubble .kana-hint{font-size:11px;opacity:.7;display:block;margin-top:2px;}
+  .bubble.you{ align-self:flex-end; background:var(--you); border-bottom-right-radius:4px; }
+  .bubble.cpu{ align-self:flex-start; background:var(--cpu); border-bottom-left-radius:4px; }
+  .bubble.system{
+    align-self:center;
+    background:transparent;
+    color:var(--sub);
+    font-size:12px;
+    text-align:center;
+    max-width:100%;
+  }
+  #result{
+    text-align:center;
+    font-size:15px;
+    font-weight:700;
+    min-height:20px;
+    margin-bottom:10px;
+  }
+  #result.win{color:#5fd39a;}
+  #result.lose{color:var(--danger);}
+  #inputRow{display:flex;gap:8px;margin-bottom:10px;}
+  #wordInput{
+    flex:1;
+    min-height:46px;
+    border-radius:8px;
+    border:1px solid var(--border);
+    background:var(--panel2);
+    color:var(--text);
+    padding:0 12px;
+    font-size:15px;
+  }
+  #wordInput:focus{outline:2px solid var(--accent2);}
+  #sendBtn{
+    min-width:64px;
+    min-height:46px;
+    border:none;
+    border-radius:8px;
+    background:var(--accent);
+    color:#fff;
+    font-weight:700;
+    font-size:14px;
+    cursor:pointer;
+  }
+  #sendBtn:active{filter:brightness(1.15);}
+  #requiredKana{
+    font-size:12px;
+    color:var(--sub);
+    margin-bottom:6px;
+    text-align:center;
+  }
+  #requiredKana b{color:var(--accent2);font-size:15px;}
+  #actions{display:flex;gap:10px;justify-content:center;}
+  button.main-btn{
+    background:var(--panel2);
+    color:var(--text);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:11px 18px;
+    font-size:13px;
+    font-weight:700;
+    cursor:pointer;
+    min-height:44px;
+  }
+  button.main-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+  button.main-btn:active{filter:brightness(1.15);}
+  #toast{
+    position:fixed;left:50%;top:16px;transform:translateX(-50%) translateY(-30px);
+    background:#2b2b2d;color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;
+    opacity:0;transition:all .25s ease;pointer-events:none;z-index:999;max-width:90%;text-align:center;
+    border:1px solid var(--border);
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>🔤 しりとり</h1>
+    <div class="stats">
+      勝 <b id="statWin">0</b> / 負 <b id="statLose">0</b><br>
+      <span id="resetLink" style="text-decoration:underline;cursor:pointer;">記録をリセット</span>
+    </div>
+  </header>
+  <div id="requiredKana">次は「<b id="nextKanaDisplay">-</b>」から始まる単語</div>
+  <div id="chainWrap"></div>
+  <div id="result"></div>
+  <div id="inputRow">
+    <input type="text" id="wordInput" placeholder="ひらがな/カタカナで入力" autocomplete="off">
+    <button id="sendBtn" type="button">送信</button>
+  </div>
+  <div id="actions">
+    <button class="main-btn primary" id="newGameBtn">新しいゲーム</button>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  var APP_ID = "shiritori";
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+
+  // Dictionary of common hiragana nouns, keyed by first-kana bucket for lookup.
+  // All words stored purely in hiragana, no 'ん' endings included (would be invalid entries).
+  var DICTIONARY = [
+    "あさがお","あひる","あめ","あり","あさひ","いか","いぬ","いす","いちご","いわし",
+    "うさぎ","うま","うみ","うちわ","うでわ","えび","えんぴつ","えき","えほん","おかし",
+    "おに","おふろ","おかね","おんがく","かさ","かに","かめ","かびん","かがみ","きつね",
+    "きのこ","きって","きゅうり","きしゃ","くじら","くつ","くるま","くり","くも","けむし",
+    "けいと","こい","こおり","こま","こくばん","さかな","さる","さいふ","さくら","しか",
+    "しまうま","しろくま","すいか","すずめ","すいとう","せみ","せんぷうき","そら","たこ","たぬき",
+    "たいこ","ちきゅう","ちず","つき","つくえ","つばめ","てがみ","てぶくろ","とけい","とんぼ",
+    "とかげ","なす","なみだ","にんじん","にわとり","ねこ","ねずみ","のはら","はさみ","はち",
+    "はな","ひかり","ひまわり","ふうせん","ふね","へび","ほし","まくら","まど","みかん",
+    "みずうみ","むし","めがね","もも","やま","ゆき","ようふく","らくだ","りす","りんご",
+    "るす","れいぞうこ","ろうそく","わに","わかめ"
+  ];
+
+  // Build lookup: normalized first kana -> array of words
+  var byFirstKana = {};
+  function normalizeKana(ch){
+    // small kana normalization for chain-check purposes
+    var map = {
+      "ゃ":"や","ゅ":"ゆ","ょ":"よ","っ":"つ","ぁ":"あ","ぃ":"い","ぅ":"う","ぇ":"え","ぉ":"お",
+      "ャ":"ヤ","ュ":"ユ","ョ":"ヨ","ッ":"ツ","ァ":"ア","ィ":"イ","ゥ":"ウ","ェ":"エ","ォ":"オ"
+    };
+    return map[ch] || ch;
+  }
+  function katakanaToHiragana(str){
+    return str.replace(/[ァ-ヶ]/g, function(c){
+      return String.fromCharCode(c.charCodeAt(0) - 0x60);
+    });
+  }
+  function firstKanaOf(word){
+    if (!word) return "";
+    return normalizeKana(katakanaToHiragana(word[0]));
+  }
+  function lastKanaOf(word){
+    if (!word) return "";
+    // strip trailing long-vowel mark 'ー' by falling back one char if needed
+    var w = word;
+    var idx = w.length - 1;
+    var ch = w[idx];
+    if (ch === "ー" && w.length > 1){
+      ch = w[idx - 1];
+    }
+    return normalizeKana(katakanaToHiragana(ch));
+  }
+
+  DICTIONARY.forEach(function(w){
+    var k = firstKanaOf(w);
+    if (!byFirstKana[k]) byFirstKana[k] = [];
+    byFirstKana[k].push(w);
+  });
+
+  var KANA_REGEX = /^[ぁ-ゖァ-ヶー]+$/; // hiragana, katakana, long-vowel mark
+
+  var chain = [];       // array of words used (hiragana/katakana as entered/chosen)
+  var usedSet = {};      // normalized-for-repeat-check set
+  var turn = "you";      // "you" | "cpu"
+  var gameOver = false;
+  var requiredKana = null; // null = free start
+  var stats = { wins: 0, losses: 0 };
+
+  var chainWrap = document.getElementById("chainWrap");
+  var resultEl = document.getElementById("result");
+  var wordInput = document.getElementById("wordInput");
+  var sendBtn = document.getElementById("sendBtn");
+  var newGameBtn = document.getElementById("newGameBtn");
+  var resetLink = document.getElementById("resetLink");
+  var nextKanaDisplay = document.getElementById("nextKanaDisplay");
+  var toastEl = document.getElementById("toast");
+
+  function toast(msg, type){
+    if (window.GUIOS && window.GUIOS.notify){
+      GUIOS.notify(msg, {type: type || "info"});
+      return;
+    }
+    toastEl.textContent = msg;
+    toastEl.className = "show";
+    setTimeout(function(){ toastEl.className = ""; }, 1800);
+  }
+  function haptic(){
+    if (window.GUIOS && window.GUIOS.haptic){ try{ GUIOS.haptic(); }catch(e){} }
+  }
+
+  async function loadStats(){
+    if (hasSDK){
+      try{
+        var s = await GUIOS.storage.get("stats");
+        if (s && typeof s === "object"){
+          stats.wins = s.wins || 0;
+          stats.losses = s.losses || 0;
+        }
+      }catch(e){}
+    } else {
+      try{
+        var raw = localStorage.getItem(APP_ID + "_stats");
+        if (raw){
+          var s2 = JSON.parse(raw);
+          stats.wins = s2.wins || 0;
+          stats.losses = s2.losses || 0;
+        }
+      }catch(e){}
+    }
+    renderStats();
+  }
+  async function saveStats(){
+    if (hasSDK){
+      try{ await GUIOS.storage.set("stats", stats); }catch(e){}
+    } else {
+      try{ localStorage.setItem(APP_ID + "_stats", JSON.stringify(stats)); }catch(e){}
+    }
+  }
+  function renderStats(){
+    document.getElementById("statWin").textContent = stats.wins;
+    document.getElementById("statLose").textContent = stats.losses;
+  }
+
+  function addBubble(text, who, hint){
+    var b = document.createElement("div");
+    b.className = "bubble " + who;
+    b.textContent = text;
+    if (hint){
+      var h = document.createElement("span");
+      h.className = "kana-hint";
+      h.textContent = hint;
+      b.appendChild(h);
+    }
+    chainWrap.appendChild(b);
+    chainWrap.scrollTop = chainWrap.scrollHeight;
+  }
+  function addSystemBubble(text){
+    var b = document.createElement("div");
+    b.className = "bubble system";
+    b.textContent = text;
+    chainWrap.appendChild(b);
+    chainWrap.scrollTop = chainWrap.scrollHeight;
+  }
+
+  function updateRequiredKanaDisplay(){
+    nextKanaDisplay.textContent = requiredKana ? requiredKana : "自由";
+  }
+
+  function normalizeForRepeatCheck(word){
+    return katakanaToHiragana(word);
+  }
+
+  function endGame(winner, reasonText){
+    gameOver = true;
+    if (winner === "you"){
+      resultEl.textContent = "🎉 あなたの勝ち！ " + reasonText;
+      resultEl.className = "win";
+      stats.wins++;
+      toast("勝利！", "success");
+    } else {
+      resultEl.textContent = "😢 あなたの負け… " + reasonText;
+      resultEl.className = "lose";
+      stats.losses++;
+      toast("敗北…", "error");
+    }
+    saveStats().then(renderStats);
+    wordInput.disabled = true;
+    sendBtn.disabled = true;
+  }
+
+  function playerSubmit(){
+    if (gameOver) return;
+    if (turn !== "you") return;
+    var raw = wordInput.value.trim();
+    if (!raw){
+      toast("単語を入力してください", "error");
+      return;
+    }
+    if (!KANA_REGEX.test(raw)){
+      toast("ひらがな・カタカナで入力してください", "error");
+      return;
+    }
+    // chain rule check
+    if (requiredKana !== null){
+      var fk = firstKanaOf(raw);
+      if (fk !== requiredKana){
+        toast("「" + requiredKana + "」から始まる単語を入力してください", "error");
+        return;
+      }
+    }
+    // repeat rule check: repeating a used word = immediate loss for the repeater
+    var norm = normalizeForRepeatCheck(raw);
+    if (usedSet[norm]){
+      addBubble(raw, "you");
+      chain.push(raw);
+      endGame("cpu", "「" + raw + "」は既に使われた単語です");
+      return;
+    }
+
+    addBubble(raw, "you");
+    chain.push(raw);
+    usedSet[norm] = true;
+    wordInput.value = "";
+
+    // ん-ending rule: word ending in ん loses immediately for whoever said it
+    var last = lastKanaOf(raw);
+    if (last === "ん"){
+      endGame("cpu", "「ん」で終わってしまいました");
+      return;
+    }
+
+    requiredKana = last;
+    updateRequiredKanaDisplay();
+    turn = "cpu";
+    setTimeout(cpuTurn, 550);
+  }
+
+  function cpuTurn(){
+    if (gameOver) return;
+    var candidates = byFirstKana[requiredKana] || [];
+    var options = candidates.filter(function(w){
+      return !usedSet[normalizeForRepeatCheck(w)];
+    });
+
+    if (options.length === 0){
+      addSystemBubble("CPUは「" + requiredKana + "」から始まる単語が見つかりませんでした（ギブアップ）");
+      endGame("you", "CPUがギブアップしました");
+      return;
+    }
+
+    var pick = options[Math.floor(Math.random() * options.length)];
+    addBubble(pick, "cpu");
+    chain.push(pick);
+    usedSet[normalizeForRepeatCheck(pick)] = true;
+    haptic();
+
+    var last = lastKanaOf(pick);
+    if (last === "ん"){
+      endGame("you", "CPUの単語が「ん」で終わりました");
+      return;
+    }
+
+    requiredKana = last;
+    updateRequiredKanaDisplay();
+    turn = "you";
+  }
+
+  function newGame(){
+    chain = [];
+    usedSet = {};
+    turn = "you";
+    gameOver = false;
+    requiredKana = null;
+    chainWrap.innerHTML = "";
+    resultEl.textContent = "";
+    resultEl.className = "";
+    wordInput.disabled = false;
+    sendBtn.disabled = false;
+    wordInput.value = "";
+    updateRequiredKanaDisplay();
+    addSystemBubble("しりとり開始！好きな単語からどうぞ（ひらがな/カタカナ）");
+    wordInput.focus();
+  }
+
+  async function resetStats(){
+    stats = { wins: 0, losses: 0 };
+    await saveStats();
+    renderStats();
+    toast("記録をリセットしました", "info");
+  }
+
+  sendBtn.addEventListener("click", playerSubmit);
+  wordInput.addEventListener("keydown", function(e){
+    if (e.key === "Enter"){ playerSubmit(); }
+  });
+  newGameBtn.addEventListener("click", newGame);
+  resetLink.addEventListener("click", resetStats);
+
+  loadStats().then(newGame);
+})();
+</script>
+</body>
+</html>

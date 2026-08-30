@@ -50,6 +50,16 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/base64-tool.html"
   },
   {
+    "id": "bingo-generator",
+    "name": "ビンゴカード生成",
+    "version": "1.0.0",
+    "icon": "🎱",
+    "color": "#00838f",
+    "description": "ビンゴカードを生成し、番号を呼び出しながら進行を管理できるアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/bingo-generator.html"
+  },
+  {
     "id": "blackjack",
     "name": "ブラックジャック",
     "version": "1.0.0",
@@ -118,6 +128,16 @@
     "description": "固定費・変動費・販売価格から損益分岐点の販売数を計算するツール。",
     "author": "Claude",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/break-even-calculator.html"
+  },
+  {
+    "id": "breakout-game",
+    "name": "ブロック崩し",
+    "version": "1.0.0",
+    "icon": "🧱",
+    "color": "#0d47a1",
+    "description": "ボールを跳ね返してブロックを崩していくブロック崩しゲーム。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/breakout-game.html"
   },
   {
     "id": "breathing-guide",
@@ -280,6 +300,16 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/csv-viewer.html"
   },
   {
+    "id": "daily-planner",
+    "name": "1日のタイムスケジュール表",
+    "version": "1.0.0",
+    "icon": "🗓️",
+    "color": "#00838f",
+    "description": "1日の予定を時間軸に沿って書き込める1日単位のスケジュール表アプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/daily-planner.html"
+  },
+  {
     "id": "dart-game",
     "name": "ダーツゲーム",
     "version": "1.0.0",
@@ -430,6 +460,16 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/gratitude-journal.html"
   },
   {
+    "id": "habit-streak-calendar",
+    "name": "習慣ヒートマップ",
+    "version": "1.0.0",
+    "icon": "🔥",
+    "color": "#bf360c",
+    "description": "習慣の実施状況をGitHub風のヒートマップカレンダーで可視化するアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/habit-streak-calendar.html"
+  },
+  {
     "id": "habit-tracker",
     "name": "習慣トラッカー",
     "version": "1.0.0",
@@ -550,6 +590,26 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/markdown-editor.html"
   },
   {
+    "id": "math-quiz",
+    "name": "暗算トレーニング",
+    "version": "1.0.0",
+    "icon": "🧮",
+    "color": "#00695c",
+    "description": "制限時間内に四則演算の問題を解いていく暗算トレーニングアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/math-quiz.html"
+  },
+  {
+    "id": "medication-reminder",
+    "name": "服薬リマインダー",
+    "version": "1.0.0",
+    "icon": "💊",
+    "color": "#ad1457",
+    "description": "薬を飲む時間を登録し、時間になったら知らせてくれるリマインダーアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/medication-reminder.html"
+  },
+  {
     "id": "meditation-timer",
     "name": "瞑想タイマー",
     "version": "1.0.0",
@@ -660,6 +720,16 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/multi-timer.html"
   },
   {
+    "id": "multiplication-practice",
+    "name": "九九練習",
+    "version": "1.0.0",
+    "icon": "✖️",
+    "color": "#5d4037",
+    "description": "小学生向けの九九(掛け算)を練習できる学習アプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/multiplication-practice.html"
+  },
+  {
     "id": "notepad",
     "name": "メモ帳",
     "version": "1.0.0",
@@ -738,6 +808,16 @@
     "description": "様々なパターンの割合(パーセント)計算ができる多機能計算機。",
     "author": "Claude",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/percentage-calculator.html"
+  },
+  {
+    "id": "pet-care-log",
+    "name": "ペットお世話記録",
+    "version": "1.0.0",
+    "icon": "🐾",
+    "color": "#6d4c41",
+    "description": "ペットの餌やり・散歩などのお世話を記録できるログアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/pet-care-log.html"
   },
   {
     "id": "plant-watering-tracker",
@@ -890,6 +970,16 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/reversi.html"
   },
   {
+    "id": "rpsls",
+    "name": "拡張ジャンケン",
+    "version": "1.0.0",
+    "icon": "🖖",
+    "color": "#8e24aa",
+    "description": "グー・チョキ・パー・トカゲ・スポックの5種類で対戦するジャンケン拡張版。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/rpsls.html"
+  },
+  {
     "id": "savings-simulator",
     "name": "積立シミュレーター",
     "version": "1.0.0",
@@ -918,6 +1008,16 @@
     "description": "三角関数・対数・べき乗など高度な計算ができる関数電卓アプリ。",
     "author": "Claude",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/scientific-calculator.html"
+  },
+  {
+    "id": "shiritori",
+    "name": "しりとり",
+    "version": "1.0.0",
+    "icon": "🔤",
+    "color": "#c2185b",
+    "description": "CPUと交互に単語をつなげていく日本語のしりとりゲーム。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/shiritori.html"
   },
   {
     "id": "shopping-list",
@@ -978,6 +1078,16 @@
     "description": "よく使う定型文やコードをタグ付きで保存し、すぐコピーできるアプリ。",
     "author": "Claude",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/snippet-manager.html"
+  },
+  {
+    "id": "step-tracker",
+    "name": "歩数記録",
+    "version": "1.0.0",
+    "icon": "🚶",
+    "color": "#00695c",
+    "description": "1日の歩数を手入力で記録し、目標達成度を確認できるアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/step-tracker.html"
   },
   {
     "id": "sticky-notes",
@@ -1190,6 +1300,16 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/wiki-notes.html"
   },
   {
+    "id": "word-guess",
+    "name": "英単語当てゲーム",
+    "version": "1.0.0",
+    "icon": "🟩",
+    "color": "#538d4e",
+    "description": "5文字の英単語を6回以内に当てるWordle風の単語当てゲーム。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/word-guess.html"
+  },
+  {
     "id": "word-scramble",
     "name": "アナグラムゲーム",
     "version": "1.0.0",
@@ -1208,5 +1328,15 @@
     "description": "世界各地の現在時刻を一覧できる世界時計アプリ。",
     "author": "Claude",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/world-clock.html"
+  },
+  {
+    "id": "yacht-dice",
+    "name": "ヨットダイスゲーム",
+    "version": "1.0.0",
+    "icon": "🎲",
+    "color": "#5e35b1",
+    "description": "5個のサイコロで役を揃えて得点を競うヨット(ヤッツィー風)ダイスゲーム。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/yacht-dice.html"
   }
 ]

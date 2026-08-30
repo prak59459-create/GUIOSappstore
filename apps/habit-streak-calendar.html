@@ -1,0 +1,422 @@
+<!--GUIOS-APP {"id":"habit-streak-calendar","name":"習慣ヒートマップ","icon":"🔥","color":"#bf360c","version":"1.0.0","author":"Claude","description":"習慣の実施状況をGitHub風のヒートマップカレンダーで可視化するアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>習慣ヒートマップ</title>
+<style>
+  :root{
+    --accent:#ff7043;
+    --accent-deep:#bf360c;
+    --bg:#170d09;
+    --card:#261410;
+    --card2:#1c0f0c;
+    --text:#fbeae3;
+    --sub:#cba392;
+    --line:rgba(255,255,255,0.08);
+    --cell-empty:#2a1a15;
+    --cell-on:#ff7043;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text); min-height:100vh; padding:16px; padding-bottom:56px;
+  }
+  h1{ font-size:19px; margin:4px 0 10px; display:flex; align-items:center; gap:8px; }
+  .wrap{ max-width:680px; margin:0 auto; display:flex; flex-direction:column; gap:14px; }
+
+  .habit-tabs{ display:flex; gap:8px; overflow-x:auto; padding-bottom:2px; }
+  .habit-chip{
+    flex:0 0 auto; padding:10px 16px; border-radius:14px; background:var(--card2); border:1px solid var(--line);
+    font-size:14px; color:var(--sub); cursor:pointer; white-space:nowrap; min-height:44px; display:flex; align-items:center; gap:6px;
+  }
+  .habit-chip.active{ background:var(--accent); color:#210a02; border-color:var(--accent); font-weight:700; }
+  .habit-chip.add{ color:var(--accent); border:1px dashed var(--line); background:transparent; }
+
+  .stats-row{ display:flex; gap:10px; }
+  .stat-card{
+    flex:1; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px 14px;
+    text-align:center;
+  }
+  .stat-num{ font-size:24px; font-weight:700; color:var(--accent); }
+  .stat-label{ font-size:11px; color:var(--sub); margin-top:2px; }
+
+  .heatmap-section{
+    background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px 12px;
+    display:flex; flex-direction:column; gap:8px;
+  }
+  .heatmap-scroll{ overflow-x:auto; padding-bottom:4px; }
+  .heatmap-inner{ display:inline-flex; flex-direction:column; gap:4px; }
+  .month-row{ display:flex; gap:3px; padding-left:22px; }
+  .month-label{ font-size:10px; color:var(--sub); width:33px; flex-shrink:0; }
+  .grid-row{ display:flex; gap:3px; }
+  .dow-labels{ display:flex; flex-direction:column; gap:3px; width:18px; flex-shrink:0; margin-right:4px; }
+  .dow-label{ font-size:9px; color:var(--sub); height:12px; line-height:12px; }
+  .weeks{ display:flex; gap:3px; }
+  .week-col{ display:flex; flex-direction:column; gap:3px; }
+  .day-cell{
+    width:12px; height:12px; border-radius:3px; background:var(--cell-empty); cursor:pointer;
+    flex-shrink:0;
+  }
+  .day-cell.level-1{ background:rgba(255,112,67,0.45); }
+  .day-cell.level-2{ background:var(--cell-on); }
+  .day-cell.future{ background:transparent; cursor:default; }
+  .day-cell.today-ring{ box-shadow:0 0 0 1.5px var(--sub) inset; }
+
+  .legend{ display:flex; align-items:center; gap:6px; font-size:10px; color:var(--sub); justify-content:flex-end; }
+  .legend .day-cell{ cursor:default; }
+
+  .empty{ text-align:center; color:var(--sub); font-size:13px; padding:20px 10px; }
+
+  .overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.6); display:flex; align-items:flex-end;
+    justify-content:center; z-index:40;
+  }
+  .overlay[hidden]{ display:none; }
+  .sheet{
+    background:var(--card); width:100%; max-width:600px; border-radius:20px 20px 0 0;
+    padding:18px 18px 26px; max-height:88vh; overflow-y:auto;
+  }
+  .sheet h2{ font-size:16px; margin:0 0 14px; color:var(--text); }
+  .field{ margin-bottom:14px; }
+  label{ display:block; font-size:12px; color:var(--sub); margin-bottom:6px; }
+  input[type="text"]{
+    width:100%; background:var(--card2); border:1px solid var(--line); border-radius:10px;
+    color:var(--text); font-size:16px; padding:12px; height:48px;
+  }
+  .sheet-actions{ display:flex; gap:10px; margin-top:6px; }
+  .sheet-actions button{
+    flex:1; padding:14px; border-radius:12px; border:none; font-size:15px; font-weight:700; cursor:pointer;
+    min-height:48px;
+  }
+  .btn-cancel{ background:var(--card2); color:var(--text); }
+  .btn-save{ background:var(--accent); color:#210a02; }
+  .btn-danger-outline{ background:transparent; border:1px solid var(--line); color:var(--accent); }
+
+  .toast{
+    position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--card);color:var(--text);
+    padding:10px 18px;border-radius:10px;font-size:13px;z-index:200;box-shadow:0 6px 18px rgba(0,0,0,.4);
+    border:1px solid var(--line); max-width:88vw; text-align:center;
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🔥 習慣ヒートマップ</h1>
+
+    <div class="habit-tabs" id="habitTabs"></div>
+
+    <div id="habitContent" hidden>
+      <div class="stats-row" style="margin-bottom:14px;">
+        <div class="stat-card">
+          <div class="stat-num" id="currentStreak">0</div>
+          <div class="stat-label">現在の連続日数</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="longestStreak">0</div>
+          <div class="stat-label">最長連続日数</div>
+        </div>
+      </div>
+
+      <div class="heatmap-section">
+        <div class="heatmap-scroll">
+          <div class="heatmap-inner" id="heatmapInner"></div>
+        </div>
+        <div class="legend">
+          少ない
+          <div class="day-cell"></div>
+          <div class="day-cell level-1"></div>
+          <div class="day-cell level-2"></div>
+          多い
+        </div>
+      </div>
+      <div style="text-align:right; margin-top:10px;">
+        <button class="btn-danger-outline" id="deleteHabitBtn" style="padding:10px 16px; border-radius:10px; font-size:12px; min-height:40px; cursor:pointer;">この習慣を削除</button>
+      </div>
+    </div>
+
+    <div class="empty" id="noHabitMsg">習慣が登録されていません。＋で追加してください。</div>
+  </div>
+
+  <div class="overlay" id="habitOverlay" hidden>
+    <div class="sheet">
+      <h2>習慣を追加</h2>
+      <div class="field">
+        <label>習慣の名前</label>
+        <input type="text" id="habitNameInput" placeholder="例: 読書" maxlength="30">
+      </div>
+      <div class="sheet-actions">
+        <button class="btn-cancel" id="habitCancelBtn">キャンセル</button>
+        <button class="btn-save" id="habitSaveBtn">追加</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var APP_ID = 'habit-streak-calendar';
+  var FALLBACK_KEY = 'guios-fallback-' + APP_ID + '-data';
+  var DOW_LABELS = ['','月','','水','','金',''];
+
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify) {
+      try { window.GUIOS.notify(msg, { type: type || 'info' }); return; } catch(e){}
+    }
+    var t = document.createElement('div');
+    t.className = 'toast';
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(function(){ t.remove(); }, 3000);
+  }
+
+  function pad2(n){ return (n < 10 ? '0' : '') + n; }
+  function localDateStr(d){ return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate()); }
+  function parseDateStr(str){
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(str);
+    return new Date(parseInt(m[1],10), parseInt(m[2],10)-1, parseInt(m[3],10));
+  }
+  function addDaysStr(str, delta){
+    var d = parseDateStr(str);
+    d.setDate(d.getDate() + delta);
+    return localDateStr(d);
+  }
+  function uid(){ return 'h' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+    });
+  }
+
+  var data = { habits: [], selectedHabitId: null, records: {} }; // records: { habitId: { "YYYY-MM-DD": true } }
+
+  async function loadData(){
+    if (hasSDK) {
+      try {
+        var v = await window.GUIOS.storage.get('data');
+        if (v && typeof v === 'object') return normalize(v);
+      } catch(e){}
+      return normalize({});
+    } else {
+      try {
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        return normalize(raw ? JSON.parse(raw) : {});
+      } catch(e){ return normalize({}); }
+    }
+  }
+  function normalize(v){
+    return {
+      habits: Array.isArray(v.habits) ? v.habits : [],
+      selectedHabitId: typeof v.selectedHabitId === 'string' ? v.selectedHabitId : null,
+      records: (v.records && typeof v.records === 'object') ? v.records : {}
+    };
+  }
+  async function saveData(){
+    if (hasSDK) {
+      try { await window.GUIOS.storage.set('data', data); } catch(e){}
+    } else {
+      try { localStorage.setItem(FALLBACK_KEY, JSON.stringify(data)); } catch(e){}
+    }
+  }
+
+  function selectedHabit(){
+    return data.habits.find(function(h){ return h.id === data.selectedHabitId; }) || null;
+  }
+  function recordsFor(habitId){
+    if (!data.records[habitId]) data.records[habitId] = {};
+    return data.records[habitId];
+  }
+
+  // --- streak computation ---
+  // markedSet: object map of "YYYY-MM-DD" -> true for done days
+  function computeStreaks(marked, todayStr){
+    var current = 0;
+    var cursor = todayStr;
+    if (!marked[cursor]) {
+      cursor = addDaysStr(cursor, -1);
+      if (!marked[cursor]) {
+        cursor = null; // neither today nor yesterday marked -> current streak is 0
+      }
+    }
+    if (cursor) {
+      while (marked[cursor]) {
+        current++;
+        cursor = addDaysStr(cursor, -1);
+      }
+    }
+
+    var longest = 0;
+    var runLen = 0;
+    var prev = null;
+    var keys = Object.keys(marked).filter(function(k){ return marked[k]; }).sort();
+    for (var i = 0; i < keys.length; i++) {
+      if (prev !== null && addDaysStr(prev, 1) === keys[i]) {
+        runLen++;
+      } else {
+        runLen = 1;
+      }
+      if (runLen > longest) longest = runLen;
+      prev = keys[i];
+    }
+    return { current: current, longest: longest };
+  }
+
+  // --- heatmap rendering ---
+  var MONTH_NAMES = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+
+  function buildWeeks(){
+    var today = new Date(); today.setHours(0,0,0,0);
+    var totalWeeks = 53;
+    var start = new Date(today);
+    start.setDate(start.getDate() - (totalWeeks * 7 - 1));
+    start.setDate(start.getDate() - start.getDay()); // align to Sunday
+
+    var weeks = [];
+    var cursor = new Date(start);
+    var todayStr = localDateStr(today);
+    while (true) {
+      var week = [];
+      for (var i = 0; i < 7; i++) {
+        var dStr = localDateStr(cursor);
+        week.push({ dateStr: dStr, isFuture: dStr > todayStr, isToday: dStr === todayStr });
+        cursor.setDate(cursor.getDate() + 1);
+      }
+      weeks.push(week);
+      if (week[6].dateStr >= todayStr) break;
+      if (weeks.length > 60) break; // safety cap
+    }
+    return weeks;
+  }
+
+  function renderHeatmap(){
+    var habit = selectedHabit();
+    if (!habit) return;
+    var marked = recordsFor(habit.id);
+    var weeks = buildWeeks();
+
+    var monthLabels = weeks.map(function(week, idx){
+      var d = parseDateStr(week[0].dateStr);
+      if (idx === 0) return MONTH_NAMES[d.getMonth()];
+      var prevD = parseDateStr(weeks[idx-1][0].dateStr);
+      return (d.getMonth() !== prevD.getMonth()) ? MONTH_NAMES[d.getMonth()] : '';
+    });
+
+    var monthRowHtml = '<div class="month-row">' + weeks.map(function(w, idx){
+      return '<div class="month-label" style="width:15px;">' + (monthLabels[idx] || '') + '</div>';
+    }).join('') + '</div>';
+
+    var dowHtml = '<div class="dow-labels">' +
+      DOW_LABELS.map(function(l){ return '<div class="dow-label">' + l + '</div>'; }).join('') +
+      '</div>';
+
+    var weeksHtml = weeks.map(function(week){
+      return '<div class="week-col">' + week.map(function(day){
+        if (day.isFuture) {
+          return '<div class="day-cell future" data-date="' + day.dateStr + '"></div>';
+        }
+        var level = marked[day.dateStr] ? 'level-2' : '';
+        var cls = 'day-cell' + (level ? ' ' + level : '') + (day.isToday ? ' today-ring' : '');
+        return '<div class="' + cls + '" data-date="' + day.dateStr + '" title="' + day.dateStr + '"></div>';
+      }).join('') + '</div>';
+    }).join('');
+
+    var html = monthRowHtml +
+      '<div class="grid-row">' + dowHtml + '<div class="weeks">' + weeksHtml + '</div></div>';
+
+    var inner = document.getElementById('heatmapInner');
+    inner.innerHTML = html;
+
+    inner.querySelectorAll('.day-cell[data-date]:not(.future)').forEach(function(cell){
+      cell.addEventListener('click', function(){
+        var ds = cell.dataset.date;
+        var m = recordsFor(habit.id);
+        if (m[ds]) delete m[ds]; else m[ds] = true;
+        saveData();
+        renderHeatmap();
+        renderStats();
+      });
+    });
+
+    // scroll to right edge (most recent) on first paint
+    var scrollBox = inner.parentElement;
+    scrollBox.scrollLeft = scrollBox.scrollWidth;
+  }
+
+  function renderStats(){
+    var habit = selectedHabit();
+    if (!habit) return;
+    var marked = recordsFor(habit.id);
+    var todayStr = localDateStr(new Date());
+    var s = computeStreaks(marked, todayStr);
+    document.getElementById('currentStreak').textContent = s.current;
+    document.getElementById('longestStreak').textContent = s.longest;
+  }
+
+  function renderHabitTabs(){
+    var wrap = document.getElementById('habitTabs');
+    wrap.innerHTML = data.habits.map(function(h){
+      return '<div class="habit-chip' + (h.id === data.selectedHabitId ? ' active' : '') + '" data-id="' + h.id + '">' + escapeHtml(h.name) + '</div>';
+    }).join('') + '<div class="habit-chip add" id="addHabitChip">＋ 追加</div>';
+
+    wrap.querySelectorAll('.habit-chip[data-id]').forEach(function(chip){
+      chip.addEventListener('click', function(){
+        data.selectedHabitId = chip.dataset.id;
+        saveData();
+        renderAll();
+      });
+    });
+    document.getElementById('addHabitChip').addEventListener('click', function(){
+      document.getElementById('habitNameInput').value = '';
+      document.getElementById('habitOverlay').hidden = false;
+    });
+  }
+
+  function renderAll(){
+    renderHabitTabs();
+    var habit = selectedHabit();
+    var has = !!habit;
+    document.getElementById('habitContent').hidden = !has;
+    document.getElementById('noHabitMsg').hidden = has;
+    if (has) {
+      renderHeatmap();
+      renderStats();
+    }
+  }
+
+  document.getElementById('habitCancelBtn').addEventListener('click', function(){
+    document.getElementById('habitOverlay').hidden = true;
+  });
+  document.getElementById('habitSaveBtn').addEventListener('click', function(){
+    var name = document.getElementById('habitNameInput').value.trim();
+    if (!name) { notify('習慣の名前を入力してください', 'error'); return; }
+    var id = uid();
+    data.habits.push({ id: id, name: name });
+    data.records[id] = {};
+    data.selectedHabitId = id;
+    saveData();
+    renderAll();
+    document.getElementById('habitOverlay').hidden = true;
+  });
+
+  document.getElementById('deleteHabitBtn').addEventListener('click', function(){
+    var habit = selectedHabit();
+    if (!habit) return;
+    if (!confirm('「' + habit.name + '」を削除しますか？記録もすべて削除されます。')) return;
+    data.habits = data.habits.filter(function(h){ return h.id !== habit.id; });
+    delete data.records[habit.id];
+    data.selectedHabitId = data.habits.length ? data.habits[0].id : null;
+    saveData();
+    renderAll();
+  });
+
+  (async function init(){
+    data = await loadData();
+    if (!data.selectedHabitId && data.habits.length) data.selectedHabitId = data.habits[0].id;
+    renderAll();
+    if (window.GUIOS && window.GUIOS.setTitle) {
+      try { window.GUIOS.setTitle('習慣ヒートマップ'); } catch(e){}
+    }
+  })();
+</script>
+</body>
+</html>

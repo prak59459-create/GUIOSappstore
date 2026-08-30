@@ -1,0 +1,458 @@
+<!--GUIOS-APP {"id":"multiplication-practice","name":"九九練習","icon":"✖️","color":"#5d4037","version":"1.0.0","author":"Claude","description":"小学生向けの九九(掛け算)を練習できる学習アプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>九九練習</title>
+<style>
+  :root{
+    --accent:#ffab91;
+    --accent-dark:#5d4037;
+    --bg:#160f0c;
+    --card:#241a15;
+    --text:#f6ece6;
+    --sub:#c2a89b;
+    --good:#4caf7d;
+    --bad:#e0554f;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    min-height:100vh;
+    padding:16px;
+    padding-bottom:40px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  h1{ font-size:20px; margin:4px 0 16px; text-align:center; }
+  .panel{
+    width:100%;
+    max-width:420px;
+    background:var(--card);
+    border-radius:16px;
+    padding:20px 16px;
+    border:1px solid rgba(255,255,255,0.06);
+    margin-bottom:16px;
+  }
+  .section-label{ font-size:13px; color:var(--sub); margin:0 0 8px; font-weight:700; }
+  .dan-grid{
+    display:grid;
+    grid-template-columns:repeat(5, 1fr);
+    gap:8px;
+    margin-bottom:12px;
+  }
+  .dan-btn{
+    padding:14px 0;
+    border-radius:12px;
+    border:2px solid rgba(255,255,255,0.1);
+    background:#2f2018;
+    color:var(--text);
+    font-size:16px;
+    font-weight:700;
+    cursor:pointer;
+  }
+  .dan-btn.selected{
+    border-color:var(--accent);
+    background:rgba(255,171,145,0.2);
+    color:var(--accent);
+  }
+  .random-btn{
+    width:100%;
+    padding:12px 0;
+    border-radius:12px;
+    border:2px solid rgba(255,255,255,0.1);
+    background:#2f2018;
+    color:var(--text);
+    font-size:15px;
+    font-weight:700;
+    cursor:pointer;
+    margin-bottom:16px;
+  }
+  .random-btn.selected{
+    border-color:var(--accent);
+    background:rgba(255,171,145,0.2);
+    color:var(--accent);
+  }
+  .start-btn{
+    width:100%;
+    padding:16px;
+    border-radius:14px;
+    border:none;
+    background:var(--accent);
+    color:#2b1710;
+    font-size:17px;
+    font-weight:800;
+    cursor:pointer;
+    box-shadow:0 3px 0 rgba(0,0,0,0.3);
+  }
+  .start-btn:active{ transform:translateY(2px); box-shadow:none; }
+  .link-btn{
+    width:100%;
+    padding:12px;
+    border-radius:12px;
+    border:1px solid rgba(255,255,255,0.15);
+    background:transparent;
+    color:var(--sub);
+    font-size:14px;
+    cursor:pointer;
+    margin-top:4px;
+  }
+  .top-row{
+    width:100%;
+    max-width:420px;
+    display:flex;
+    justify-content:space-around;
+    margin-bottom:14px;
+    text-align:center;
+  }
+  .top-row .num{ font-size:22px; font-weight:800; }
+  .top-row .num.good{ color:var(--good); }
+  .top-row .num.bad{ color:var(--bad); }
+  .top-row .lbl{ font-size:12px; color:var(--sub); margin-top:2px; }
+  .question{
+    text-align:center;
+    font-size:38px;
+    font-weight:800;
+    margin:16px 0 22px;
+  }
+  .choice-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+  }
+  .choice-btn{
+    padding:20px 8px;
+    border-radius:14px;
+    border:none;
+    background:#2f2018;
+    color:var(--text);
+    font-size:24px;
+    font-weight:800;
+    cursor:pointer;
+    box-shadow:0 3px 0 rgba(0,0,0,0.3);
+  }
+  .choice-btn:active{ transform:translateY(2px); box-shadow:none; }
+  .choice-btn.correct{ background:var(--good); color:#08281a; }
+  .choice-btn.wrong{ background:var(--bad); color:#2a0b09; }
+  .choice-btn:disabled{ opacity:0.85; }
+  .feedback{
+    min-height:22px;
+    text-align:center;
+    font-size:14px;
+    font-weight:700;
+    margin-top:10px;
+  }
+  .feedback.good{ color:var(--good); }
+  .feedback.bad{ color:var(--bad); }
+  .stats-table{ width:100%; border-collapse:collapse; margin-top:8px; }
+  .stats-table th, .stats-table td{
+    text-align:center;
+    padding:6px 4px;
+    font-size:13px;
+    border-bottom:1px solid rgba(255,255,255,0.08);
+  }
+  .stats-table th{ color:var(--sub); font-weight:700; }
+  .big-stat{ text-align:center; margin-bottom:14px; }
+  .big-stat .num{ font-size:36px; font-weight:800; color:var(--accent); }
+  .big-stat .lbl{ font-size:13px; color:var(--sub); }
+  [hidden]{ display:none !important; }
+</style>
+</head>
+<body>
+  <h1>✖️ 九九練習</h1>
+
+  <div class="panel" id="setupScreen">
+    <p class="section-label">練習する段をえらんでね</p>
+    <div class="dan-grid" id="danGrid">
+      <button class="dan-btn" type="button" data-dan="1">1の段</button>
+      <button class="dan-btn" type="button" data-dan="2">2の段</button>
+      <button class="dan-btn" type="button" data-dan="3">3の段</button>
+      <button class="dan-btn" type="button" data-dan="4">4の段</button>
+      <button class="dan-btn" type="button" data-dan="5">5の段</button>
+      <button class="dan-btn" type="button" data-dan="6">6の段</button>
+      <button class="dan-btn" type="button" data-dan="7">7の段</button>
+      <button class="dan-btn" type="button" data-dan="8">8の段</button>
+      <button class="dan-btn" type="button" data-dan="9">9の段</button>
+    </div>
+    <button class="random-btn selected" id="randomBtn" type="button" data-dan="random">ランダム(ぜんぶ)</button>
+    <button class="start-btn" id="startBtn" type="button">スタート</button>
+    <button class="link-btn" id="showStatsBtn" type="button">せいせきを見る</button>
+  </div>
+
+  <div class="panel" id="quizScreen" hidden>
+    <div class="top-row">
+      <div>
+        <div class="num good" id="correctCount">0</div>
+        <div class="lbl">せいかい</div>
+      </div>
+      <div>
+        <div class="num bad" id="wrongCount">0</div>
+        <div class="lbl">まちがい</div>
+      </div>
+    </div>
+    <div class="question" id="questionText">? × ? = ?</div>
+    <div class="choice-grid" id="choiceGrid"></div>
+    <div class="feedback" id="feedbackText">&nbsp;</div>
+  </div>
+  <button class="link-btn" id="backBtn" type="button" hidden>練習をやめる</button>
+
+  <div class="panel" id="statsScreen" hidden>
+    <p class="section-label" style="text-align:center;">これまでのせいせき</p>
+    <div class="big-stat">
+      <div class="num" id="totalCorrectVal">0</div>
+      <div class="lbl">通算せいかい数</div>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="stats-table">
+        <thead><tr><th>段</th><th>正解</th><th>回答数</th><th>正答率</th></tr></thead>
+        <tbody id="statsTableBody"></tbody>
+      </table>
+    </div>
+    <button class="link-btn" id="resetStatsBtn" type="button" style="margin-top:14px;">記録をリセット</button>
+    <button class="link-btn" id="closeStatsBtn" type="button">もどる</button>
+  </div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var APP_ID = "multiplication-practice";
+  var STORE_KEY = "stats";
+
+  function freshStats(){
+    var perTable = {};
+    for (var i = 1; i <= 9; i++) perTable[i] = { correct: 0, total: 0 };
+    return { totalCorrect: 0, totalAttempts: 0, perTable: perTable };
+  }
+  var stats = freshStats();
+
+  var selectedDan = "random";
+  var sessionCorrect = 0;
+  var sessionWrong = 0;
+  var currentTable = 1;
+  var currentB = 1;
+  var currentAnswer = 0;
+  var feedbackTimeout = null;
+  var busy = false;
+
+  var setupScreen = document.getElementById("setupScreen");
+  var quizScreen = document.getElementById("quizScreen");
+  var statsScreen = document.getElementById("statsScreen");
+  var danGrid = document.getElementById("danGrid");
+  var randomBtn = document.getElementById("randomBtn");
+  var startBtn = document.getElementById("startBtn");
+  var showStatsBtn = document.getElementById("showStatsBtn");
+  var backBtn = document.getElementById("backBtn");
+  var correctCountEl = document.getElementById("correctCount");
+  var wrongCountEl = document.getElementById("wrongCount");
+  var questionText = document.getElementById("questionText");
+  var choiceGrid = document.getElementById("choiceGrid");
+  var feedbackText = document.getElementById("feedbackText");
+  var totalCorrectVal = document.getElementById("totalCorrectVal");
+  var statsTableBody = document.getElementById("statsTableBody");
+  var resetStatsBtn = document.getElementById("resetStatsBtn");
+  var closeStatsBtn = document.getElementById("closeStatsBtn");
+
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify){
+      try { window.GUIOS.notify(msg, { type: type || "info" }); } catch(e){}
+    }
+  }
+  function haptic(){
+    if (window.GUIOS && window.GUIOS.haptic){
+      try { window.GUIOS.haptic(); } catch(e){}
+    }
+  }
+
+  async function loadStats(){
+    try {
+      if (hasSDK){
+        var v = await window.GUIOS.storage.get(STORE_KEY);
+        if (v && typeof v === "object" && v.perTable) stats = v;
+      } else {
+        var raw = localStorage.getItem(APP_ID + ":" + STORE_KEY);
+        if (raw){
+          var parsed = JSON.parse(raw);
+          if (parsed && parsed.perTable) stats = parsed;
+        }
+      }
+    } catch(e){}
+  }
+  async function saveStats(){
+    try {
+      if (hasSDK){
+        await window.GUIOS.storage.set(STORE_KEY, stats);
+      } else {
+        localStorage.setItem(APP_ID + ":" + STORE_KEY, JSON.stringify(stats));
+      }
+    } catch(e){}
+  }
+
+  function randInt(min, max){
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+  function shuffle(arr){
+    for (var i = arr.length - 1; i > 0; i--){
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  }
+
+  function generateChoices(table, b, answer){
+    var choices = [answer];
+    var tries = 0;
+    while (choices.length < 4 && tries < 60){
+      tries++;
+      var candidates = [b - 1, b + 1, b - 2, b + 2, b + 3, b - 3];
+      var cb = candidates[randInt(0, candidates.length - 1)];
+      var val;
+      if (cb >= 1 && cb <= 9 && cb !== b){
+        val = table * cb;
+      } else {
+        var delta = randInt(1, 9) * (randInt(0, 1) === 0 ? 1 : -1);
+        val = answer + delta;
+        if (val < 0) val = answer + randInt(1, 9);
+      }
+      if (choices.indexOf(val) === -1) choices.push(val);
+    }
+    return shuffle(choices);
+  }
+
+  function nextProblem(){
+    currentTable = selectedDan === "random" ? randInt(1, 9) : parseInt(selectedDan, 10);
+    currentB = randInt(1, 9);
+    currentAnswer = currentTable * currentB;
+    questionText.textContent = currentTable + " × " + currentB + " = ?";
+    var choices = generateChoices(currentTable, currentB, currentAnswer);
+    choiceGrid.innerHTML = "";
+    choices.forEach(function(c){
+      var btn = document.createElement("button");
+      btn.className = "choice-btn";
+      btn.type = "button";
+      btn.textContent = c;
+      btn.setAttribute("data-val", c);
+      btn.addEventListener("click", onChoiceClick);
+      choiceGrid.appendChild(btn);
+    });
+    busy = false;
+  }
+
+  function updateTopRow(){
+    correctCountEl.textContent = sessionCorrect;
+    wrongCountEl.textContent = sessionWrong;
+  }
+
+  async function onChoiceClick(ev){
+    if (busy) return;
+    busy = true;
+    var btn = ev.currentTarget;
+    var val = parseInt(btn.getAttribute("data-val"), 10);
+    var correct = (val === currentAnswer);
+
+    Array.prototype.forEach.call(choiceGrid.querySelectorAll(".choice-btn"), function(b){
+      b.disabled = true;
+      if (parseInt(b.getAttribute("data-val"), 10) === currentAnswer) b.classList.add("correct");
+      else if (b === btn) b.classList.add("wrong");
+    });
+
+    stats.totalAttempts += 1;
+    stats.perTable[currentTable].total += 1;
+    if (correct){
+      sessionCorrect += 1;
+      stats.totalCorrect += 1;
+      stats.perTable[currentTable].correct += 1;
+      feedbackText.className = "feedback good";
+      feedbackText.textContent = "✓ せいかい!";
+      haptic();
+    } else {
+      sessionWrong += 1;
+      feedbackText.className = "feedback bad";
+      feedbackText.textContent = "✗ ざんねん。こたえは " + currentAnswer;
+    }
+    updateTopRow();
+    await saveStats();
+
+    if (feedbackTimeout){ clearTimeout(feedbackTimeout); feedbackTimeout = null; }
+    feedbackTimeout = setTimeout(function(){
+      feedbackText.textContent = " ";
+      feedbackText.className = "feedback";
+      nextProblem();
+    }, 850);
+  }
+
+  function startPractice(){
+    sessionCorrect = 0;
+    sessionWrong = 0;
+    updateTopRow();
+    setupScreen.hidden = true;
+    statsScreen.hidden = true;
+    quizScreen.hidden = false;
+    backBtn.hidden = false;
+    feedbackText.textContent = " ";
+    feedbackText.className = "feedback";
+    if (feedbackTimeout){ clearTimeout(feedbackTimeout); feedbackTimeout = null; }
+    nextProblem();
+  }
+
+  function renderStatsScreen(){
+    totalCorrectVal.textContent = stats.totalCorrect;
+    statsTableBody.innerHTML = "";
+    for (var i = 1; i <= 9; i++){
+      var row = stats.perTable[i] || { correct: 0, total: 0 };
+      var pct = row.total > 0 ? Math.round((row.correct / row.total) * 100) : 0;
+      var tr = document.createElement("tr");
+      tr.innerHTML = "<td>" + i + "の段</td><td>" + row.correct + "</td><td>" + row.total + "</td><td>" + pct + "%</td>";
+      statsTableBody.appendChild(tr);
+    }
+  }
+
+  danGrid.addEventListener("click", function(ev){
+    var btn = ev.target.closest(".dan-btn");
+    if (!btn) return;
+    selectedDan = btn.getAttribute("data-dan");
+    randomBtn.classList.remove("selected");
+    Array.prototype.forEach.call(danGrid.querySelectorAll(".dan-btn"), function(b){
+      b.classList.toggle("selected", b === btn);
+    });
+  });
+  randomBtn.addEventListener("click", function(){
+    selectedDan = "random";
+    randomBtn.classList.add("selected");
+    Array.prototype.forEach.call(danGrid.querySelectorAll(".dan-btn"), function(b){
+      b.classList.remove("selected");
+    });
+  });
+
+  startBtn.addEventListener("click", startPractice);
+
+  backBtn.addEventListener("click", function(){
+    if (feedbackTimeout){ clearTimeout(feedbackTimeout); feedbackTimeout = null; }
+    quizScreen.hidden = true;
+    backBtn.hidden = true;
+    setupScreen.hidden = false;
+  });
+
+  showStatsBtn.addEventListener("click", function(){
+    renderStatsScreen();
+    setupScreen.hidden = true;
+    statsScreen.hidden = false;
+  });
+  closeStatsBtn.addEventListener("click", function(){
+    statsScreen.hidden = true;
+    setupScreen.hidden = false;
+  });
+  resetStatsBtn.addEventListener("click", async function(){
+    stats = freshStats();
+    await saveStats();
+    renderStatsScreen();
+    notify("記録をリセットしました", "info");
+  });
+
+  loadStats();
+</script>
+</body>
+</html>

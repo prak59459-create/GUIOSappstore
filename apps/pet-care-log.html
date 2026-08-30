@@ -1,0 +1,415 @@
+<!--GUIOS-APP {"id":"pet-care-log","name":"ペットお世話記録","icon":"🐾","color":"#6d4c41","version":"1.0.0","author":"Claude","description":"ペットの餌やり・散歩などのお世話を記録できるログアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ペットお世話記録</title>
+<style>
+  :root{
+    --accent:#a1887f;
+    --accent-deep:#6d4c41;
+    --bg:#150f0d;
+    --card:#241b17;
+    --card2:#1b1411;
+    --text:#f6ede8;
+    --sub:#c2ac9f;
+    --line:rgba(255,255,255,0.08);
+    --ok:#4caf7d;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text); min-height:100vh; padding:16px; padding-bottom:56px;
+  }
+  h1{ font-size:19px; margin:4px 0 10px; display:flex; align-items:center; gap:8px; }
+  .wrap{ max-width:600px; margin:0 auto; display:flex; flex-direction:column; gap:14px; }
+
+  .pet-tabs{ display:flex; gap:8px; overflow-x:auto; padding-bottom:2px; }
+  .pet-chip{
+    flex:0 0 auto; padding:10px 16px; border-radius:14px; background:var(--card2); border:1px solid var(--line);
+    font-size:14px; color:var(--sub); cursor:pointer; white-space:nowrap; min-height:44px; display:flex; align-items:center; gap:6px;
+  }
+  .pet-chip.active{ background:var(--accent); color:#1c120c; border-color:var(--accent); font-weight:700; }
+  .pet-chip.add{ color:var(--accent); border:1px dashed var(--line); background:transparent; }
+
+  .section{
+    background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px 16px;
+    display:flex; flex-direction:column; gap:10px;
+  }
+  .section h2{ font-size:14px; margin:0; color:var(--sub); }
+
+  .quick-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  .quick-btn{
+    background:var(--card2); border:1px solid var(--line); border-radius:12px; padding:12px 6px;
+    font-size:12px; color:var(--text); cursor:pointer; min-height:60px; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:4px; text-align:center;
+  }
+  .quick-btn .qi{ font-size:20px; }
+  .quick-btn:active{ filter:brightness(1.15); }
+
+  .last-list{ display:flex; flex-direction:column; gap:8px; }
+  .last-row{
+    display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:13px;
+    background:var(--card2); border:1px solid var(--line); border-radius:10px; padding:9px 12px;
+  }
+  .last-row .lab{ color:var(--text); }
+  .last-row .ago{ color:var(--sub); font-variant-numeric:tabular-nums; }
+
+  .timeline{ display:flex; flex-direction:column; gap:8px; }
+  .tl-item{
+    display:flex; align-items:flex-start; gap:10px; background:var(--card2); border:1px solid var(--line);
+    border-radius:12px; padding:10px 12px;
+  }
+  .tl-icon{ font-size:20px; flex-shrink:0; }
+  .tl-body{ flex:1; min-width:0; }
+  .tl-type{ font-size:13px; font-weight:700; }
+  .tl-note{ font-size:12px; color:var(--sub); margin-top:2px; word-break:break-word; }
+  .tl-time{ font-size:11px; color:var(--sub); margin-top:2px; font-variant-numeric:tabular-nums; }
+  .tl-del{
+    background:transparent; border:none; color:var(--sub); font-size:16px; cursor:pointer; padding:4px 6px;
+    min-width:32px; min-height:32px;
+  }
+
+  .empty{ text-align:center; color:var(--sub); font-size:13px; padding:20px 10px; }
+
+  /* modal */
+  .overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.6); display:flex; align-items:flex-end;
+    justify-content:center; z-index:40;
+  }
+  .overlay[hidden]{ display:none; }
+  .sheet{
+    background:var(--card); width:100%; max-width:600px; border-radius:20px 20px 0 0;
+    padding:18px 18px 26px; max-height:88vh; overflow-y:auto;
+  }
+  .sheet h2{ font-size:16px; margin:0 0 14px; color:var(--text); }
+  .field{ margin-bottom:14px; }
+  label{ display:block; font-size:12px; color:var(--sub); margin-bottom:6px; }
+  input[type="text"], input[type="datetime-local"]{
+    width:100%; background:var(--card2); border:1px solid var(--line); border-radius:10px;
+    color:var(--text); font-size:16px; padding:12px; height:48px;
+  }
+  .sheet-actions{ display:flex; gap:10px; margin-top:6px; }
+  .sheet-actions button{
+    flex:1; padding:14px; border-radius:12px; border:none; font-size:15px; font-weight:700; cursor:pointer;
+    min-height:48px;
+  }
+  .btn-cancel{ background:var(--card2); color:var(--text); }
+  .btn-save{ background:var(--accent); color:#1c120c; }
+
+  .toast{
+    position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--card);color:var(--text);
+    padding:10px 18px;border-radius:10px;font-size:13px;z-index:200;box-shadow:0 6px 18px rgba(0,0,0,.4);
+    border:1px solid var(--line); max-width:88vw; text-align:center;
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🐾 ペットお世話記録</h1>
+
+    <div class="pet-tabs" id="petTabs"></div>
+
+    <div class="section" id="quickSection" hidden>
+      <h2>お世話を記録</h2>
+      <div class="quick-grid" id="quickGrid"></div>
+    </div>
+
+    <div class="section" id="lastSection" hidden>
+      <h2>最後にいつ〜したか</h2>
+      <div class="last-list" id="lastList"></div>
+    </div>
+
+    <div class="section" id="timelineSection" hidden>
+      <h2>今日の記録</h2>
+      <div class="timeline" id="timeline"></div>
+      <div class="empty" id="tlEmpty" hidden>今日の記録はまだありません</div>
+    </div>
+
+    <div class="empty" id="noPetMsg">ペットが登録されていません。＋でペットを追加してください。</div>
+  </div>
+
+  <div class="overlay" id="petOverlay" hidden>
+    <div class="sheet">
+      <h2>ペットを追加</h2>
+      <div class="field">
+        <label>名前</label>
+        <input type="text" id="petNameInput" placeholder="例: ポチ" maxlength="20">
+      </div>
+      <div class="sheet-actions">
+        <button class="btn-cancel" id="petCancelBtn">キャンセル</button>
+        <button class="btn-save" id="petSaveBtn">追加</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="eventOverlay" hidden>
+    <div class="sheet">
+      <h2 id="eventSheetTitle">記録を追加</h2>
+      <div class="field" id="customLabelField" hidden>
+        <label>内容</label>
+        <input type="text" id="customLabelInput" placeholder="例: 爪切り" maxlength="30">
+      </div>
+      <div class="field">
+        <label>日時</label>
+        <input type="datetime-local" id="eventTimeInput">
+      </div>
+      <div class="field">
+        <label>メモ(任意)</label>
+        <input type="text" id="eventNoteInput" placeholder="例: 完食した" maxlength="80">
+      </div>
+      <div class="sheet-actions">
+        <button class="btn-cancel" id="eventCancelBtn">キャンセル</button>
+        <button class="btn-save" id="eventSaveBtn">記録する</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var APP_ID = 'pet-care-log';
+  var FALLBACK_KEY = 'guios-fallback-' + APP_ID + '-data';
+
+  var CATEGORIES = [
+    { type:'餌やり', icon:'🍖' },
+    { type:'散歩', icon:'🚶' },
+    { type:'トイレ', icon:'🚽' },
+    { type:'ブラッシング', icon:'🧹' },
+    { type:'通院', icon:'🏥' },
+    { type:'その他', icon:'📝' }
+  ];
+
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify) {
+      try { window.GUIOS.notify(msg, { type: type || 'info' }); return; } catch(e){}
+    }
+    var t = document.createElement('div');
+    t.className = 'toast';
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(function(){ t.remove(); }, 3000);
+  }
+
+  function pad2(n){ return (n < 10 ? '0' : '') + n; }
+  function localDateStr(d){ return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate()); }
+  function uid(){ return 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+    });
+  }
+
+  var data = { pets: [], selectedPetId: null, events: [] }; // events: {id, petId, type, note, ts}
+
+  async function loadData(){
+    if (hasSDK) {
+      try {
+        var v = await window.GUIOS.storage.get('data');
+        if (v && typeof v === 'object') return normalize(v);
+      } catch(e){}
+      return normalize({});
+    } else {
+      try {
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        return normalize(raw ? JSON.parse(raw) : {});
+      } catch(e){ return normalize({}); }
+    }
+  }
+  function normalize(v){
+    return {
+      pets: Array.isArray(v.pets) ? v.pets : [],
+      selectedPetId: typeof v.selectedPetId === 'string' ? v.selectedPetId : null,
+      events: Array.isArray(v.events) ? v.events : []
+    };
+  }
+  async function saveData(){
+    if (hasSDK) {
+      try { await window.GUIOS.storage.set('data', data); } catch(e){}
+    } else {
+      try { localStorage.setItem(FALLBACK_KEY, JSON.stringify(data)); } catch(e){}
+    }
+  }
+
+  function selectedPet(){
+    return data.pets.find(function(p){ return p.id === data.selectedPetId; }) || null;
+  }
+
+  function toDatetimeLocalValue(d){
+    return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate()) + 'T' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+  }
+  function fromDatetimeLocalValue(str){
+    // "YYYY-MM-DDTHH:MM" -> local Date
+    var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(str);
+    if (!m) return new Date();
+    return new Date(parseInt(m[1],10), parseInt(m[2],10)-1, parseInt(m[3],10), parseInt(m[4],10), parseInt(m[5],10));
+  }
+
+  function agoText(ts){
+    var diffMs = Date.now() - ts;
+    if (diffMs < 0) diffMs = 0;
+    var mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return 'たった今';
+    if (mins < 60) return mins + '分前';
+    var hours = Math.floor(mins / 60);
+    if (hours < 24) return hours + '時間前';
+    var days = Math.floor(hours / 24);
+    return days + '日前';
+  }
+
+  function renderPetTabs(){
+    var wrap = document.getElementById('petTabs');
+    wrap.innerHTML = data.pets.map(function(p){
+      return '<div class="pet-chip' + (p.id === data.selectedPetId ? ' active' : '') + '" data-id="' + p.id + '">🐾 ' + escapeHtml(p.name) + '</div>';
+    }).join('') + '<div class="pet-chip add" id="addPetChip">＋ 追加</div>';
+
+    wrap.querySelectorAll('.pet-chip[data-id]').forEach(function(chip){
+      chip.addEventListener('click', function(){
+        data.selectedPetId = chip.dataset.id;
+        saveData();
+        renderAll();
+      });
+    });
+    document.getElementById('addPetChip').addEventListener('click', function(){
+      document.getElementById('petNameInput').value = '';
+      document.getElementById('petOverlay').hidden = false;
+    });
+  }
+
+  function renderQuickGrid(){
+    var grid = document.getElementById('quickGrid');
+    grid.innerHTML = CATEGORIES.map(function(c){
+      return '<div class="quick-btn" data-type="' + escapeHtml(c.type) + '"><span class="qi">' + c.icon + '</span>' + escapeHtml(c.type) + '</div>';
+    }).join('');
+    grid.querySelectorAll('.quick-btn').forEach(function(btn){
+      btn.addEventListener('click', function(){ openEventSheet(btn.dataset.type); });
+    });
+  }
+
+  function renderLastList(){
+    var pet = selectedPet();
+    var listEl = document.getElementById('lastList');
+    if (!pet) { listEl.innerHTML = ''; return; }
+    listEl.innerHTML = CATEGORIES.map(function(c){
+      var evs = data.events.filter(function(e){ return e.petId === pet.id && e.type === c.type; });
+      if (!evs.length) {
+        return '<div class="last-row"><span class="lab">' + c.icon + ' ' + escapeHtml(c.type) + '</span><span class="ago">記録なし</span></div>';
+      }
+      var latest = evs.reduce(function(a,b){ return b.ts > a.ts ? b : a; });
+      return '<div class="last-row"><span class="lab">' + c.icon + ' ' + escapeHtml(c.type) + '</span><span class="ago">' + agoText(latest.ts) + '</span></div>';
+    }).join('');
+  }
+
+  function renderTimeline(){
+    var pet = selectedPet();
+    var tlEl = document.getElementById('timeline');
+    var emptyEl = document.getElementById('tlEmpty');
+    if (!pet) { tlEl.innerHTML = ''; emptyEl.hidden = true; return; }
+    var todayStr = localDateStr(new Date());
+    var todays = data.events.filter(function(e){
+      return e.petId === pet.id && localDateStr(new Date(e.ts)) === todayStr;
+    }).sort(function(a,b){ return b.ts - a.ts; });
+
+    if (!todays.length) {
+      tlEl.innerHTML = '';
+      emptyEl.hidden = false;
+      return;
+    }
+    emptyEl.hidden = true;
+    tlEl.innerHTML = todays.map(function(e){
+      var cat = CATEGORIES.find(function(c){ return c.type === e.type; }) || { icon:'📝' };
+      var d = new Date(e.ts);
+      return '' +
+        '<div class="tl-item">' +
+          '<div class="tl-icon">' + cat.icon + '</div>' +
+          '<div class="tl-body">' +
+            '<div class="tl-type">' + escapeHtml(e.label || e.type) + '</div>' +
+            (e.note ? '<div class="tl-note">' + escapeHtml(e.note) + '</div>' : '') +
+            '<div class="tl-time">' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + '</div>' +
+          '</div>' +
+          '<button class="tl-del" data-id="' + e.id + '">×</button>' +
+        '</div>';
+    }).join('');
+
+    tlEl.querySelectorAll('.tl-del').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        data.events = data.events.filter(function(e){ return e.id !== btn.dataset.id; });
+        saveData();
+        renderAll();
+      });
+    });
+  }
+
+  function renderAll(){
+    renderPetTabs();
+    var pet = selectedPet();
+    var has = !!pet;
+    document.getElementById('quickSection').hidden = !has;
+    document.getElementById('lastSection').hidden = !has;
+    document.getElementById('timelineSection').hidden = !has;
+    document.getElementById('noPetMsg').hidden = has;
+    if (has) {
+      renderQuickGrid();
+      renderLastList();
+      renderTimeline();
+    }
+  }
+
+  // --- add pet ---
+  document.getElementById('petCancelBtn').addEventListener('click', function(){
+    document.getElementById('petOverlay').hidden = true;
+  });
+  document.getElementById('petSaveBtn').addEventListener('click', function(){
+    var name = document.getElementById('petNameInput').value.trim();
+    if (!name) { notify('名前を入力してください', 'error'); return; }
+    var id = uid();
+    data.pets.push({ id: id, name: name });
+    data.selectedPetId = id;
+    saveData();
+    renderAll();
+    document.getElementById('petOverlay').hidden = true;
+  });
+
+  // --- add event ---
+  var pendingType = '';
+  function openEventSheet(type){
+    pendingType = type;
+    document.getElementById('eventSheetTitle').textContent = type + 'を記録';
+    document.getElementById('customLabelField').hidden = (type !== 'その他');
+    document.getElementById('customLabelInput').value = '';
+    document.getElementById('eventNoteInput').value = '';
+    document.getElementById('eventTimeInput').value = toDatetimeLocalValue(new Date());
+    document.getElementById('eventOverlay').hidden = false;
+  }
+  document.getElementById('eventCancelBtn').addEventListener('click', function(){
+    document.getElementById('eventOverlay').hidden = true;
+  });
+  document.getElementById('eventSaveBtn').addEventListener('click', function(){
+    var pet = selectedPet();
+    if (!pet) { document.getElementById('eventOverlay').hidden = true; return; }
+    var timeVal = document.getElementById('eventTimeInput').value;
+    var ts = timeVal ? fromDatetimeLocalValue(timeVal).getTime() : Date.now();
+    var note = document.getElementById('eventNoteInput').value.trim();
+    var label = pendingType;
+    if (pendingType === 'その他') {
+      var custom = document.getElementById('customLabelInput').value.trim();
+      if (custom) label = custom;
+    }
+    data.events.push({ id: uid(), petId: pet.id, type: pendingType, label: label, note: note, ts: ts });
+    saveData();
+    renderAll();
+    document.getElementById('eventOverlay').hidden = true;
+    notify(label + 'を記録しました', 'success');
+  });
+
+  (async function init(){
+    data = await loadData();
+    if (!data.selectedPetId && data.pets.length) data.selectedPetId = data.pets[0].id;
+    renderAll();
+    if (window.GUIOS && window.GUIOS.setTitle) {
+      try { window.GUIOS.setTitle('ペットお世話記録'); } catch(e){}
+    }
+  })();
+</script>
+</body>
+</html>

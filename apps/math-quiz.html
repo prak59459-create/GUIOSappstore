@@ -1,0 +1,421 @@
+<!--GUIOS-APP {"id":"math-quiz","name":"暗算トレーニング","icon":"🧮","color":"#00695c","version":"1.0.0","author":"Claude","description":"制限時間内に四則演算の問題を解いていく暗算トレーニングアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>暗算トレーニング</title>
+<style>
+  :root{
+    --accent:#00c9a7;
+    --accent-dark:#00695c;
+    --bg:#0c1615;
+    --card:#14211f;
+    --text:#e7f5f2;
+    --sub:#9fbdb7;
+    --good:#4caf7d;
+    --bad:#e0554f;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    min-height:100vh;
+    padding:16px;
+    padding-bottom:40px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  h1{ font-size:20px; margin:4px 0 16px; text-align:center; }
+  .panel{
+    width:100%;
+    max-width:420px;
+    background:var(--card);
+    border-radius:16px;
+    padding:20px 16px;
+    border:1px solid rgba(255,255,255,0.06);
+    margin-bottom:16px;
+  }
+  .section-label{ font-size:13px; color:var(--sub); margin:0 0 8px; font-weight:700; }
+  .choice-row{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+  .choice-btn{
+    flex:1 1 auto;
+    min-width:90px;
+    padding:14px 8px;
+    border-radius:12px;
+    border:2px solid rgba(255,255,255,0.1);
+    background:#1b2b28;
+    color:var(--text);
+    font-size:15px;
+    font-weight:700;
+    cursor:pointer;
+  }
+  .choice-btn.selected{
+    border-color:var(--accent);
+    background:rgba(0,201,167,0.18);
+    color:var(--accent);
+  }
+  .start-btn{
+    width:100%;
+    padding:16px;
+    border-radius:14px;
+    border:none;
+    background:var(--accent);
+    color:#04231d;
+    font-size:17px;
+    font-weight:800;
+    cursor:pointer;
+    box-shadow:0 3px 0 rgba(0,0,0,0.3);
+  }
+  .start-btn:active{ transform:translateY(2px); box-shadow:none; }
+  .top-row{
+    width:100%;
+    max-width:420px;
+    display:flex;
+    justify-content:space-between;
+    margin-bottom:14px;
+    font-size:14px;
+    color:var(--sub);
+  }
+  .top-row .val{ color:var(--text); font-weight:800; font-size:18px; }
+  .question{
+    text-align:center;
+    font-size:40px;
+    font-weight:800;
+    margin:20px 0 22px;
+    letter-spacing:1px;
+    word-break:break-all;
+  }
+  .answer-row{ display:flex; gap:10px; margin-bottom:10px; }
+  #answerInput{
+    flex:1;
+    font-size:24px;
+    padding:14px;
+    border-radius:12px;
+    border:2px solid rgba(255,255,255,0.15);
+    background:#0f1a18;
+    color:var(--text);
+    text-align:center;
+    min-width:0;
+  }
+  #answerInput:focus{ outline:none; border-color:var(--accent); }
+  .submit-btn{
+    padding:14px 22px;
+    border-radius:12px;
+    border:none;
+    background:var(--accent);
+    color:#04231d;
+    font-size:17px;
+    font-weight:800;
+    cursor:pointer;
+  }
+  .submit-btn:active{ transform:translateY(1px); }
+  .feedback{
+    min-height:24px;
+    text-align:center;
+    font-size:15px;
+    font-weight:700;
+    margin-bottom:4px;
+  }
+  .feedback.good{ color:var(--good); }
+  .feedback.bad{ color:var(--bad); }
+  .result-score{
+    text-align:center;
+    font-size:48px;
+    font-weight:800;
+    color:var(--accent);
+    margin:10px 0;
+  }
+  .result-sub{ text-align:center; color:var(--sub); font-size:14px; margin-bottom:18px; }
+  .retry-btn{
+    width:100%;
+    padding:14px;
+    border-radius:12px;
+    border:1px solid rgba(255,255,255,0.15);
+    background:transparent;
+    color:var(--text);
+    font-size:15px;
+    font-weight:700;
+    cursor:pointer;
+    margin-bottom:10px;
+  }
+  [hidden]{ display:none !important; }
+</style>
+</head>
+<body>
+  <h1>🧮 暗算トレーニング</h1>
+
+  <div class="panel" id="setupScreen">
+    <p class="section-label">むずかしさ</p>
+    <div class="choice-row" id="diffRow">
+      <button class="choice-btn" type="button" data-diff="easy">かんたん</button>
+      <button class="choice-btn" type="button" data-diff="normal">ふつう</button>
+      <button class="choice-btn" type="button" data-diff="hard">むずかしい</button>
+    </div>
+    <p class="section-label">制限時間</p>
+    <div class="choice-row" id="timeRow">
+      <button class="choice-btn" type="button" data-time="30">30秒</button>
+      <button class="choice-btn" type="button" data-time="60">60秒</button>
+      <button class="choice-btn" type="button" data-time="90">90秒</button>
+    </div>
+    <button class="start-btn" id="startBtn" type="button">スタート</button>
+  </div>
+
+  <div class="panel" id="quizScreen" hidden>
+    <div class="top-row">
+      <span>のこり時間 <span class="val" id="timeVal">60</span>秒</span>
+      <span>スコア <span class="val" id="scoreVal">0</span></span>
+    </div>
+    <div class="question" id="questionText">-</div>
+    <form id="answerForm">
+      <div class="answer-row">
+        <input id="answerInput" type="number" inputmode="numeric" autocomplete="off" placeholder="こたえ">
+        <button class="submit-btn" type="submit">こたえる</button>
+      </div>
+    </form>
+    <div class="feedback" id="feedbackText">&nbsp;</div>
+  </div>
+
+  <div class="panel" id="resultScreen" hidden>
+    <p class="section-label" style="text-align:center;">けっか</p>
+    <div class="result-score" id="finalScore">0</div>
+    <div class="result-sub" id="bestScoreText">ベストスコア: 0</div>
+    <button class="retry-btn" id="retryBtn" type="button">もう一度</button>
+  </div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var APP_ID = "math-quiz";
+  var STORE_KEY = "bestScores";
+
+  var diffLabels = { easy: "かんたん", normal: "ふつう", hard: "むずかしい" };
+  var selectedDiff = "easy";
+  var selectedTime = 60;
+
+  var best = { easy: 0, normal: 0, hard: 0 };
+
+  var setupScreen = document.getElementById("setupScreen");
+  var quizScreen = document.getElementById("quizScreen");
+  var resultScreen = document.getElementById("resultScreen");
+  var diffRow = document.getElementById("diffRow");
+  var timeRow = document.getElementById("timeRow");
+  var startBtn = document.getElementById("startBtn");
+  var timeVal = document.getElementById("timeVal");
+  var scoreVal = document.getElementById("scoreVal");
+  var questionText = document.getElementById("questionText");
+  var answerForm = document.getElementById("answerForm");
+  var answerInput = document.getElementById("answerInput");
+  var feedbackText = document.getElementById("feedbackText");
+  var finalScore = document.getElementById("finalScore");
+  var bestScoreText = document.getElementById("bestScoreText");
+  var retryBtn = document.getElementById("retryBtn");
+
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify){
+      try { window.GUIOS.notify(msg, { type: type || "info" }); } catch(e){}
+    }
+  }
+  function haptic(){
+    if (window.GUIOS && window.GUIOS.haptic){
+      try { window.GUIOS.haptic(); } catch(e){}
+    }
+  }
+
+  async function loadBest(){
+    try {
+      if (hasSDK){
+        var v = await window.GUIOS.storage.get(STORE_KEY);
+        if (v && typeof v === "object") best = Object.assign(best, v);
+      } else {
+        var raw = localStorage.getItem(APP_ID + ":" + STORE_KEY);
+        if (raw) best = Object.assign(best, JSON.parse(raw));
+      }
+    } catch(e){}
+  }
+  async function saveBest(){
+    try {
+      if (hasSDK){
+        await window.GUIOS.storage.set(STORE_KEY, best);
+      } else {
+        localStorage.setItem(APP_ID + ":" + STORE_KEY, JSON.stringify(best));
+      }
+    } catch(e){}
+  }
+
+  function randInt(min, max){
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  function genProblem(diff){
+    if (diff === "easy"){
+      var ops = ["+", "-"];
+      var op = ops[randInt(0, 1)];
+      var a = randInt(1, 9);
+      var b = randInt(1, 9);
+      if (op === "-" && a < b){ var t = a; a = b; b = t; }
+      var ans = op === "+" ? a + b : a - b;
+      return { text: a + " " + op + " " + b, answer: ans };
+    }
+    if (diff === "normal"){
+      var ops2 = ["+", "-"];
+      var op2 = ops2[randInt(0, 1)];
+      var a2 = randInt(10, 99);
+      var b2 = randInt(10, 99);
+      if (op2 === "-" && a2 < b2){ var t2 = a2; a2 = b2; b2 = t2; }
+      var ans2 = op2 === "+" ? a2 + b2 : a2 - b2;
+      return { text: a2 + " " + op2 + " " + b2, answer: ans2 };
+    }
+    // hard
+    var ops3 = ["+", "-", "×", "÷"];
+    var op3 = ops3[randInt(0, 3)];
+    if (op3 === "+" || op3 === "-"){
+      var a3 = randInt(10, 99);
+      var b3 = randInt(10, 99);
+      if (op3 === "-" && a3 < b3){ var t3 = a3; a3 = b3; b3 = t3; }
+      var ans3 = op3 === "+" ? a3 + b3 : a3 - b3;
+      return { text: a3 + " " + op3 + " " + b3, answer: ans3 };
+    }
+    if (op3 === "×"){
+      var a4 = randInt(2, 9);
+      var b4 = randInt(2, 12);
+      return { text: a4 + " × " + b4, answer: a4 * b4 };
+    }
+    // division: derive dividend from divisor and quotient so it always divides evenly
+    var divisor = randInt(2, 9);
+    var quotient = randInt(2, 9);
+    var dividend = divisor * quotient;
+    return { text: dividend + " ÷ " + divisor, answer: quotient };
+  }
+
+  var currentAnswer = 0;
+  var score = 0;
+  var timeRemaining = 60;
+  var timerInterval = null;
+  var feedbackTimeout = null;
+  var quizActive = false;
+
+  function nextProblem(){
+    var p = genProblem(selectedDiff);
+    currentAnswer = p.answer;
+    questionText.textContent = p.text + " =";
+    answerInput.value = "";
+    answerInput.focus();
+  }
+
+  function updateTopRow(){
+    timeVal.textContent = timeRemaining;
+    scoreVal.textContent = score;
+  }
+
+  function startQuiz(){
+    score = 0;
+    timeRemaining = selectedTime;
+    quizActive = true;
+    updateTopRow();
+    feedbackText.textContent = " ";
+    feedbackText.className = "feedback";
+    setupScreen.hidden = true;
+    resultScreen.hidden = true;
+    quizScreen.hidden = false;
+    nextProblem();
+
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = setInterval(function(){
+      timeRemaining -= 1;
+      if (timeRemaining <= 0){
+        timeRemaining = 0;
+        updateTopRow();
+        endQuiz();
+        return;
+      }
+      updateTopRow();
+    }, 1000);
+  }
+
+  async function endQuiz(){
+    quizActive = false;
+    if (timerInterval){ clearInterval(timerInterval); timerInterval = null; }
+    if (feedbackTimeout){ clearTimeout(feedbackTimeout); feedbackTimeout = null; }
+
+    var isNewBest = false;
+    if (score > (best[selectedDiff] || 0)){
+      best[selectedDiff] = score;
+      isNewBest = true;
+      await saveBest();
+    }
+
+    quizScreen.hidden = true;
+    resultScreen.hidden = false;
+    finalScore.textContent = score;
+    bestScoreText.textContent = "ベストスコア(" + diffLabels[selectedDiff] + "): " + best[selectedDiff] + (isNewBest ? "  新記録!" : "");
+    notify(isNewBest ? "新記録達成!" : "終了! スコア: " + score, isNewBest ? "success" : "info");
+    haptic();
+  }
+
+  answerForm.addEventListener("submit", function(ev){
+    ev.preventDefault();
+    if (!quizActive) return;
+    var raw = answerInput.value.trim();
+    if (raw === ""){ answerInput.focus(); return; }
+    var val = parseInt(raw, 10);
+    var correct = (val === currentAnswer);
+
+    if (feedbackTimeout){ clearTimeout(feedbackTimeout); feedbackTimeout = null; }
+
+    if (correct){
+      score += 1;
+      updateTopRow();
+      feedbackText.className = "feedback good";
+      feedbackText.textContent = "✓ 正解!";
+      haptic();
+    } else {
+      feedbackText.className = "feedback bad";
+      feedbackText.textContent = "✗ 正解は " + currentAnswer;
+    }
+
+    feedbackTimeout = setTimeout(function(){
+      feedbackText.textContent = " ";
+      feedbackText.className = "feedback";
+    }, 900);
+
+    nextProblem();
+  });
+
+  diffRow.addEventListener("click", function(ev){
+    var btn = ev.target.closest(".choice-btn");
+    if (!btn) return;
+    selectedDiff = btn.getAttribute("data-diff");
+    Array.prototype.forEach.call(diffRow.querySelectorAll(".choice-btn"), function(b){
+      b.classList.toggle("selected", b === btn);
+    });
+  });
+
+  timeRow.addEventListener("click", function(ev){
+    var btn = ev.target.closest(".choice-btn");
+    if (!btn) return;
+    selectedTime = parseInt(btn.getAttribute("data-time"), 10);
+    Array.prototype.forEach.call(timeRow.querySelectorAll(".choice-btn"), function(b){
+      b.classList.toggle("selected", b === btn);
+    });
+  });
+
+  startBtn.addEventListener("click", function(){
+    startQuiz();
+  });
+
+  retryBtn.addEventListener("click", function(){
+    resultScreen.hidden = true;
+    setupScreen.hidden = false;
+  });
+
+  // default selections
+  diffRow.querySelector('[data-diff="easy"]').classList.add("selected");
+  timeRow.querySelector('[data-time="60"]').classList.add("selected");
+
+  loadBest();
+</script>
+</body>
+</html>

@@ -1,0 +1,355 @@
+<!--GUIOS-APP {"id":"step-tracker","name":"歩数記録","icon":"🚶","color":"#00695c","version":"1.0.0","author":"Claude","description":"1日の歩数を手入力で記録し、目標達成度を確認できるアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>歩数記録</title>
+<style>
+  :root{
+    --bg:#0c1817;
+    --panel:#122624;
+    --panel2:#17322f;
+    --border:#1f4d47;
+    --text:#eaf7f5;
+    --sub:#8fbdb4;
+    --accent:#00695c;
+    --accent2:#26a69a;
+    --gold:#e0b93c;
+    --danger:#c74e4e;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;height:100%;overflow-x:hidden;}
+  #app{max-width:480px;margin:0 auto;padding:14px 14px 28px;min-height:100%;}
+  h1{font-size:18px;margin:0 0 14px;text-align:center;}
+
+  #ringWrap{display:flex;justify-content:center;margin-bottom:16px;}
+  #ringSvg{width:180px;height:180px;}
+  #ringCenter{
+    position:relative;
+  }
+  .ring-container{position:relative;width:180px;height:180px;}
+  .ring-text{
+    position:absolute;
+    top:50%;left:50%;
+    transform:translate(-50%,-50%);
+    text-align:center;
+  }
+  .ring-steps{font-size:26px;font-weight:800;color:var(--text);}
+  .ring-goal{font-size:11px;color:var(--sub);margin-top:2px;}
+  .ring-pct{font-size:13px;color:var(--accent2);font-weight:700;margin-top:2px;}
+
+  #inputPanel{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:14px;
+    margin-bottom:14px;
+  }
+  .field-row{display:flex;gap:8px;align-items:center;margin-bottom:10px;}
+  .field-row label{font-size:13px;color:var(--sub);min-width:80px;}
+  input[type=number]{
+    flex:1;
+    min-height:44px;
+    border-radius:8px;
+    border:1px solid var(--border);
+    background:var(--panel2);
+    color:var(--text);
+    padding:0 12px;
+    font-size:15px;
+  }
+  button.action-btn{
+    min-height:44px;
+    border:none;
+    border-radius:8px;
+    background:var(--accent);
+    color:#fff;
+    font-weight:700;
+    font-size:14px;
+    padding:0 16px;
+    cursor:pointer;
+  }
+  button.action-btn:active{filter:brightness(1.15);}
+  button.action-btn.secondary{background:var(--panel2);border:1px solid var(--border);color:var(--text);}
+  #logRow{display:flex;gap:8px;}
+  #logRow input{flex:1;}
+
+  #historyPanel{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:14px;
+  }
+  #historyPanel h2{font-size:14px;margin:0 0 10px;color:var(--sub);}
+  .hist-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:8px;
+    font-size:12px;
+  }
+  .hist-date{min-width:64px;color:var(--sub);}
+  .hist-bar-wrap{
+    flex:1;
+    background:var(--panel2);
+    border-radius:6px;
+    height:18px;
+    overflow:hidden;
+    position:relative;
+  }
+  .hist-bar{
+    height:100%;
+    background:var(--accent2);
+    border-radius:6px;
+  }
+  .hist-bar.over-goal{background:var(--gold);}
+  .hist-steps{min-width:56px;text-align:right;color:var(--text);font-weight:600;}
+  #emptyHist{color:var(--sub);font-size:13px;text-align:center;padding:10px 0;}
+  #toast{
+    position:fixed;left:50%;top:16px;transform:translateX(-50%) translateY(-30px);
+    background:#2b2b2d;color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;
+    opacity:0;transition:all .25s ease;pointer-events:none;z-index:999;max-width:90%;text-align:center;
+    border:1px solid var(--border);
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>🚶 歩数記録</h1>
+
+  <div id="ringWrap">
+    <div class="ring-container">
+      <svg id="ringSvg" viewBox="0 0 180 180">
+        <circle cx="90" cy="90" r="78" fill="none" stroke="#17322f" stroke-width="14"></circle>
+        <circle id="progressCircle" cx="90" cy="90" r="78" fill="none" stroke="#26a69a" stroke-width="14"
+          stroke-linecap="round" transform="rotate(-90 90 90)"></circle>
+      </svg>
+      <div class="ring-text">
+        <div class="ring-steps" id="ringSteps">0</div>
+        <div class="ring-goal" id="ringGoalText">/ 8000 歩</div>
+        <div class="ring-pct" id="ringPct">0%</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="inputPanel">
+    <div class="field-row" id="logRow">
+      <label for="stepsInput">今日の歩数</label>
+      <input type="number" id="stepsInput" min="0" step="1" placeholder="例: 6500">
+      <button class="action-btn" id="logBtn">記録する</button>
+    </div>
+    <div class="field-row">
+      <label for="goalInput">目標歩数</label>
+      <input type="number" id="goalInput" min="1" step="100" placeholder="8000">
+      <button class="action-btn secondary" id="saveGoalBtn">設定</button>
+    </div>
+  </div>
+
+  <div id="historyPanel">
+    <h2>過去の記録（直近14日）</h2>
+    <div id="historyList"></div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  var APP_ID = "step-tracker";
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var DEFAULT_GOAL = 8000;
+  var HISTORY_DAYS = 14;
+
+  var goal = DEFAULT_GOAL;
+  var history = {}; // dateKey ("YYYY-M-D") -> steps
+
+  var stepsInput = document.getElementById("stepsInput");
+  var goalInput = document.getElementById("goalInput");
+  var logBtn = document.getElementById("logBtn");
+  var saveGoalBtn = document.getElementById("saveGoalBtn");
+  var ringStepsEl = document.getElementById("ringSteps");
+  var ringGoalTextEl = document.getElementById("ringGoalText");
+  var ringPctEl = document.getElementById("ringPct");
+  var progressCircle = document.getElementById("progressCircle");
+  var historyListEl = document.getElementById("historyList");
+  var toastEl = document.getElementById("toast");
+
+  var CIRC = 2 * Math.PI * 78;
+  progressCircle.style.strokeDasharray = CIRC.toFixed(2);
+  progressCircle.style.strokeDashoffset = CIRC.toFixed(2);
+  progressCircle.style.transition = "stroke-dashoffset .4s ease";
+
+  function toast(msg, type){
+    if (window.GUIOS && window.GUIOS.notify){
+      GUIOS.notify(msg, {type: type || "info"});
+      return;
+    }
+    toastEl.textContent = msg;
+    toastEl.className = "show";
+    setTimeout(function(){ toastEl.className = ""; }, 1800);
+  }
+  function haptic(){
+    if (window.GUIOS && window.GUIOS.haptic){ try{ GUIOS.haptic(); }catch(e){} }
+  }
+
+  function dateKeyFor(d){
+    // local date string, not toISOString, to respect local per-day logic
+    return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+  }
+  function todayKey(){
+    return dateKeyFor(new Date());
+  }
+  function shortLabel(d){
+    return (d.getMonth() + 1) + "/" + d.getDate();
+  }
+
+  async function loadData(){
+    var data = null;
+    if (hasSDK){
+      try{ data = await GUIOS.storage.get("data"); }catch(e){}
+    } else {
+      try{
+        var raw = localStorage.getItem(APP_ID + "_data");
+        if (raw) data = JSON.parse(raw);
+      }catch(e){}
+    }
+    if (data && typeof data === "object"){
+      if (typeof data.goal === "number" && data.goal > 0) goal = data.goal;
+      if (data.history && typeof data.history === "object") history = data.history;
+    }
+  }
+
+  async function saveData(){
+    var data = { goal: goal, history: history };
+    if (hasSDK){
+      try{ await GUIOS.storage.set("data", data); }catch(e){}
+    } else {
+      try{ localStorage.setItem(APP_ID + "_data", JSON.stringify(data)); }catch(e){}
+    }
+  }
+
+  function renderRing(){
+    var todaySteps = history[todayKey()] || 0;
+    var pct = Math.min(1, todaySteps / goal);
+    ringStepsEl.textContent = todaySteps.toLocaleString();
+    ringGoalTextEl.textContent = "/ " + goal.toLocaleString() + " 歩";
+    ringPctEl.textContent = Math.round(pct * 100) + "%";
+    var offset = CIRC * (1 - pct);
+    progressCircle.style.strokeDashoffset = offset.toFixed(2);
+    progressCircle.style.stroke = pct >= 1 ? "#e0b93c" : "#26a69a";
+  }
+
+  function renderHistory(){
+    historyListEl.innerHTML = "";
+    var days = [];
+    var now = new Date();
+    for (var i = 0; i < HISTORY_DAYS; i++){
+      var d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      days.push(d);
+    }
+    var maxSteps = 0;
+    days.forEach(function(d){
+      var key = dateKeyFor(d);
+      var v = history[key] || 0;
+      if (v > maxSteps) maxSteps = v;
+    });
+    var scaleMax = Math.max(maxSteps, goal, 1);
+
+    var anyData = days.some(function(d){ return history[dateKeyFor(d)] !== undefined; });
+    if (!anyData){
+      var empty = document.createElement("div");
+      empty.id = "emptyHist";
+      empty.textContent = "まだ記録がありません";
+      historyListEl.appendChild(empty);
+      return;
+    }
+
+    days.forEach(function(d){
+      var key = dateKeyFor(d);
+      var steps = history[key];
+      if (steps === undefined) return; // skip days with no entry
+      var row = document.createElement("div");
+      row.className = "hist-row";
+
+      var dateEl = document.createElement("div");
+      dateEl.className = "hist-date";
+      dateEl.textContent = shortLabel(d);
+
+      var barWrap = document.createElement("div");
+      barWrap.className = "hist-bar-wrap";
+      var bar = document.createElement("div");
+      bar.className = "hist-bar" + (steps >= goal ? " over-goal" : "");
+      var widthPct = Math.min(100, (steps / scaleMax) * 100);
+      bar.style.width = widthPct + "%";
+      barWrap.appendChild(bar);
+
+      var stepsEl = document.createElement("div");
+      stepsEl.className = "hist-steps";
+      stepsEl.textContent = steps.toLocaleString();
+
+      row.appendChild(dateEl);
+      row.appendChild(barWrap);
+      row.appendChild(stepsEl);
+      historyListEl.appendChild(row);
+    });
+  }
+
+  function pruneOldHistory(){
+    // keep only last HISTORY_DAYS+buffer entries to avoid unbounded growth
+    var now = new Date();
+    var validKeys = {};
+    for (var i = 0; i < HISTORY_DAYS; i++){
+      var d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      validKeys[dateKeyFor(d)] = true;
+    }
+    Object.keys(history).forEach(function(k){
+      if (!validKeys[k]) delete history[k];
+    });
+  }
+
+  async function logSteps(){
+    var val = parseInt(stepsInput.value, 10);
+    if (isNaN(val) || val < 0){
+      toast("正しい歩数を入力してください", "error");
+      return;
+    }
+    history[todayKey()] = val; // overwrite today's entry, no duplicates
+    pruneOldHistory();
+    await saveData();
+    renderRing();
+    renderHistory();
+    haptic();
+    toast("記録しました", "success");
+    stepsInput.value = "";
+  }
+
+  async function saveGoal(){
+    var val = parseInt(goalInput.value, 10);
+    if (isNaN(val) || val <= 0){
+      toast("正しい目標歩数を入力してください", "error");
+      return;
+    }
+    goal = val;
+    await saveData();
+    renderRing();
+    renderHistory();
+    toast("目標を設定しました", "success");
+  }
+
+  logBtn.addEventListener("click", logSteps);
+  saveGoalBtn.addEventListener("click", saveGoal);
+  stepsInput.addEventListener("keydown", function(e){ if (e.key === "Enter") logSteps(); });
+  goalInput.addEventListener("keydown", function(e){ if (e.key === "Enter") saveGoal(); });
+
+  loadData().then(function(){
+    goalInput.value = goal;
+    var todaySteps = history[todayKey()];
+    if (todaySteps !== undefined) stepsInput.value = todaySteps;
+    renderRing();
+    renderHistory();
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,353 @@
+<!--GUIOS-APP {"id":"tally-counter","name":"タリーカウンター","icon":"🔢","color":"#607d8b","version":"1.0.0","author":"Claude","description":"人数や回数を数えるのに便利なシンプルなカウンターアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>タリーカウンター</title>
+<style>
+  :root{
+    --accent:#607d8b;
+    --bg:#12181b;
+    --card:#1c2529;
+    --tab:#232e33;
+    --tab-active:#607d8b;
+    --text:#f2f6f7;
+    --sub:#9fb2ba;
+    --plus:#4fa87f;
+    --minus:#c25b5b;
+    --danger:#c25b5b;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    min-height:100vh;
+    padding:14px;
+    padding-bottom:40px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    -webkit-tap-highlight-color:transparent;
+  }
+  h1{
+    font-size:19px;
+    margin:2px 0 12px;
+  }
+  .tabs-wrap{
+    width:100%;
+    max-width:460px;
+    overflow-x:auto;
+    margin-bottom:14px;
+  }
+  .tabs{
+    display:flex;
+    gap:8px;
+    padding-bottom:4px;
+  }
+  .tab{
+    flex:0 0 auto;
+    padding:10px 16px;
+    border-radius:20px;
+    background:var(--tab);
+    color:var(--sub);
+    font-size:14px;
+    font-weight:700;
+    border:1px solid rgba(255,255,255,0.08);
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .tab.active{
+    background:var(--tab-active);
+    color:#fff;
+    border-color:var(--tab-active);
+  }
+  .tab-add{
+    flex:0 0 auto;
+    padding:10px 16px;
+    border-radius:20px;
+    background:var(--card);
+    color:var(--sub);
+    font-size:14px;
+    font-weight:700;
+    border:1px dashed rgba(255,255,255,0.25);
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .name-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:6px;
+  }
+  .name-text{
+    font-size:16px;
+    font-weight:700;
+    color:var(--sub);
+  }
+  .rename-btn, .delete-btn{
+    background:none;
+    border:none;
+    color:var(--sub);
+    font-size:13px;
+    cursor:pointer;
+    padding:6px 8px;
+    text-decoration:underline;
+  }
+  .delete-btn{ color:var(--danger); }
+  .count-display{
+    font-size:min(24vw, 110px);
+    font-weight:800;
+    line-height:1;
+    margin:18px 0 26px;
+    font-variant-numeric:tabular-nums;
+    min-width:1ch;
+    text-align:center;
+  }
+  .btn-grid{
+    display:flex;
+    gap:16px;
+    width:100%;
+    max-width:420px;
+    margin-bottom:20px;
+  }
+  .big-btn{
+    flex:1;
+    padding:26px 0;
+    border-radius:20px;
+    border:none;
+    font-size:32px;
+    font-weight:800;
+    color:#fff;
+    cursor:pointer;
+    -webkit-user-select:none;
+    user-select:none;
+  }
+  .big-btn.minus{ background:var(--minus); }
+  .big-btn.plus{ background:var(--plus); }
+  .big-btn:active{ filter:brightness(0.9); }
+  .reset-btn{
+    padding:12px 24px;
+    border-radius:12px;
+    border:1px solid rgba(255,255,255,0.14);
+    background:var(--card);
+    color:var(--sub);
+    font-size:14px;
+    font-weight:700;
+    cursor:pointer;
+  }
+</style>
+</head>
+<body>
+  <h1>🔢 タリーカウンター</h1>
+
+  <div class="tabs-wrap">
+    <div class="tabs" id="tabs"></div>
+  </div>
+
+  <div class="name-row">
+    <span class="name-text" id="nameText">カウンター</span>
+    <button class="rename-btn" id="renameBtn" type="button">名前変更</button>
+    <button class="delete-btn" id="deleteBtn" type="button">削除</button>
+  </div>
+
+  <div class="count-display" id="countDisplay">0</div>
+
+  <div class="btn-grid">
+    <button class="big-btn minus" id="minusBtn" type="button">－1</button>
+    <button class="big-btn plus" id="plusBtn" type="button">＋1</button>
+  </div>
+
+  <button class="reset-btn" id="resetBtn" type="button">リセット</button>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var STORE_KEY = "counters";
+  var LS_KEY = "tally-counter:" + STORE_KEY;
+
+  var tabsEl = document.getElementById("tabs");
+  var nameText = document.getElementById("nameText");
+  var renameBtn = document.getElementById("renameBtn");
+  var deleteBtn = document.getElementById("deleteBtn");
+  var countDisplay = document.getElementById("countDisplay");
+  var minusBtn = document.getElementById("minusBtn");
+  var plusBtn = document.getElementById("plusBtn");
+  var resetBtn = document.getElementById("resetBtn");
+
+  var state = {
+    counters: [{ id: 1, name: "カウンター1", count: 0 }],
+    activeId: 1,
+    nextId: 2
+  };
+
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify){
+      window.GUIOS.notify(msg, { type: type || "info" });
+    }
+  }
+  function haptic(){
+    if (window.GUIOS && window.GUIOS.haptic){
+      try { window.GUIOS.haptic(); } catch(e){}
+    }
+  }
+
+  async function loadState(){
+    try {
+      if (hasSDK){
+        var v = await window.GUIOS.storage.get(STORE_KEY);
+        if (v && typeof v === "object" && Array.isArray(v.counters) && v.counters.length > 0){
+          state = v;
+        }
+      } else {
+        var raw = localStorage.getItem(LS_KEY);
+        if (raw){
+          var parsed = JSON.parse(raw);
+          if (parsed && Array.isArray(parsed.counters) && parsed.counters.length > 0) state = parsed;
+        }
+      }
+    } catch(e){}
+    if (!state.counters.some(function(c){ return c.id === state.activeId; })){
+      state.activeId = state.counters[0].id;
+    }
+  }
+  async function saveState(){
+    try {
+      if (hasSDK){
+        await window.GUIOS.storage.set(STORE_KEY, state);
+      } else {
+        localStorage.setItem(LS_KEY, JSON.stringify(state));
+      }
+    } catch(e){}
+  }
+
+  function getActive(){
+    return state.counters.find(function(c){ return c.id === state.activeId; });
+  }
+
+  function renderTabs(){
+    tabsEl.innerHTML = "";
+    state.counters.forEach(function(c){
+      var tab = document.createElement("button");
+      tab.className = "tab" + (c.id === state.activeId ? " active" : "");
+      tab.type = "button";
+      tab.textContent = c.name;
+      tab.setAttribute("data-id", c.id);
+      tabsEl.appendChild(tab);
+    });
+    var addBtn = document.createElement("button");
+    addBtn.className = "tab-add";
+    addBtn.type = "button";
+    addBtn.id = "addTabBtn";
+    addBtn.textContent = "＋ 追加";
+    tabsEl.appendChild(addBtn);
+  }
+
+  function renderActive(){
+    var c = getActive();
+    nameText.textContent = c.name;
+    countDisplay.textContent = c.count;
+    deleteBtn.style.visibility = state.counters.length > 1 ? "visible" : "hidden";
+  }
+
+  function renderAll(){
+    renderTabs();
+    renderActive();
+  }
+
+  function changeCount(delta){
+    var c = getActive();
+    var next = c.count + delta;
+    if (next < 0) next = 0;
+    if (next === c.count) return;
+    c.count = next;
+    haptic();
+    renderActive();
+    saveState();
+  }
+
+  tabsEl.addEventListener("click", function(e){
+    var addBtn = e.target.closest("#addTabBtn");
+    if (addBtn){
+      addCounter();
+      return;
+    }
+    var tab = e.target.closest(".tab");
+    if (!tab) return;
+    var id = parseInt(tab.getAttribute("data-id"), 10);
+    if (id === state.activeId) return;
+    state.activeId = id;
+    renderAll();
+    saveState();
+  });
+
+  function addCounter(){
+    var name = "";
+    try {
+      name = window.prompt("新しいカウンターの名前を入力してください", "カウンター" + state.nextId);
+    } catch(e){}
+    if (name === null) return; // cancelled
+    name = (name || "").trim();
+    if (!name) name = "カウンター" + state.nextId;
+    var newCounter = { id: state.nextId, name: name, count: 0 };
+    state.counters.push(newCounter);
+    state.activeId = newCounter.id;
+    state.nextId += 1;
+    renderAll();
+    saveState();
+    notify("カウンターを追加しました", "success");
+  }
+
+  renameBtn.addEventListener("click", function(){
+    var c = getActive();
+    var name = "";
+    try {
+      name = window.prompt("カウンターの名前を変更", c.name);
+    } catch(e){}
+    if (name === null) return;
+    name = (name || "").trim();
+    if (!name) return;
+    c.name = name;
+    renderAll();
+    saveState();
+  });
+
+  deleteBtn.addEventListener("click", function(){
+    if (state.counters.length <= 1) return;
+    var c = getActive();
+    var ok = false;
+    try {
+      ok = window.confirm("「" + c.name + "」を削除しますか？この操作は取り消せません。");
+    } catch(e){ ok = true; }
+    if (!ok) return;
+    state.counters = state.counters.filter(function(x){ return x.id !== c.id; });
+    state.activeId = state.counters[0].id;
+    renderAll();
+    saveState();
+    notify("削除しました", "info");
+  });
+
+  minusBtn.addEventListener("click", function(){ changeCount(-1); });
+  plusBtn.addEventListener("click", function(){ changeCount(1); });
+
+  resetBtn.addEventListener("click", function(){
+    var c = getActive();
+    var ok = false;
+    try {
+      ok = window.confirm("「" + c.name + "」のカウントを0にリセットしますか？");
+    } catch(e){ ok = true; }
+    if (!ok) return;
+    c.count = 0;
+    renderActive();
+    saveState();
+    notify("リセットしました", "info");
+  });
+
+  (async function init(){
+    await loadState();
+    renderAll();
+  })();
+</script>
+</body>
+</html>

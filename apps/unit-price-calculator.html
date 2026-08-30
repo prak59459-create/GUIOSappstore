@@ -1,0 +1,273 @@
+<!--GUIOS-APP {"id":"unit-price-calculator","name":"単価計算機","icon":"🛍️","color":"#795548","version":"1.0.0","author":"Claude","description":"内容量と価格から単価を計算し、複数商品をお得さで比較できるツール。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>単価計算機</title>
+<style>
+  :root{
+    --accent:#a1887f;
+    --accent-deep:#795548;
+    --bg:#140f0c;
+    --card:#221a15;
+    --card2:#1a1310;
+    --text:#f5ece6;
+    --sub:#c3ac9e;
+    --line:rgba(255,255,255,0.08);
+    --best:#4caf7d;
+    --best-bg:rgba(76,175,125,0.14);
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text); min-height:100vh; padding:16px; padding-bottom:56px;
+  }
+  h1{ font-size:19px; margin:4px 0 10px; display:flex; align-items:center; gap:8px; }
+  .wrap{ max-width:620px; margin:0 auto; display:flex; flex-direction:column; gap:14px; }
+  .notice{
+    font-size:12px; color:var(--sub); background:var(--card2); border:1px solid var(--line);
+    border-radius:10px; padding:10px 12px; line-height:1.6;
+  }
+
+  .add-btn{
+    background:var(--accent); color:#1a0f08; border:none; border-radius:14px; font-weight:700;
+    font-size:15px; padding:14px; min-height:48px; cursor:pointer; width:100%;
+  }
+  .add-btn:active{ filter:brightness(1.1); }
+
+  .product-list{ display:flex; flex-direction:column; gap:12px; }
+  .product-card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px 16px;
+    display:flex; flex-direction:column; gap:10px; position:relative;
+  }
+  .product-card.best{ border-color:var(--best); background:var(--best-bg); }
+  .best-badge{
+    position:absolute; top:-10px; right:14px; background:var(--best); color:#04150c; font-size:11px;
+    font-weight:700; padding:3px 10px; border-radius:10px;
+  }
+  .row1{ display:flex; gap:8px; align-items:center; }
+  .row1 input[type="text"]{ flex:1; }
+  .del-btn{
+    background:var(--card2); border:1px solid var(--line); color:var(--sub); border-radius:10px;
+    min-width:40px; min-height:40px; font-size:16px; cursor:pointer; flex-shrink:0;
+  }
+  .field-grid{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
+  .field-grid .fg{ display:flex; flex-direction:column; gap:4px; }
+  .field-grid label{ font-size:11px; color:var(--sub); }
+  input[type="text"], input[type="number"]{
+    width:100%; background:var(--card2); border:1px solid var(--line); border-radius:10px;
+    color:var(--text); font-size:15px; padding:10px; height:44px; font-family:inherit;
+  }
+  input:focus{ outline:none; border-color:var(--accent); }
+  .result-row{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    background:var(--card2); border:1px solid var(--line); border-radius:10px; padding:10px 14px;
+  }
+  .result-label{ font-size:12px; color:var(--sub); }
+  .result-value{ font-size:18px; font-weight:700; font-variant-numeric:tabular-nums; }
+  .result-value.best-text{ color:var(--best); }
+
+  .empty{ text-align:center; color:var(--sub); font-size:13px; padding:30px 10px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🛍️ 単価計算機</h1>
+    <div class="notice">
+      価格と内容量を入力すると単価を自動計算します。g・ml・kg・lなどの単位は100あたり、個・本・枚などの単位は1つあたりで計算します。同じ単位の商品同士で最もお得なものを緑色でハイライトします。
+    </div>
+
+    <button class="add-btn" id="addBtn">＋ 商品を追加</button>
+
+    <div class="product-list" id="productList"></div>
+    <div class="empty" id="emptyMsg" hidden>商品がありません。追加してください。</div>
+  </div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var APP_ID = 'unit-price-calculator';
+  var FALLBACK_KEY = 'guios-fallback-' + APP_ID + '-products';
+
+  var PER_HUNDRED_UNITS = ['g','ml','cc','l','kg','グラム','ミリリットル','リットル','キログラム','キロ'];
+
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify) {
+      try { window.GUIOS.notify(msg, { type: type || 'info' }); return; } catch(e){}
+    }
+  }
+
+  function uid(){ return 'u' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+    });
+  }
+
+  var products = []; // {id, name, price, qty, unit}
+
+  async function loadProducts(){
+    if (hasSDK) {
+      try {
+        var v = await window.GUIOS.storage.get('products');
+        return Array.isArray(v) ? v : [];
+      } catch(e){ return []; }
+    } else {
+      try {
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch(e){ return []; }
+    }
+  }
+  function saveProducts(){
+    if (hasSDK) {
+      try { window.GUIOS.storage.set('products', products); } catch(e){}
+    } else {
+      try { localStorage.setItem(FALLBACK_KEY, JSON.stringify(products)); } catch(e){}
+    }
+  }
+
+  function isPerHundredUnit(unit){
+    var u = String(unit || '').trim().toLowerCase();
+    return PER_HUNDRED_UNITS.indexOf(u) !== -1;
+  }
+
+  function unitGroupKey(unit){
+    return String(unit || '').trim();
+  }
+
+  function computeUnitPrice(p){
+    var price = parseFloat(p.price);
+    var qty = parseFloat(p.qty);
+    if (!isFinite(price) || !isFinite(qty) || qty <= 0 || !p.unit || !p.unit.trim()) return null;
+    var perHundred = isPerHundredUnit(p.unit);
+    var base = perHundred ? 100 : 1;
+    var unitPrice = (price / qty) * base;
+    return { value: unitPrice, perHundred: perHundred, base: base };
+  }
+
+  function formatYen(n){
+    var rounded = Math.round(n * 100) / 100;
+    return '¥' + rounded.toLocaleString('ja-JP', { maximumFractionDigits: 2 });
+  }
+
+  function findBestIds(){
+    // group by unit text (only among entries with a valid computed price)
+    var groups = {};
+    products.forEach(function(p){
+      var res = computeUnitPrice(p);
+      if (!res) return;
+      var key = unitGroupKey(p.unit);
+      if (!groups[key]) groups[key] = [];
+      groups[key].push({ id: p.id, value: res.value });
+    });
+    var bestIds = {};
+    Object.keys(groups).forEach(function(key){
+      var list = groups[key];
+      if (list.length < 2) return; // need at least 2 to compare/highlight
+      var min = list.reduce(function(a,b){ return b.value < a.value ? b : a; });
+      bestIds[min.id] = true;
+    });
+    return bestIds;
+  }
+
+  function renderList(){
+    var listEl = document.getElementById('productList');
+    var emptyEl = document.getElementById('emptyMsg');
+    if (!products.length){
+      listEl.innerHTML = '';
+      emptyEl.hidden = false;
+      return;
+    }
+    emptyEl.hidden = true;
+    var bestIds = findBestIds();
+
+    listEl.innerHTML = products.map(function(p){
+      var res = computeUnitPrice(p);
+      var isBest = !!bestIds[p.id];
+      var resultHtml;
+      if (res) {
+        var label = (res.perHundred ? '100' : '1') + escapeHtml(p.unit.trim()) + 'あたり';
+        resultHtml =
+          '<div class="result-row">' +
+            '<div class="result-label">' + label + '</div>' +
+            '<div class="result-value' + (isBest ? ' best-text' : '') + '">' + formatYen(res.value) + '</div>' +
+          '</div>';
+      } else {
+        resultHtml = '<div class="result-row"><div class="result-label">価格・内容量・単位を入力してください</div></div>';
+      }
+      return '' +
+        '<div class="product-card' + (isBest ? ' best' : '') + '" data-id="' + p.id + '">' +
+          (isBest ? '<div class="best-badge">お得!</div>' : '') +
+          '<div class="row1">' +
+            '<input type="text" class="nameInput" data-id="' + p.id + '" placeholder="商品名(任意)" maxlength="40" value="' + escapeHtml(p.name || '') + '">' +
+            '<button class="del-btn" data-id="' + p.id + '">×</button>' +
+          '</div>' +
+          '<div class="field-grid">' +
+            '<div class="fg"><label>価格(円)</label><input type="number" inputmode="decimal" class="priceInput" data-id="' + p.id + '" min="0" step="0.01" value="' + (p.price !== undefined && p.price !== null ? p.price : '') + '"></div>' +
+            '<div class="fg"><label>内容量</label><input type="number" inputmode="decimal" class="qtyInput" data-id="' + p.id + '" min="0" step="0.01" value="' + (p.qty !== undefined && p.qty !== null ? p.qty : '') + '"></div>' +
+            '<div class="fg"><label>単位</label><input type="text" class="unitInput" data-id="' + p.id + '" placeholder="g/個/ml等" maxlength="10" value="' + escapeHtml(p.unit || '') + '"></div>' +
+          '</div>' +
+          resultHtml +
+        '</div>';
+    }).join('');
+
+    listEl.querySelectorAll('.nameInput').forEach(function(inp){
+      inp.addEventListener('input', function(){
+        var p = products.find(function(x){ return x.id === inp.dataset.id; });
+        if (p) { p.name = inp.value; saveProducts(); }
+      });
+    });
+    listEl.querySelectorAll('.priceInput').forEach(function(inp){
+      inp.addEventListener('input', function(){
+        var p = products.find(function(x){ return x.id === inp.dataset.id; });
+        if (p) { p.price = inp.value; saveProducts(); renderList(); }
+      });
+    });
+    listEl.querySelectorAll('.qtyInput').forEach(function(inp){
+      inp.addEventListener('input', function(){
+        var p = products.find(function(x){ return x.id === inp.dataset.id; });
+        if (p) { p.qty = inp.value; saveProducts(); renderList(); }
+      });
+    });
+    listEl.querySelectorAll('.unitInput').forEach(function(inp){
+      inp.addEventListener('input', function(){
+        var p = products.find(function(x){ return x.id === inp.dataset.id; });
+        if (p) { p.unit = inp.value; saveProducts(); renderList(); }
+      });
+    });
+    listEl.querySelectorAll('.del-btn').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        products = products.filter(function(p){ return p.id !== btn.dataset.id; });
+        saveProducts();
+        renderList();
+      });
+    });
+  }
+
+  document.getElementById('addBtn').addEventListener('click', function(){
+    products.push({ id: uid(), name: '', price: '', qty: '', unit: '' });
+    saveProducts();
+    renderList();
+    // focus the newly added row's name input
+    var list = document.getElementById('productList');
+    var last = list.querySelector('.product-card:last-child .nameInput');
+    if (last) last.focus();
+  });
+
+  (async function init(){
+    products = await loadProducts();
+    if (!products.length) {
+      products = [
+        { id: uid(), name: '', price: '', qty: '', unit: '' },
+        { id: uid(), name: '', price: '', qty: '', unit: '' }
+      ];
+    }
+    renderList();
+    if (window.GUIOS && window.GUIOS.setTitle) {
+      try { window.GUIOS.setTitle('単価計算機'); } catch(e){}
+    }
+  })();
+</script>
+</body>
+</html>

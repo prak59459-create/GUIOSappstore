@@ -1,0 +1,434 @@
+<!--GUIOS-APP {"id":"pong-game","name":"ポンゲーム","icon":"🏓","color":"#37474f","version":"1.0.0","author":"Claude","description":"自分のパドルでボールを打ち返す1人用ポン(卓球)ゲーム。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ポンゲーム</title>
+<style>
+  :root{
+    --accent:#4fc3f7;
+    --bg:#101418;
+    --card:#1a2127;
+    --card2:#151b20;
+    --text:#e7f1f5;
+    --sub:#8fa3ad;
+    --line:rgba(255,255,255,0.08);
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text); min-height:100vh; padding:14px; padding-bottom:30px;
+    overflow-x:hidden;
+  }
+  .wrap{ max-width:480px; margin:0 auto; display:flex; flex-direction:column; gap:10px; }
+  h1{ font-size:19px; margin:2px 0 0; display:flex; align-items:center; gap:8px; }
+
+  .info-row{ display:flex; gap:10px; }
+  .info-card{
+    flex:1; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:8px 12px;
+    text-align:center;
+  }
+  .info-card .lbl{ font-size:11px; color:var(--sub); }
+  .info-card .val{ font-size:20px; font-weight:700; font-variant-numeric:tabular-nums; }
+
+  .board-wrap{
+    width:100%; aspect-ratio:3/4; background:var(--card2); border-radius:14px; border:1px solid var(--line);
+    padding:6px; position:relative;
+  }
+  canvas{ width:100%; height:100%; display:block; border-radius:8px; touch-action:none; }
+
+  .ctrl-row{ display:flex; gap:10px; }
+  .ctrl-btn{
+    flex:1; padding:16px; border-radius:12px; border:1px solid var(--line); background:var(--card);
+    color:var(--text); font-size:26px; cursor:pointer; min-height:58px;
+  }
+  .ctrl-btn:active{ background:var(--accent); color:#062028; }
+
+  .btn-row{ display:flex; gap:10px; }
+  .btn{
+    flex:1; padding:14px; border-radius:12px; border:1px solid var(--line); font-size:14px; font-weight:700;
+    cursor:pointer; min-height:48px; background:var(--card2); color:var(--text);
+  }
+  .btn.primary{ background:var(--accent); color:#062028; border-color:var(--accent); }
+  .btn:active{ filter:brightness(1.15); }
+
+  .overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.75); display:flex; align-items:center;
+    justify-content:center; z-index:40; padding:20px;
+  }
+  .overlay[hidden]{ display:none; }
+  .modal{
+    background:var(--card); border-radius:18px; padding:26px 22px; text-align:center; max-width:320px; width:100%;
+  }
+  .modal h2{ font-size:22px; margin:0 0 10px; }
+  .modal h2.win{ color:#69f0ae; }
+  .modal h2.lose{ color:#ff8a80; }
+  .modal p{ font-size:14px; color:var(--sub); margin:4px 0; }
+  .modal button{
+    width:100%; margin-top:16px; padding:14px; border-radius:12px; border:none; background:var(--accent);
+    color:#062028; font-size:15px; font-weight:700; cursor:pointer; min-height:48px;
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🏓 ポンゲーム</h1>
+
+    <div class="info-row">
+      <div class="info-card"><div class="lbl">あなた</div><div class="val" id="playerScoreVal">0</div></div>
+      <div class="info-card"><div class="lbl">CPU</div><div class="val" id="cpuScoreVal">0</div></div>
+      <div class="info-card"><div class="lbl">戦績(勝-負)</div><div class="val" id="recordVal">0-0</div></div>
+    </div>
+
+    <div class="board-wrap">
+      <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <div class="ctrl-row">
+      <button class="ctrl-btn" id="btnUp">▲</button>
+      <button class="ctrl-btn" id="btnDown">▼</button>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn primary" id="startBtn">スタート</button>
+      <button class="btn" id="resetRecordBtn">戦績リセット</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="overOverlay" hidden>
+    <div class="modal">
+      <h2 id="overTitle">勝ち！</h2>
+      <p id="overScore">5 - 3</p>
+      <p id="overRecord">戦績: 0勝 0敗</p>
+      <button id="retryBtn">もう一度</button>
+    </div>
+  </div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var APP_ID = 'pong-game';
+  var FALLBACK_KEY = 'guios-fallback-' + APP_ID + '-record';
+
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify) {
+      try { window.GUIOS.notify(msg, { type: type || 'info' }); return; } catch(e){}
+    }
+    var t = document.createElement('div');
+    t.textContent = msg;
+    t.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1a2127;color:#e7f1f5;padding:10px 18px;border-radius:10px;font-size:13px;z-index:200;box-shadow:0 6px 18px rgba(0,0,0,.4);';
+    document.body.appendChild(t);
+    setTimeout(function(){ t.remove(); }, 2500);
+  }
+  function haptic(){
+    if (window.GUIOS && window.GUIOS.haptic) {
+      try { window.GUIOS.haptic(); } catch(e){}
+    }
+  }
+
+  async function loadRecord(){
+    var def = { win:0, lose:0 };
+    if (hasSDK) {
+      try {
+        var v = await window.GUIOS.storage.get('record');
+        if (v && typeof v === 'object') return Object.assign(def, v);
+        return def;
+      } catch(e){ return def; }
+    } else {
+      try {
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        if (raw) return Object.assign(def, JSON.parse(raw));
+        return def;
+      } catch(e){ return def; }
+    }
+  }
+  async function saveRecord(rec){
+    if (hasSDK) {
+      try { await window.GUIOS.storage.set('record', rec); } catch(e){}
+    } else {
+      try { localStorage.setItem(FALLBACK_KEY, JSON.stringify(rec)); } catch(e){}
+    }
+  }
+
+  var canvas = document.getElementById('gameCanvas');
+  var ctx = canvas.getContext('2d');
+  var W = 0, H = 0;
+
+  function resizeCanvas(){
+    var wrap = canvas.parentElement;
+    var w = wrap.clientWidth - 12;
+    var h = wrap.clientHeight - 12;
+    var dpr = window.devicePixelRatio || 1;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    W = w; H = h;
+    layoutEntities();
+    draw();
+  }
+
+  var WIN_SCORE = 5;
+  var record = { win:0, lose:0 };
+  // Classic left/right pong layout: CPU paddle on the left edge, player paddle on the right edge.
+  // Paddles are vertical bars that move up/down (Y axis). Ball travels mainly along the X axis.
+  var player, cpu, ball, playerScore, cpuScore, gameRunning, rafId, lastTime;
+  var paddleThick, paddleLen, ballR, margin;
+
+  function layoutEntities(){
+    paddleThick = Math.max(8, W*0.035);
+    paddleLen = Math.min(110, H*0.2);
+    ballR = Math.max(6, Math.min(W,H)*0.02);
+    margin = 6;
+    if (!player) player = { y: H/2 - paddleLen/2, targetY: H/2 - paddleLen/2 };
+    if (!cpu) cpu = { y: H/2 - paddleLen/2 };
+    player.y = clamp(player.y, 0, H-paddleLen);
+    cpu.y = clamp(cpu.y, 0, H-paddleLen);
+    if (!ball) ball = { x: W/2, y: H/2, vx: 0, vy: 0 };
+  }
+
+  function clamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
+
+  function resetBall(towardPlayer){
+    ball.x = W/2;
+    ball.y = H/2;
+    var speed = Math.max(3, Math.min(W,H)*0.007) * 60; // px/sec baseline
+    var angle = (Math.random()*0.6 - 0.3); // slight vertical variance
+    var dir = towardPlayer ? 1 : -1;
+    ball.vx = Math.cos(angle) * speed * dir;
+    ball.vy = Math.sin(angle) * speed * (Math.random() < 0.5 ? 1 : -1);
+  }
+
+  function resetState(){
+    playerScore = 0;
+    cpuScore = 0;
+    gameRunning = false;
+    layoutEntities();
+    player.y = H/2 - paddleLen/2;
+    player.targetY = player.y;
+    cpu.y = H/2 - paddleLen/2;
+    resetBall(Math.random() < 0.5);
+    updateHud();
+  }
+
+  function updateHud(){
+    document.getElementById('playerScoreVal').textContent = playerScore;
+    document.getElementById('cpuScoreVal').textContent = cpuScore;
+    document.getElementById('recordVal').textContent = record.win + '-' + record.lose;
+  }
+
+  function draw(){
+    ctx.fillStyle = '#0c1013';
+    ctx.fillRect(0,0,W,H);
+
+    // center dashed line (net)
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8,8]);
+    ctx.beginPath();
+    ctx.moveTo(W/2, 0);
+    ctx.lineTo(W/2, H);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // cpu paddle (left edge)
+    ctx.fillStyle = '#ff8a65';
+    roundRect(margin, cpu.y, paddleThick, paddleLen, 6);
+    ctx.fill();
+
+    // player paddle (right edge)
+    ctx.fillStyle = '#4fc3f7';
+    roundRect(W - margin - paddleThick, player.y, paddleThick, paddleLen, 6);
+    ctx.fill();
+
+    // ball
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(ball.x, ball.y, ballR, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  function roundRect(x,y,w,h,r){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r);
+    ctx.closePath();
+  }
+
+  function movePlayerTo(py){
+    player.targetY = clamp(py - paddleLen/2, 0, H - paddleLen);
+  }
+  function nudgePlayer(dir){
+    var step = paddleLen * 0.5;
+    var base = (player.targetY !== undefined) ? player.targetY : player.y;
+    player.targetY = clamp(base + dir*step, 0, H - paddleLen);
+  }
+
+  function update(dt){
+    var dtS = dt/1000;
+
+    // smooth player movement toward target (drag/keys/buttons all set targetY)
+    if (player.targetY === undefined) player.targetY = player.y;
+    player.y += (player.targetY - player.y) * Math.min(1, dt/60);
+    player.y = clamp(player.y, 0, H - paddleLen);
+
+    // cpu AI: track ball y with capped speed (beatable, not perfect)
+    var cpuCenter = cpu.y + paddleLen/2;
+    var diff = ball.y - cpuCenter;
+    var cpuSpeed = Math.max(2, Math.min(W,H)*0.0055) * 60; // px/sec, capped
+    var maxMove = cpuSpeed * dtS;
+    if (Math.abs(diff) < maxMove) cpu.y = ball.y - paddleLen/2;
+    else cpu.y += Math.sign(diff) * maxMove;
+    cpu.y = clamp(cpu.y, 0, H - paddleLen);
+
+    ball.x += ball.vx * dtS;
+    ball.y += ball.vy * dtS;
+
+    // bounce off top/bottom walls
+    if (ball.y - ballR < 0){ ball.y = ballR; ball.vy *= -1; }
+    else if (ball.y + ballR > H){ ball.y = H - ballR; ball.vy *= -1; }
+
+    // cpu paddle collision (left)
+    var cpuFace = margin + paddleThick;
+    if (ball.vx < 0 && ball.x - ballR <= cpuFace && ball.x - ballR >= margin){
+      if (ball.y >= cpu.y && ball.y <= cpu.y + paddleLen){
+        var hitPos = (ball.y - (cpu.y + paddleLen/2)) / (paddleLen/2); // -1..1
+        var speed = Math.hypot(ball.vx, ball.vy) * 1.05;
+        var angle = hitPos * (Math.PI/3); // up to 60deg
+        ball.vx = Math.abs(Math.cos(angle) * speed);
+        ball.vy = Math.sin(angle) * speed;
+        ball.x = cpuFace + ballR;
+      }
+    }
+
+    // player paddle collision (right)
+    var playerFace = W - margin - paddleThick;
+    if (ball.vx > 0 && ball.x + ballR >= playerFace && ball.x + ballR <= W - margin){
+      if (ball.y >= player.y && ball.y <= player.y + paddleLen){
+        var hitPos2 = (ball.y - (player.y + paddleLen/2)) / (paddleLen/2);
+        var speed2 = Math.hypot(ball.vx, ball.vy) * 1.05;
+        var angle2 = hitPos2 * (Math.PI/3);
+        ball.vx = -Math.abs(Math.cos(angle2) * speed2);
+        ball.vy = Math.sin(angle2) * speed2;
+        ball.x = playerFace - ballR;
+        haptic();
+      }
+    }
+
+    // scoring: ball passes left edge (cpu missed) -> player scores; passes right edge (player missed) -> cpu scores
+    if (ball.x < -ballR*2){
+      playerScore += 1;
+      updateHud();
+      if (playerScore >= WIN_SCORE){ finishGame(true); return; }
+      resetBall(false);
+    } else if (ball.x > W + ballR*2){
+      cpuScore += 1;
+      updateHud();
+      if (cpuScore >= WIN_SCORE){ finishGame(false); return; }
+      resetBall(true);
+    }
+  }
+
+  function loop(ts){
+    if (!gameRunning) return;
+    if (!lastTime) lastTime = ts;
+    var dt = ts - lastTime;
+    lastTime = ts;
+    if (dt > 100) dt = 100;
+    update(dt);
+    draw();
+    if (gameRunning) rafId = requestAnimationFrame(loop);
+  }
+
+  function startLoop(){
+    stopLoop();
+    lastTime = 0;
+    rafId = requestAnimationFrame(loop);
+  }
+  function stopLoop(){
+    if (rafId !== null){ cancelAnimationFrame(rafId); rafId = null; }
+  }
+
+  var rafId = null;
+
+  async function finishGame(playerWon){
+    gameRunning = false;
+    stopLoop();
+    haptic();
+    if (playerWon) record.win += 1; else record.lose += 1;
+    await saveRecord(record);
+    updateHud();
+    var overlay = document.getElementById('overOverlay');
+    var titleEl = document.getElementById('overTitle');
+    titleEl.textContent = playerWon ? '勝ち！' : '負け…';
+    titleEl.className = playerWon ? 'win' : 'lose';
+    document.getElementById('overScore').textContent = 'スコア ' + playerScore + ' - ' + cpuScore;
+    document.getElementById('overRecord').textContent = '戦績: ' + record.win + '勝 ' + record.lose + '敗';
+    overlay.hidden = false;
+    notify(playerWon ? '勝利！' : '敗北…', playerWon ? 'success' : 'error');
+  }
+
+  function startGame(){
+    document.getElementById('overOverlay').hidden = true;
+    stopLoop();
+    resetState();
+    gameRunning = true;
+    draw();
+    startLoop();
+  }
+
+  document.getElementById('startBtn').addEventListener('click', startGame);
+  document.getElementById('retryBtn').addEventListener('click', startGame);
+  document.getElementById('btnUp').addEventListener('click', function(){ nudgePlayer(-1); });
+  document.getElementById('btnDown').addEventListener('click', function(){ nudgePlayer(1); });
+
+  document.getElementById('resetRecordBtn').addEventListener('click', async function(){
+    record = { win:0, lose:0 };
+    await saveRecord(record);
+    updateHud();
+    notify('戦績をリセットしました', 'info');
+  });
+
+  window.addEventListener('keydown', function(e){
+    if (!gameRunning) return;
+    if (e.key === 'ArrowUp'){ e.preventDefault(); nudgePlayer(-1); }
+    else if (e.key === 'ArrowDown'){ e.preventDefault(); nudgePlayer(1); }
+  }, { passive:false });
+
+  // vertical drag/touch on canvas moves the paddle to the touch Y position
+  function handlePointer(clientY){
+    var rect = canvas.getBoundingClientRect();
+    var relY = clientY - rect.top;
+    movePlayerTo(relY);
+  }
+  canvas.addEventListener('touchstart', function(e){
+    if (!gameRunning || !e.touches || !e.touches.length) return;
+    handlePointer(e.touches[0].clientY);
+  }, { passive:true });
+  canvas.addEventListener('touchmove', function(e){
+    if (!gameRunning || !e.touches || !e.touches.length) return;
+    handlePointer(e.touches[0].clientY);
+  }, { passive:true });
+
+  var mouseDown = false;
+  canvas.addEventListener('mousedown', function(e){ mouseDown = true; if (gameRunning) handlePointer(e.clientY); });
+  window.addEventListener('mousemove', function(e){ if (mouseDown && gameRunning) handlePointer(e.clientY); });
+  window.addEventListener('mouseup', function(){ mouseDown = false; });
+
+  window.addEventListener('resize', resizeCanvas);
+  window.addEventListener('beforeunload', stopLoop);
+  window.addEventListener('pagehide', stopLoop);
+
+  (async function init(){
+    record = await loadRecord();
+    resetState();
+    resizeCanvas();
+    updateHud();
+  })();
+</script>
+</body>
+</html>

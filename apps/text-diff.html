@@ -1,0 +1,208 @@
+<!--GUIOS-APP {"id":"text-diff","name":"テキスト差分チェッカー","icon":"🔍","color":"#3a6b6b","version":"1.0.0","author":"Claude","description":"2つのテキストを比較して追加・削除された行を色分け表示するツール。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>テキスト差分チェッカー</title>
+<style>
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ overflow-x:hidden; }
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:#0e1717; color:#e4f2f2; min-height:100vh; padding:16px; padding-bottom:32px;
+  }
+  h1{ font-size:18px; margin:0 0 14px; color:#7fcaca; }
+  .inputs{ display:flex; flex-direction:column; gap:14px; margin-bottom:14px; }
+  @media (min-width: 700px){
+    .inputs{ flex-direction:row; }
+    .inputs > div{ flex:1; }
+  }
+  label{ display:block; font-size:13px; color:#9dc2c2; margin-bottom:6px; }
+  textarea{
+    width:100%; min-height:18vh; padding:12px; border-radius:14px; border:1px solid #204040;
+    background:#0a1212; color:#e4f2f2; font-size:14px; line-height:1.5; resize:vertical;
+    font-family:ui-monospace,Menlo,Consolas,monospace;
+  }
+  .btn-row{ display:flex; gap:10px; margin-bottom:14px; }
+  .btn{
+    flex:1; padding:14px; border-radius:12px; border:none; background:#1e3a3a;
+    color:#d4ecec; font-weight:700; font-size:15px; cursor:pointer; min-height:48px;
+  }
+  .btn.primary{ background:#3a6b6b; color:#eafbfb; }
+  .summary{
+    font-size:13px; color:#b8dcdc; margin-bottom:10px; display:flex; gap:14px; flex-wrap:wrap;
+  }
+  .summary .add{ color:#7de89b; font-weight:700; }
+  .summary .del{ color:#ff9a9a; font-weight:700; }
+  .diff-box{
+    background:#0a1212; border:1px solid #204040; border-radius:14px; padding:6px;
+    overflow-x:auto; font-family:ui-monospace,Menlo,Consolas,monospace; font-size:13px;
+    line-height:1.6; max-height:50vh; overflow-y:auto;
+  }
+  .diff-line{ display:flex; white-space:pre; padding:1px 8px; border-radius:4px; }
+  .diff-line .mark{ width:1.4em; flex-shrink:0; opacity:.85; }
+  .diff-line.add{ background:rgba(70,180,110,.22); color:#c9f5d6; }
+  .diff-line.del{ background:rgba(200,70,70,.22); color:#ffd2d2; }
+  .diff-line.same{ color:#9fbdbd; }
+  .diff-line .txt{ overflow-wrap:anywhere; white-space:pre-wrap; }
+  .empty-msg{ color:#6f9494; font-size:13px; padding:12px; text-align:center; }
+  .toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:#182828; color:#e4f2f2; padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; transition:opacity .25s, transform .25s; pointer-events:none;
+    max-width:90%; text-align:center; box-shadow:0 6px 18px rgba(0,0,0,.35); z-index:100;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+  <h1>🔍 テキスト差分チェッカー</h1>
+
+  <div class="inputs">
+    <div>
+      <label for="textA">テキストA</label>
+      <textarea id="textA" placeholder="比較元のテキストを入力"></textarea>
+    </div>
+    <div>
+      <label for="textB">テキストB</label>
+      <textarea id="textB" placeholder="比較先のテキストを入力"></textarea>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn primary" id="compareBtn">⚖️ 比較</button>
+    <button class="btn" id="copyBtn">📋 コピー</button>
+  </div>
+
+  <div class="summary" id="summary"></div>
+  <div class="diff-box" id="diffBox">
+    <div class="empty-msg">「比較」を押すと差分がここに表示されます</div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  var textA = document.getElementById('textA');
+  var textB = document.getElementById('textB');
+  var diffBox = document.getElementById('diffBox');
+  var summary = document.getElementById('summary');
+  var toastEl = document.getElementById('toast');
+  var toastTimer = null;
+  var lastDiffText = '';
+
+  function showToastFallback(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ toastEl.classList.remove('show'); }, 1800);
+  }
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify) {
+      try { window.GUIOS.notify(msg, { type: type || 'info' }); return; } catch(e){}
+    }
+    showToastFallback(msg);
+  }
+  function copyText(text){
+    if (window.GUIOS && window.GUIOS.clipboard && window.GUIOS.clipboard.writeText) {
+      try { window.GUIOS.clipboard.writeText(text); return true; } catch(e){}
+    }
+    try { navigator.clipboard.writeText(text); return true; } catch(e){}
+    return false;
+  }
+  function escapeHtml(s){
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
+  // LCS-based line diff
+  function diffLines(a, b){
+    var linesA = a.split('\n');
+    var linesB = b.split('\n');
+    var n = linesA.length, m = linesB.length;
+
+    var MAX_CELLS = 6000000; // guard against pathological input sizes
+    if (n * m > MAX_CELLS) {
+      return null; // signal "too large"
+    }
+
+    // dp[i][j] = length of LCS of linesA[i:], linesB[j:]
+    var dp = new Array(n + 1);
+    for (var i = 0; i <= n; i++) dp[i] = new Int32Array(m + 1);
+    for (var i2 = n - 1; i2 >= 0; i2--) {
+      for (var j2 = m - 1; j2 >= 0; j2--) {
+        if (linesA[i2] === linesB[j2]) {
+          dp[i2][j2] = dp[i2+1][j2+1] + 1;
+        } else {
+          dp[i2][j2] = Math.max(dp[i2+1][j2], dp[i2][j2+1]);
+        }
+      }
+    }
+
+    var result = [];
+    var i = 0, j = 0;
+    while (i < n && j < m) {
+      if (linesA[i] === linesB[j]) {
+        result.push({ type: 'same', text: linesA[i] });
+        i++; j++;
+      } else if (dp[i+1][j] >= dp[i][j+1]) {
+        result.push({ type: 'del', text: linesA[i] });
+        i++;
+      } else {
+        result.push({ type: 'add', text: linesB[j] });
+        j++;
+      }
+    }
+    while (i < n) { result.push({ type: 'del', text: linesA[i] }); i++; }
+    while (j < m) { result.push({ type: 'add', text: linesB[j] }); j++; }
+    return result;
+  }
+
+  function renderDiff(){
+    var a = textA.value;
+    var b = textB.value;
+    if (!a && !b) {
+      notify('比較するテキストを入力してください', 'error');
+      return;
+    }
+    var ops = diffLines(a, b);
+    if (ops === null) {
+      diffBox.innerHTML = '<div class="empty-msg">テキストが大きすぎて比較できません。短くしてお試しください。</div>';
+      summary.textContent = '';
+      lastDiffText = '';
+      return;
+    }
+
+    var addCount = 0, delCount = 0;
+    var html = '';
+    var plainLines = [];
+    for (var k = 0; k < ops.length; k++) {
+      var op = ops[k];
+      var cls, mark, prefix;
+      if (op.type === 'add') { cls = 'add'; mark = '+'; prefix = '+ '; addCount++; }
+      else if (op.type === 'del') { cls = 'del'; mark = '-'; prefix = '- '; delCount++; }
+      else { cls = 'same'; mark = ' '; prefix = '  '; }
+      html += '<div class="diff-line ' + cls + '"><span class="mark">' + mark + '</span><span class="txt">' +
+              escapeHtml(op.text.length ? op.text : ' ') + '</span></div>';
+      plainLines.push(prefix + op.text);
+    }
+    diffBox.innerHTML = html || '<div class="empty-msg">差分はありません</div>';
+    summary.innerHTML = '<span class="add">+' + addCount + '行</span><span class="del">-' + delCount + '行</span>' +
+      (addCount === 0 && delCount === 0 ? '<span>完全に一致しています</span>' : '');
+    lastDiffText = plainLines.join('\n');
+  }
+
+  document.getElementById('compareBtn').addEventListener('click', renderDiff);
+
+  document.getElementById('copyBtn').addEventListener('click', function(){
+    if (!lastDiffText) {
+      notify('コピーする差分がありません。先に比較してください', 'error');
+      return;
+    }
+    copyText(lastDiffText);
+    notify('差分結果をコピーしました', 'success');
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,235 @@
+<!--GUIOS-APP {"id":"url-encoder","name":"URLエンコード/デコード","icon":"🔗","color":"#34618e","version":"1.0.0","author":"Claude","description":"文字列をURLエンコード・デコードできるシンプルな変換ツール。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>URLエンコード/デコード</title>
+<style>
+  :root{
+    --accent:#34618e;
+    --bg:#0f151b;
+    --card:#17222c;
+    --text:#eaf1f7;
+    --sub:#a3b8c9;
+    --line:#263744;
+    --err:#e05a5a;
+    --ok:#4caf7d;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    padding:16px; padding-bottom:40px;
+  }
+  h1{font-size:20px; margin:4px 0 16px; display:flex; align-items:center; gap:8px;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:16px; margin-bottom:16px;
+  }
+  label{display:block; font-size:13px; color:var(--sub); margin-bottom:6px;}
+  textarea{
+    width:100%; min-height:110px; padding:12px 14px; border-radius:10px; border:1px solid var(--line);
+    background:#0b1218; color:var(--text); font-size:15px; outline:none; resize:vertical;
+    font-family:inherit; line-height:1.5;
+  }
+  textarea:focus{border-color:var(--accent);}
+  .modeRow{display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;}
+  .modeRow button{
+    flex:1; min-width:80px; padding:10px 6px; border-radius:10px; border:1px solid var(--line);
+    background:transparent; color:var(--sub); font-weight:700; font-size:13px; cursor:pointer; min-height:44px;
+  }
+  .modeRow button.active{background:var(--accent); color:#eaf1f7; border-color:var(--accent);}
+  .actionsRow{display:flex; gap:10px; margin-top:14px; flex-wrap:wrap;}
+  .actionsRow button{
+    flex:1; min-width:100px; padding:12px 10px; border-radius:10px; border:none;
+    background:var(--accent); color:#eaf1f7; font-weight:800; font-size:15px; cursor:pointer; min-height:48px;
+  }
+  .actionsRow button.secondary{
+    background:transparent; border:1px solid var(--line); color:var(--text);
+  }
+  .fnRow{display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;}
+  .fnRow label{
+    display:flex; align-items:center; gap:6px; font-size:12px; color:var(--sub);
+    background:#0b1218; border:1px solid var(--line); border-radius:8px; padding:8px 10px; min-height:36px;
+  }
+  .fnRow input[type=radio]{width:16px; height:16px;}
+  .status{
+    margin-top:10px; font-size:13px; min-height:18px;
+  }
+  .status.err{color:var(--err);}
+  .status.ok{color:var(--ok);}
+  .section-title{font-size:13px; color:var(--sub); margin:0 0 8px; font-weight:700;}
+</style>
+</head>
+<body>
+  <h1>🔗 URLエンコード/デコード</h1>
+
+  <div class="card">
+    <p class="section-title">変換方式</p>
+    <div class="fnRow">
+      <label><input type="radio" name="fn" value="component" checked> encodeURIComponent（推奨・全体対応）</label>
+      <label><input type="radio" name="fn" value="uri"> encodeURI（URL全体用・記号は保持）</label>
+    </div>
+
+    <div class="modeRow">
+      <button type="button" id="btnEncode" class="active">エンコード</button>
+      <button type="button" id="btnDecode">デコード</button>
+    </div>
+
+    <label for="input">入力</label>
+    <textarea id="input" placeholder="ここに文字列を入力してください"></textarea>
+
+    <div class="actionsRow">
+      <button type="button" id="btnRun">変換する</button>
+      <button type="button" id="btnClear" class="secondary">クリア</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <label for="output">出力</label>
+    <textarea id="output" readonly placeholder="変換結果がここに表示されます"></textarea>
+    <div class="actionsRow">
+      <button type="button" id="btnCopy" class="secondary">コピー</button>
+    </div>
+    <div class="status" id="status"></div>
+  </div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var STORAGE_KEY = 'lastState';
+  var FALLBACK_KEY = 'guios-fallback-url-encoder-lastState';
+
+  var inputEl = document.getElementById('input');
+  var outputEl = document.getElementById('output');
+  var statusEl = document.getElementById('status');
+  var btnEncode = document.getElementById('btnEncode');
+  var btnDecode = document.getElementById('btnDecode');
+
+  var mode = 'encode';
+
+  function notify(msg, opts){
+    if(window.GUIOS && typeof GUIOS.notify === 'function'){
+      try{ GUIOS.notify(msg, opts); return; }catch(e){}
+    }
+    statusEl.textContent = msg;
+  }
+
+  function setMode(m){
+    mode = m;
+    btnEncode.classList.toggle('active', m === 'encode');
+    btnDecode.classList.toggle('active', m === 'decode');
+    save();
+  }
+
+  function getFn(){
+    var radios = document.getElementsByName('fn');
+    for(var i=0;i<radios.length;i++){ if(radios[i].checked) return radios[i].value; }
+    return 'component';
+  }
+
+  function run(){
+    var text = inputEl.value;
+    var fn = getFn();
+    statusEl.className = 'status';
+    if(text === ''){
+      outputEl.value = '';
+      statusEl.textContent = '';
+      save();
+      return;
+    }
+    try{
+      var result;
+      if(mode === 'encode'){
+        result = (fn === 'uri') ? encodeURI(text) : encodeURIComponent(text);
+      } else {
+        result = (fn === 'uri') ? decodeURI(text) : decodeURIComponent(text);
+      }
+      outputEl.value = result;
+      statusEl.textContent = '変換しました。';
+      statusEl.className = 'status ok';
+    }catch(e){
+      outputEl.value = '';
+      if(e instanceof URIError){
+        statusEl.textContent = 'エラー: 不正な形式の文字列です。デコードできませんでした（% の後に正しい16進コードが続いているか確認してください）。';
+      } else {
+        statusEl.textContent = 'エラー: 変換に失敗しました。';
+      }
+      statusEl.className = 'status err';
+    }
+    save();
+  }
+
+  function clearAll(){
+    inputEl.value = '';
+    outputEl.value = '';
+    statusEl.textContent = '';
+    statusEl.className = 'status';
+    save();
+  }
+
+  async function copyOutput(){
+    var text = outputEl.value;
+    if(!text){ notify('コピーする内容がありません', {type:'error'}); return; }
+    var ok = false;
+    if(window.GUIOS && GUIOS.clipboard && typeof GUIOS.clipboard.writeText === 'function'){
+      try{ await GUIOS.clipboard.writeText(text); ok = true; }catch(e){}
+    }
+    if(!ok && navigator.clipboard && navigator.clipboard.writeText){
+      try{ await navigator.clipboard.writeText(text); ok = true; }catch(e){}
+    }
+    if(ok){ notify('コピーしました', {type:'success'}); }
+    else{ notify('コピーできませんでした', {type:'error'}); }
+  }
+
+  var saveTimer = null;
+  function save(){
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(async function(){
+      var data = { input: inputEl.value, mode: mode, fn: getFn() };
+      if(hasSDK){
+        try{ await GUIOS.storage.set(STORAGE_KEY, data); }catch(e){}
+      } else {
+        try{ localStorage.setItem(FALLBACK_KEY, JSON.stringify(data)); }catch(e){}
+      }
+    }, 300);
+  }
+
+  async function restore(){
+    var data = null;
+    if(hasSDK){
+      try{ data = await GUIOS.storage.get(STORAGE_KEY); }catch(e){}
+    } else {
+      try{
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        data = raw ? JSON.parse(raw) : null;
+      }catch(e){}
+    }
+    if(data){
+      if(typeof data.input === 'string') inputEl.value = data.input;
+      if(data.mode) setMode(data.mode);
+      if(data.fn){
+        var radios = document.getElementsByName('fn');
+        for(var i=0;i<radios.length;i++){ radios[i].checked = (radios[i].value === data.fn); }
+      }
+    }
+    run();
+  }
+
+  btnEncode.addEventListener('click', function(){ setMode('encode'); run(); });
+  btnDecode.addEventListener('click', function(){ setMode('decode'); run(); });
+  document.getElementById('btnRun').addEventListener('click', run);
+  document.getElementById('btnClear').addEventListener('click', clearAll);
+  document.getElementById('btnCopy').addEventListener('click', copyOutput);
+  var radios = document.getElementsByName('fn');
+  for(var i=0;i<radios.length;i++){ radios[i].addEventListener('change', function(){ save(); run(); }); }
+
+  if(window.GUIOS && typeof GUIOS.setTitle === 'function'){
+    try{ GUIOS.setTitle('URLエンコード/デコード'); }catch(e){}
+  }
+
+  restore();
+</script>
+</body>
+</html>

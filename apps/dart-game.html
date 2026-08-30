@@ -1,0 +1,313 @@
+<!--GUIOS-APP {"id":"dart-game","name":"ダーツゲーム","icon":"🎯","color":"#c62828","version":"1.0.0","author":"Claude","description":"タイミングよくタップしてダーツを的の中心に当てるゲーム。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ダーツゲーム</title>
+<style>
+  :root{
+    --accent:#e53935;
+    --bg:#171010;
+    --card:#211717;
+    --card2:#1b1414;
+    --text:#f2f2f2;
+    --sub:#b09a9a;
+    --line:rgba(255,255,255,0.09);
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text); min-height:100vh; padding:14px; padding-bottom:40px;
+  }
+  .wrap{ max-width:480px; margin:0 auto; display:flex; flex-direction:column; gap:12px; }
+  h1{ font-size:19px; margin:2px 0 0; display:flex; align-items:center; gap:8px; }
+
+  .score-row{ display:flex; gap:10px; }
+  .score-card{
+    flex:1; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:10px 12px;
+    text-align:center;
+  }
+  .score-card .lbl{ font-size:11px; color:var(--sub); }
+  .score-card .val{ font-size:22px; font-weight:800; font-variant-numeric:tabular-nums; margin-top:2px; }
+
+  .board-area{ position:relative; width:100%; max-width:320px; aspect-ratio:1/1; margin:6px auto; }
+  .ring{ position:absolute; border-radius:50%; }
+  .ring.r1{ inset:0%; background:#3a3a3a; }
+  .ring.r3{ inset:15%; background:#c9a227; }
+  .ring.r5{ inset:34%; background:#2e7d32; }
+  .ring.r10{ inset:56%; background:#c62828; box-shadow:0 0 14px rgba(198,40,40,0.7); }
+  .ring-label{ position:absolute; font-size:10px; color:#eee; font-weight:700; text-shadow:0 1px 2px rgba(0,0,0,0.6); }
+  .center-dot{ position:absolute; inset:78%; background:#fff2; border-radius:50%; }
+
+  .dart-mark{ position:absolute; width:10px; height:10px; margin-left:-5px; margin-top:-5px; border-radius:50%; background:#fff; border:2px solid #222; box-shadow:0 0 4px rgba(0,0,0,0.5); pointer-events:none; }
+
+  .gauge-wrap{ background:var(--card); border-radius:14px; padding:12px; border:1px solid var(--line); }
+  .gauge-label{ font-size:12px; color:var(--sub); text-align:center; margin-bottom:8px; }
+  .gauge-track{ position:relative; height:26px; border-radius:13px; overflow:hidden; background:linear-gradient(90deg,#3a3a3a 0%, #3a3a3a 15%, #c9a227 15%, #c9a227 34%, #2e7d32 34%, #2e7d32 56%, #c62828 56%, #c62828 66%, #2e7d32 66%, #2e7d32 84%, #c9a227 84%, #c9a227 92%, #3a3a3a 92%, #3a3a3a 100%); }
+  .gauge-marker{ position:absolute; top:-3px; width:4px; height:32px; background:#fff; border-radius:2px; box-shadow:0 0 6px rgba(255,255,255,0.8); left:50%; }
+
+  .throw-list{ display:flex; gap:6px; flex-wrap:wrap; justify-content:center; min-height:24px; }
+  .throw-chip{ background:var(--card2); border:1px solid var(--line); border-radius:8px; padding:4px 9px; font-size:12px; font-variant-numeric:tabular-nums; }
+
+  .status{ text-align:center; font-size:13px; color:var(--sub); min-height:18px; }
+
+  .btn-row{ display:flex; gap:10px; }
+  .btn{
+    flex:1; padding:15px; border-radius:12px; border:1px solid var(--line); font-size:15px; font-weight:700;
+    cursor:pointer; min-height:52px; background:var(--card2); color:var(--text);
+  }
+  .btn.primary{ background:var(--accent); color:#2a0505; border-color:var(--accent); }
+  .btn.danger{ color:#ff8a8a; }
+  .btn:active{ filter:brightness(1.15); }
+  .btn:disabled{ opacity:0.4; cursor:default; }
+
+  .overlay{ position:fixed; inset:0; background:rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; z-index:40; padding:20px; }
+  .overlay[hidden]{ display:none; }
+  .modal{ background:var(--card); border-radius:18px; padding:26px 22px; text-align:center; max-width:340px; width:100%; }
+  .modal h2{ font-size:24px; margin:0 0 8px; }
+  .modal p{ font-size:14px; color:var(--sub); margin:0 0 18px; }
+  .modal button{ width:100%; padding:14px; border-radius:12px; border:none; background:var(--accent); color:#2a0505; font-size:15px; font-weight:700; cursor:pointer; min-height:48px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🎯 ダーツゲーム</h1>
+
+    <div class="score-row">
+      <div class="score-card"><div class="lbl">残り投数</div><div class="val" id="throwsLeft">5</div></div>
+      <div class="score-card"><div class="lbl">合計スコア</div><div class="val" id="totalScore">0</div></div>
+      <div class="score-card"><div class="lbl">ハイスコア</div><div class="val" id="highScore">0</div></div>
+    </div>
+
+    <div class="board-area" id="boardArea">
+      <div class="ring r1"></div>
+      <div class="ring r3"></div>
+      <div class="ring r5"></div>
+      <div class="ring r10"></div>
+      <div class="center-dot"></div>
+    </div>
+
+    <div class="gauge-wrap">
+      <div class="gauge-label">タイミングよくタップして投げよう！</div>
+      <div class="gauge-track" id="gaugeTrack">
+        <div class="gauge-marker" id="gaugeMarker"></div>
+      </div>
+    </div>
+
+    <div class="status" id="statusMsg">「投げる」をタップしてスタート</div>
+    <div class="throw-list" id="throwList"></div>
+
+    <div class="btn-row">
+      <button class="btn primary" id="throwBtn">投げる！</button>
+    </div>
+    <div class="btn-row">
+      <button class="btn" id="restartBtn">もう一度</button>
+      <button class="btn danger" id="resetRecordBtn">記録リセット</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="resultOverlay" hidden>
+    <div class="modal">
+      <h2 id="resultTitle">結果発表</h2>
+      <p id="resultDesc">合計スコア: 24点</p>
+      <button id="modalCloseBtn">もう一度</button>
+    </div>
+  </div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var APP_ID = 'dart-game';
+  var FALLBACK_KEY = 'guios-fallback-' + APP_ID + '-highscore';
+
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify) {
+      try { window.GUIOS.notify(msg, { type: type || 'info' }); return; } catch(e){}
+    }
+    var t = document.createElement('div');
+    t.textContent = msg;
+    t.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1f1f1f;color:#f2f2f2;padding:10px 18px;border-radius:10px;font-size:13px;z-index:200;box-shadow:0 6px 18px rgba(0,0,0,.4);';
+    document.body.appendChild(t);
+    setTimeout(function(){ t.remove(); }, 2500);
+  }
+  function haptic(){
+    if (window.GUIOS && window.GUIOS.haptic) {
+      try { window.GUIOS.haptic(); } catch(e){}
+    }
+  }
+
+  async function loadHighScore(){
+    if (hasSDK) {
+      try {
+        var v = await window.GUIOS.storage.get('highScore');
+        return (typeof v === 'number' && isFinite(v)) ? v : 0;
+      } catch(e){ return 0; }
+    } else {
+      try {
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        var n = raw ? parseInt(raw, 10) : 0;
+        return isFinite(n) ? n : 0;
+      } catch(e){ return 0; }
+    }
+  }
+  async function saveHighScore(n){
+    if (hasSDK) {
+      try { await window.GUIOS.storage.set('highScore', n); } catch(e){}
+    } else {
+      try { localStorage.setItem(FALLBACK_KEY, String(n)); } catch(e){}
+    }
+  }
+
+  var TOTAL_THROWS = 5;
+  var highScore = 0;
+  var throwsTaken = 0;
+  var totalScore = 0;
+  var throwScores = [];
+  var rafId = null;
+  var startTime = null;
+  var gaugePos = 50; // 0-100, current marker position
+  var speed = 0.0022; // radians-ish per ms
+  var roundActive = false;
+
+  function distanceScore(pos){
+    // pos: 0-100 across gauge. distance from center (50) normalized 0-1
+    var dist = Math.abs(pos - 50) / 50;
+    if (dist <= 0.10) return 10;
+    if (dist <= 0.30) return 5;
+    if (dist <= 0.60) return 3;
+    return 1;
+  }
+
+  function animateGauge(ts){
+    if (startTime === null) startTime = ts;
+    var elapsed = ts - startTime;
+    gaugePos = 50 + 48 * Math.sin(elapsed * speed);
+    var marker = document.getElementById('gaugeMarker');
+    marker.style.left = gaugePos + '%';
+    rafId = requestAnimationFrame(animateGauge);
+  }
+
+  function stopGauge(){
+    if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+    startTime = null;
+  }
+
+  function placeDartMark(pos, score){
+    var area = document.getElementById('boardArea');
+    var mark = document.createElement('div');
+    mark.className = 'dart-mark';
+    // distance from center normalized 0-1 mapped to radius on board (0% = center, 50% = edge)
+    var dist = Math.abs(pos - 50) / 50; // 0..1
+    var radiusPct = dist * 47; // keep inside board
+    var angle = Math.random() * Math.PI * 2;
+    var cx = 50 + radiusPct * Math.cos(angle);
+    var cy = 50 + radiusPct * Math.sin(angle);
+    mark.style.left = cx + '%';
+    mark.style.top = cy + '%';
+    area.appendChild(mark);
+  }
+
+  function renderThrowList(){
+    var list = document.getElementById('throwList');
+    list.innerHTML = '';
+    throwScores.forEach(function(s, i){
+      var chip = document.createElement('div');
+      chip.className = 'throw-chip';
+      chip.textContent = (i+1) + '投目: ' + s + '点';
+      list.appendChild(chip);
+    });
+  }
+
+  function updateHud(){
+    document.getElementById('throwsLeft').textContent = Math.max(0, TOTAL_THROWS - throwsTaken);
+    document.getElementById('totalScore').textContent = totalScore;
+    document.getElementById('highScore').textContent = highScore;
+  }
+
+  function doThrow(){
+    if (!roundActive) return;
+    var pos = gaugePos;
+    var score = distanceScore(pos);
+    stopGauge();
+    document.getElementById('throwBtn').disabled = true;
+
+    placeDartMark(pos, score);
+    throwScores.push(score);
+    totalScore += score;
+    throwsTaken++;
+    haptic();
+    renderThrowList();
+    updateHud();
+
+    var scoreLabel = score === 10 ? 'ブルズアイ！10点！' : score + '点！';
+    document.getElementById('statusMsg').textContent = scoreLabel;
+
+    if (throwsTaken >= TOTAL_THROWS) {
+      roundActive = false;
+      setTimeout(finishRound, 600);
+    } else {
+      setTimeout(function(){
+        if (!roundActive) return;
+        document.getElementById('statusMsg').textContent = 'タイミングよくタップして投げよう！';
+        document.getElementById('throwBtn').disabled = false;
+        startTime = null;
+        rafId = requestAnimationFrame(animateGauge);
+      }, 700);
+    }
+  }
+
+  async function finishRound(){
+    document.getElementById('statusMsg').textContent = 'ラウンド終了！';
+    var isNewHigh = totalScore > highScore;
+    if (isNewHigh) {
+      highScore = totalScore;
+      await saveHighScore(highScore);
+      updateHud();
+    }
+    document.getElementById('resultTitle').textContent = isNewHigh ? '🎉 新記録！' : '結果発表';
+    document.getElementById('resultDesc').textContent = '合計スコア: ' + totalScore + '点' + (isNewHigh ? '（ハイスコア更新！）' : '');
+    document.getElementById('resultOverlay').hidden = false;
+    haptic();
+  }
+
+  function startRound(){
+    stopGauge();
+    throwsTaken = 0;
+    totalScore = 0;
+    throwScores = [];
+    roundActive = true;
+    document.getElementById('boardArea').querySelectorAll('.dart-mark').forEach(function(m){ m.remove(); });
+    document.getElementById('resultOverlay').hidden = true;
+    document.getElementById('throwBtn').disabled = false;
+    document.getElementById('statusMsg').textContent = 'タイミングよくタップして投げよう！';
+    renderThrowList();
+    updateHud();
+    startTime = null;
+    rafId = requestAnimationFrame(animateGauge);
+  }
+
+  document.getElementById('throwBtn').addEventListener('click', doThrow);
+  document.getElementById('restartBtn').addEventListener('click', startRound);
+  document.getElementById('modalCloseBtn').addEventListener('click', function(){
+    document.getElementById('resultOverlay').hidden = true;
+    startRound();
+  });
+  document.getElementById('resetRecordBtn').addEventListener('click', async function(){
+    if (!confirm('ハイスコアをリセットしますか？')) return;
+    highScore = 0;
+    await saveHighScore(highScore);
+    updateHud();
+    notify('ハイスコアをリセットしました', 'success');
+  });
+
+  window.addEventListener('beforeunload', stopGauge);
+  window.addEventListener('pagehide', stopGauge);
+
+  (async function init(){
+    highScore = await loadHighScore();
+    updateHud();
+    startRound();
+  })();
+</script>
+</body>
+</html>

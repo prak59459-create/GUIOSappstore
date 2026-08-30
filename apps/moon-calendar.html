@@ -1,0 +1,250 @@
+<!--GUIOS-APP {"id":"moon-calendar","name":"月齢カレンダー","icon":"🌙","color":"#303f9f","version":"1.0.0","author":"Claude","description":"今日の月齢・満ち欠けを計算して表示するカレンダーアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>月齢カレンダー</title>
+<style>
+  :root{
+    --accent:#7c8bf0;
+    --bg:#0d0f1f;
+    --card:#161a30;
+    --card2:#1d2240;
+    --text:#eaecfb;
+    --sub:#a3aad6;
+    --line:#2b3158;
+    --input:#0a0c1a;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    padding:16px; padding-bottom:48px;
+  }
+  h1{font-size:20px; margin:4px 0 14px; display:flex; align-items:center; gap:8px;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:18px; margin-bottom:16px;
+  }
+  .hero{text-align:center;}
+  .hero .emoji{font-size:64px; line-height:1.1; margin-bottom:6px;}
+  .hero .phase-name{font-size:22px; font-weight:800; margin-bottom:4px;}
+  .hero .date-label{font-size:13px; color:var(--sub); margin-bottom:14px;}
+  .stat-row{display:flex; gap:10px; justify-content:center; flex-wrap:wrap;}
+  .stat{
+    background:var(--card2); border:1px solid var(--line); border-radius:12px;
+    padding:8px 16px; min-width:110px;
+  }
+  .stat .num{font-size:20px; font-weight:800; color:var(--accent);}
+  .stat .lbl{font-size:11px; color:var(--sub); margin-top:2px;}
+  .approx-note{font-size:11px; color:var(--sub); margin-top:14px; line-height:1.5;}
+  .today-btn{
+    margin-top:14px; display:inline-block; padding:10px 20px; border-radius:10px; border:1px solid var(--line);
+    background:transparent; color:var(--sub); font-weight:600; font-size:13px; cursor:pointer; min-height:40px;
+  }
+  .today-btn.active{border-color:var(--accent); color:var(--accent);}
+  .cal-header{
+    display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;
+  }
+  .cal-header .title{font-size:15px; font-weight:700;}
+  .nav-btn{
+    width:36px; height:36px; border-radius:10px; border:1px solid var(--line); background:var(--input);
+    color:var(--text); font-size:16px; cursor:pointer;
+  }
+  .weekday-row{display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-bottom:6px;}
+  .weekday-row div{text-align:center; font-size:11px; color:var(--sub); padding:4px 0;}
+  .day-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:4px;}
+  .day-cell{
+    aspect-ratio:1/1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    border-radius:10px; border:1px solid transparent; background:var(--input); cursor:pointer;
+    font-size:10px; color:var(--sub); gap:2px; min-height:44px;
+  }
+  .day-cell .num{font-size:11px; color:var(--text);}
+  .day-cell .em{font-size:15px;}
+  .day-cell.blank{background:transparent; cursor:default;}
+  .day-cell.today{border-color:var(--accent);}
+  .day-cell.selected{background:var(--accent); }
+  .day-cell.selected .num, .day-cell.selected.today{color:#0a0c1a;}
+  .day-cell.selected .num{color:#0a0c1a;}
+</style>
+</head>
+<body>
+  <h1>🌙 月齢カレンダー</h1>
+
+  <div class="card hero">
+    <div class="emoji" id="heroEmoji">🌕</div>
+    <div class="phase-name" id="heroName">-</div>
+    <div class="date-label" id="heroDate">-</div>
+    <div class="stat-row">
+      <div class="stat">
+        <div class="num" id="heroAge">-</div>
+        <div class="lbl">月齢</div>
+      </div>
+      <div class="stat">
+        <div class="num" id="heroIllum">-</div>
+        <div class="lbl">輝面比(概算)</div>
+      </div>
+    </div>
+    <button class="today-btn" id="todayBtn">今日に戻る</button>
+    <div class="approx-note">※簡易計算式による概算値です。実際の暦とは前後1日程度ずれる場合があります。</div>
+  </div>
+
+  <div class="card">
+    <div class="cal-header">
+      <button class="nav-btn" id="prevMonth">◀</button>
+      <div class="title" id="monthTitle">-</div>
+      <button class="nav-btn" id="nextMonth">▶</button>
+    </div>
+    <div class="weekday-row">
+      <div>日</div><div>月</div><div>火</div><div>水</div><div>木</div><div>金</div><div>土</div>
+    </div>
+    <div class="day-grid" id="dayGrid"></div>
+  </div>
+
+<script>
+  var EPOCH_MS = Date.UTC(2000, 0, 6, 18, 14, 0); // 2000-01-06 18:14 UTC known new moon reference
+  var SYNODIC = 29.530588853;
+
+  var PHASES = [
+    {name:'新月',       emoji:'🌑'},
+    {name:'三日月',     emoji:'🌒'},
+    {name:'上弦の月',   emoji:'🌓'},
+    {name:'十三夜月',   emoji:'🌔'},
+    {name:'満月',       emoji:'🌕'},
+    {name:'十六夜',     emoji:'🌖'},
+    {name:'下弦の月',   emoji:'🌗'},
+    {name:'有明の月',   emoji:'🌘'}
+  ];
+
+  function moonAgeForMs(ms){
+    var days = (ms - EPOCH_MS) / 86400000;
+    var age = days % SYNODIC;
+    if(age < 0) age += SYNODIC;
+    return age;
+  }
+  function illuminationForAge(age){
+    return (1 - Math.cos(2 * Math.PI * age / SYNODIC)) / 2 * 100;
+  }
+  function phaseInfoForAge(age){
+    var seg = SYNODIC / 8;
+    var idx = Math.floor((age + seg / 2) / seg) % 8;
+    return PHASES[idx];
+  }
+  // Use local noon for a given y/m/d so date-only picks land mid-day regardless of viewer TZ.
+  function noonMsFor(y, m, d){
+    return new Date(y, m, d, 12, 0, 0, 0).getTime();
+  }
+
+  var today = new Date();
+  var selected = {y: today.getFullYear(), m: today.getMonth(), d: today.getDate()};
+  var calView = {y: today.getFullYear(), m: today.getMonth()};
+
+  var WEEK_JP = ['日','月','火','水','木','金','土'];
+
+  function isSameYMD(a, b){
+    return a.y === b.y && a.m === b.m && a.d === b.d;
+  }
+  function todayYMD(){
+    var t = new Date();
+    return {y: t.getFullYear(), m: t.getMonth(), d: t.getDate()};
+  }
+
+  function renderHero(){
+    var ms = noonMsFor(selected.y, selected.m, selected.d);
+    var age = moonAgeForMs(ms);
+    var illum = illuminationForAge(age);
+    var info = phaseInfoForAge(age);
+
+    document.getElementById('heroEmoji').textContent = info.emoji;
+    document.getElementById('heroName').textContent = info.name;
+
+    var t = todayYMD();
+    var dateStr = selected.y + '年' + (selected.m+1) + '月' + selected.d + '日';
+    if(isSameYMD(selected, t)) dateStr = '今日 (' + dateStr + ')';
+    document.getElementById('heroDate').textContent = dateStr;
+
+    document.getElementById('heroAge').textContent = age.toFixed(1);
+    document.getElementById('heroIllum').textContent = Math.round(illum) + '%';
+
+    var btn = document.getElementById('todayBtn');
+    if(isSameYMD(selected, t)){
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  }
+
+  function renderCalendar(){
+    document.getElementById('monthTitle').textContent = calView.y + '年 ' + (calView.m+1) + '月';
+    var grid = document.getElementById('dayGrid');
+    grid.innerHTML = '';
+
+    var firstDay = new Date(calView.y, calView.m, 1);
+    var startOffset = firstDay.getDay();
+    var daysInMonth = new Date(calView.y, calView.m + 1, 0).getDate();
+    var t = todayYMD();
+
+    for(var i = 0; i < startOffset; i++){
+      var blank = document.createElement('div');
+      blank.className = 'day-cell blank';
+      grid.appendChild(blank);
+    }
+
+    for(var d = 1; d <= daysInMonth; d++){
+      var ms = noonMsFor(calView.y, calView.m, d);
+      var age = moonAgeForMs(ms);
+      var info = phaseInfoForAge(age);
+
+      var cell = document.createElement('div');
+      var ymd = {y: calView.y, m: calView.m, d: d};
+      cell.className = 'day-cell';
+      if(isSameYMD(ymd, t)) cell.className += ' today';
+      if(isSameYMD(ymd, selected)) cell.className += ' selected';
+
+      var num = document.createElement('div');
+      num.className = 'num';
+      num.textContent = d;
+      var em = document.createElement('div');
+      em.className = 'em';
+      em.textContent = info.emoji;
+
+      cell.appendChild(num);
+      cell.appendChild(em);
+      cell.addEventListener('click', (function(ymdCopy){
+        return function(){
+          selected = ymdCopy;
+          renderHero();
+          renderCalendar();
+        };
+      })(ymd));
+
+      grid.appendChild(cell);
+    }
+  }
+
+  document.getElementById('prevMonth').addEventListener('click', function(){
+    calView.m -= 1;
+    if(calView.m < 0){ calView.m = 11; calView.y -= 1; }
+    renderCalendar();
+  });
+  document.getElementById('nextMonth').addEventListener('click', function(){
+    calView.m += 1;
+    if(calView.m > 11){ calView.m = 0; calView.y += 1; }
+    renderCalendar();
+  });
+  document.getElementById('todayBtn').addEventListener('click', function(){
+    var t = todayYMD();
+    selected = t;
+    calView = {y: t.y, m: t.m};
+    renderHero();
+    renderCalendar();
+  });
+
+  renderHero();
+  renderCalendar();
+</script>
+</body>
+</html>

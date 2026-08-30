@@ -1,0 +1,448 @@
+<!--GUIOS-APP {"id":"resume-builder","name":"履歴書メーカー","icon":"📋","color":"#5d4037","version":"1.0.0","author":"Claude","description":"氏名・学歴・職歴などを入力して履歴書を作成し、印刷できるアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>履歴書メーカー</title>
+<style>
+  :root{
+    --accent:#5d4037;
+    --accent2:#a1887f;
+    --bg:#150f0d;
+    --card:#231a17;
+    --text:#f2e9e6;
+    --sub:#c2ada5;
+    --line:#3a2b26;
+    --danger:#c0554f;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    padding:16px; padding-bottom:56px;
+  }
+  h1{font-size:20px; margin:4px 0 16px; display:flex; align-items:center; gap:8px;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:16px; margin-bottom:16px;
+  }
+  .section-title{font-size:14px; font-weight:800; margin:0 0 12px;}
+  label{display:block; font-size:12px; color:var(--sub); margin-bottom:6px;}
+  .field{margin-bottom:12px;}
+  input[type=text], input[type=email], input[type=tel], textarea{
+    width:100%; padding:11px 12px; border-radius:10px; border:1px solid var(--line);
+    background:#0f0b09; color:var(--text); font-size:15px; outline:none; font-family:inherit;
+  }
+  input:focus, textarea:focus{border-color:var(--accent2);}
+  textarea{min-height:70px; resize:vertical; line-height:1.5;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  @media (max-width:480px){ .grid2{grid-template-columns:1fr;} }
+
+  .entryItem{
+    border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:10px;
+    background:#0f0b09;
+  }
+  .entryHeader{display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;}
+  .entryHeader span{font-size:12px; color:var(--sub); font-weight:700;}
+  .removeBtn{
+    background:transparent; border:1px solid var(--danger); color:var(--danger);
+    border-radius:8px; padding:7px 12px; font-size:12px; font-weight:700; cursor:pointer; min-height:34px;
+  }
+  .addBtn{
+    width:100%; padding:12px; border-radius:10px; border:1px dashed var(--accent2);
+    background:transparent; color:var(--accent2); font-weight:700; font-size:14px; cursor:pointer; min-height:48px;
+  }
+
+  .tagInputRow{display:flex; gap:8px;}
+  .tagInputRow input{flex:1;}
+  .tagInputRow button{
+    padding:0 16px; border-radius:10px; border:none; background:var(--accent2); color:#1c1210;
+    font-weight:800; cursor:pointer; min-height:44px;
+  }
+  .tagList{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;}
+  .tag{
+    display:flex; align-items:center; gap:6px; background:#0f0b09; border:1px solid var(--line);
+    border-radius:20px; padding:6px 6px 6px 12px; font-size:13px;
+  }
+  .tag button{
+    background:transparent; border:none; color:var(--danger); font-weight:800; font-size:15px; cursor:pointer;
+    width:26px; height:26px; border-radius:50%; line-height:1;
+  }
+
+  .actionsRow{display:flex; gap:10px; margin-top:6px; flex-wrap:wrap;}
+  .actionsRow button{
+    flex:1; min-width:120px; padding:14px 10px; border-radius:12px; border:none;
+    background:var(--accent); color:#fff; font-weight:800; font-size:15px; cursor:pointer; min-height:50px;
+  }
+  .actionsRow button.secondary{background:transparent; border:1px solid var(--line); color:var(--text);}
+
+  /* ---- Resume preview ---- */
+  .resume-preview{
+    background:#fff; color:#1a1a1a; border-radius:12px; padding:28px 24px;
+    font-family:"Hiragino Sans","Noto Sans JP",-apple-system,sans-serif;
+  }
+  .resume-preview .rTitle{ font-size:20px; font-weight:800; text-align:center; letter-spacing:6px; margin:0 0 20px; border-bottom:3px double #333; padding-bottom:10px; }
+  .resume-preview .rHead{ display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:18px; }
+  .resume-preview .rName{ font-size:22px; font-weight:800; }
+  .resume-preview .rContact{ font-size:12px; color:#444; line-height:1.7; text-align:right; }
+  .resume-preview .rSection{ margin-bottom:20px; }
+  .resume-preview .rSectionTitle{
+    font-size:14px; font-weight:800; background:#eee; padding:6px 10px; border-left:4px solid #5d4037; margin-bottom:10px;
+  }
+  .resume-preview .rPr{ font-size:13px; line-height:1.8; white-space:pre-wrap; }
+  .resume-preview table{ width:100%; border-collapse:collapse; font-size:13px; margin-bottom:6px; }
+  .resume-preview th{ background:#f2f2f2; text-align:left; padding:6px 8px; border:1px solid #ddd; font-size:12px; color:#333; }
+  .resume-preview td{ padding:8px 8px; border:1px solid #ddd; vertical-align:top; }
+  .resume-preview .rTags{ display:flex; flex-wrap:wrap; gap:8px; }
+  .resume-preview .rTag{ background:#f0ece9; border:1px solid #ddd; border-radius:16px; padding:5px 12px; font-size:12px; }
+  .resume-preview .empty-note{ color:#999; font-size:12px; padding:10px 0; }
+
+  @media print{
+    body{ background:#fff; color:#000; padding:0; }
+    .no-print{ display:none !important; }
+    .card.previewCard{ border:none; background:#fff; padding:0; border-radius:0; }
+    .resume-preview{ padding:0; }
+    h1{ display:none; }
+  }
+</style>
+</head>
+<body>
+  <h1 class="no-print">📋 履歴書メーカー</h1>
+
+  <div class="card no-print">
+    <p class="section-title">氏名・連絡先</p>
+    <div class="field">
+      <label for="fullName">氏名</label>
+      <input type="text" id="fullName" placeholder="例: 山田 太郎">
+    </div>
+    <div class="grid2">
+      <div class="field">
+        <label for="email">メールアドレス</label>
+        <input type="email" id="email" placeholder="example@mail.com">
+      </div>
+      <div class="field">
+        <label for="phone">電話番号</label>
+        <input type="tel" id="phone" placeholder="090-0000-0000">
+      </div>
+    </div>
+  </div>
+
+  <div class="card no-print">
+    <p class="section-title">自己PR</p>
+    <div class="field" style="margin-bottom:0;">
+      <textarea id="selfPr" placeholder="ご自身の強みや実績、アピールポイントを記入してください"></textarea>
+    </div>
+  </div>
+
+  <div class="card no-print">
+    <p class="section-title">学歴</p>
+    <div id="eduItems"></div>
+    <button type="button" class="addBtn" id="addEdu">＋ 学歴を追加</button>
+  </div>
+
+  <div class="card no-print">
+    <p class="section-title">職歴</p>
+    <div id="workItems"></div>
+    <button type="button" class="addBtn" id="addWork">＋ 職歴を追加</button>
+  </div>
+
+  <div class="card no-print">
+    <p class="section-title">スキル</p>
+    <div class="tagInputRow">
+      <input type="text" id="skillInput" placeholder="例: Excel、英語、プロジェクト管理">
+      <button type="button" id="addSkill">追加</button>
+    </div>
+    <div class="tagList" id="skillList"></div>
+  </div>
+
+  <div class="actionsRow no-print">
+    <button type="button" id="btnPrint">🖨️ 印刷 / PDF保存</button>
+    <button type="button" id="btnReset" class="secondary">リセット</button>
+  </div>
+
+  <div class="card previewCard" id="previewCard">
+    <div class="resume-preview" id="preview"></div>
+  </div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var STORAGE_KEY = 'resumeData';
+  var FALLBACK_KEY = 'guios-fallback-resume-builder-resumeData';
+
+  var fullNameEl = document.getElementById('fullName');
+  var emailEl = document.getElementById('email');
+  var phoneEl = document.getElementById('phone');
+  var selfPrEl = document.getElementById('selfPr');
+  var eduItemsEl = document.getElementById('eduItems');
+  var workItemsEl = document.getElementById('workItems');
+  var skillInputEl = document.getElementById('skillInput');
+  var skillListEl = document.getElementById('skillList');
+  var previewEl = document.getElementById('preview');
+
+  var skills = [];
+  var eduSeq = 0, workSeq = 0;
+
+  function escapeHtml(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  function createEduRow(data){
+    eduSeq++;
+    var row = document.createElement('div');
+    row.className = 'entryItem';
+    row.innerHTML =
+      '<div class="entryHeader"><span>学歴 #' + eduSeq + '</span><button type="button" class="removeBtn">削除</button></div>' +
+      '<div class="field">' +
+        '<label>学校名</label>' +
+        '<input type="text" class="edu-school" placeholder="例: ○○大学 △△学部">' +
+      '</div>' +
+      '<div class="field" style="margin-bottom:0;">' +
+        '<label>期間</label>' +
+        '<input type="text" class="edu-period" placeholder="例: 2018年4月 〜 2022年3月">' +
+      '</div>';
+    eduItemsEl.appendChild(row);
+    if(data){
+      row.querySelector('.edu-school').value = data.school || '';
+      row.querySelector('.edu-period').value = data.period || '';
+    }
+    row.querySelectorAll('input').forEach(function(inp){ inp.addEventListener('input', renderAll); });
+    row.querySelector('.removeBtn').addEventListener('click', function(){ row.remove(); renderAll(); });
+  }
+
+  function createWorkRow(data){
+    workSeq++;
+    var row = document.createElement('div');
+    row.className = 'entryItem';
+    row.innerHTML =
+      '<div class="entryHeader"><span>職歴 #' + workSeq + '</span><button type="button" class="removeBtn">削除</button></div>' +
+      '<div class="field">' +
+        '<label>会社名</label>' +
+        '<input type="text" class="work-company" placeholder="例: 株式会社サンプル">' +
+      '</div>' +
+      '<div class="grid2">' +
+        '<div class="field">' +
+          '<label>役職</label>' +
+          '<input type="text" class="work-role" placeholder="例: 主任">' +
+        '</div>' +
+        '<div class="field">' +
+          '<label>期間</label>' +
+          '<input type="text" class="work-period" placeholder="例: 2022年4月 〜 現在">' +
+        '</div>' +
+      '</div>' +
+      '<div class="field" style="margin-bottom:0;">' +
+        '<label>業務内容</label>' +
+        '<textarea class="work-desc" placeholder="担当業務の内容を記入してください"></textarea>' +
+      '</div>';
+    workItemsEl.appendChild(row);
+    if(data){
+      row.querySelector('.work-company').value = data.company || '';
+      row.querySelector('.work-role').value = data.role || '';
+      row.querySelector('.work-period').value = data.period || '';
+      row.querySelector('.work-desc').value = data.desc || '';
+    }
+    row.querySelectorAll('input, textarea').forEach(function(inp){ inp.addEventListener('input', renderAll); });
+    row.querySelector('.removeBtn').addEventListener('click', function(){ row.remove(); renderAll(); });
+  }
+
+  function collectEdu(){
+    var out = [];
+    eduItemsEl.querySelectorAll('.entryItem').forEach(function(row){
+      out.push({
+        school: row.querySelector('.edu-school').value,
+        period: row.querySelector('.edu-period').value
+      });
+    });
+    return out;
+  }
+
+  function collectWork(){
+    var out = [];
+    workItemsEl.querySelectorAll('.entryItem').forEach(function(row){
+      out.push({
+        company: row.querySelector('.work-company').value,
+        role: row.querySelector('.work-role').value,
+        period: row.querySelector('.work-period').value,
+        desc: row.querySelector('.work-desc').value
+      });
+    });
+    return out;
+  }
+
+  function renderSkillTags(){
+    skillListEl.innerHTML = '';
+    skills.forEach(function(s, idx){
+      var tag = document.createElement('div');
+      tag.className = 'tag';
+      tag.innerHTML = '<span></span><button type="button">×</button>';
+      tag.querySelector('span').textContent = s;
+      tag.querySelector('button').addEventListener('click', function(){
+        skills.splice(idx, 1);
+        renderSkillTags();
+        renderAll();
+      });
+      skillListEl.appendChild(tag);
+    });
+  }
+
+  function addSkill(){
+    var v = skillInputEl.value.trim();
+    if(!v) return;
+    skills.push(v);
+    skillInputEl.value = '';
+    renderSkillTags();
+    renderAll();
+  }
+
+  function renderPreview(){
+    var edu = collectEdu();
+    var work = collectWork();
+
+    var eduRows = '';
+    if(edu.length === 0){
+      eduRows = '<tr><td colspan="2" class="empty-note">学歴が登録されていません</td></tr>';
+    } else {
+      edu.forEach(function(e){
+        eduRows += '<tr><td style="width:35%;">' + escapeHtml(e.period || '-') + '</td><td>' + escapeHtml(e.school || '(未入力)') + '</td></tr>';
+      });
+    }
+
+    var workBlocks = '';
+    if(work.length === 0){
+      workBlocks = '<p class="empty-note">職歴が登録されていません</p>';
+    } else {
+      work.forEach(function(w){
+        workBlocks += '<table><tr><th style="width:35%;">期間</th><td>' + escapeHtml(w.period || '-') + '</td></tr>' +
+          '<tr><th>会社名 / 役職</th><td>' + escapeHtml(w.company || '(未入力)') + (w.role ? '　/　' + escapeHtml(w.role) : '') + '</td></tr>' +
+          (w.desc ? '<tr><th>業務内容</th><td style="white-space:pre-wrap;">' + escapeHtml(w.desc) + '</td></tr>' : '') +
+          '</table>';
+      });
+    }
+
+    var skillsHtml = '';
+    if(skills.length === 0){
+      skillsHtml = '<p class="empty-note">スキルが登録されていません</p>';
+    } else {
+      skillsHtml = '<div class="rTags">' + skills.map(function(s){ return '<span class="rTag">' + escapeHtml(s) + '</span>'; }).join('') + '</div>';
+    }
+
+    var name = fullNameEl.value || '(氏名未入力)';
+    var contactLines = [];
+    if(emailEl.value) contactLines.push('Email: ' + escapeHtml(emailEl.value));
+    if(phoneEl.value) contactLines.push('TEL: ' + escapeHtml(phoneEl.value));
+
+    var html = '';
+    html += '<div class="rTitle">履歴書</div>';
+    html += '<div class="rHead"><div class="rName">' + escapeHtml(name) + '</div><div class="rContact">' + contactLines.join('<br>') + '</div></div>';
+
+    if(selfPrEl.value){
+      html += '<div class="rSection"><div class="rSectionTitle">自己PR</div><div class="rPr">' + escapeHtml(selfPrEl.value) + '</div></div>';
+    }
+
+    html += '<div class="rSection"><div class="rSectionTitle">学歴</div><table>' + eduRows + '</table></div>';
+    html += '<div class="rSection"><div class="rSectionTitle">職歴</div>' + workBlocks + '</div>';
+    html += '<div class="rSection"><div class="rSectionTitle">スキル</div>' + skillsHtml + '</div>';
+
+    previewEl.innerHTML = html;
+  }
+
+  function renderAll(){
+    renderPreview();
+    save();
+  }
+
+  document.getElementById('addEdu').addEventListener('click', function(){ createEduRow(null); renderAll(); });
+  document.getElementById('addWork').addEventListener('click', function(){ createWorkRow(null); renderAll(); });
+  document.getElementById('addSkill').addEventListener('click', addSkill);
+  skillInputEl.addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){ e.preventDefault(); addSkill(); }
+  });
+
+  [fullNameEl, emailEl, phoneEl, selfPrEl].forEach(function(el){
+    el.addEventListener('input', renderAll);
+  });
+
+  document.getElementById('btnPrint').addEventListener('click', function(){
+    window.print();
+  });
+
+  document.getElementById('btnReset').addEventListener('click', function(){
+    var doReset = window.confirm ? window.confirm('入力内容をすべて消去しますか？') : true;
+    if(!doReset) return;
+    fullNameEl.value = '';
+    emailEl.value = '';
+    phoneEl.value = '';
+    selfPrEl.value = '';
+    eduItemsEl.innerHTML = '';
+    workItemsEl.innerHTML = '';
+    skills = [];
+    renderSkillTags();
+    createEduRow(null);
+    createWorkRow(null);
+    renderAll();
+  });
+
+  var saveTimer = null;
+  function save(){
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(async function(){
+      var data = {
+        fullName: fullNameEl.value,
+        email: emailEl.value,
+        phone: phoneEl.value,
+        selfPr: selfPrEl.value,
+        edu: collectEdu(),
+        work: collectWork(),
+        skills: skills
+      };
+      if(hasSDK){
+        try{ await GUIOS.storage.set(STORAGE_KEY, data); }catch(e){}
+      } else {
+        try{ localStorage.setItem(FALLBACK_KEY, JSON.stringify(data)); }catch(e){}
+      }
+    }, 300);
+  }
+
+  async function restore(){
+    var data = null;
+    if(hasSDK){
+      try{ data = await GUIOS.storage.get(STORAGE_KEY); }catch(e){}
+    } else {
+      try{
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        data = raw ? JSON.parse(raw) : null;
+      }catch(e){}
+    }
+    if(data){
+      fullNameEl.value = data.fullName || '';
+      emailEl.value = data.email || '';
+      phoneEl.value = data.phone || '';
+      selfPrEl.value = data.selfPr || '';
+      skills = data.skills || [];
+      renderSkillTags();
+      eduItemsEl.innerHTML = '';
+      workItemsEl.innerHTML = '';
+      if(data.edu && data.edu.length){
+        data.edu.forEach(function(e){ createEduRow(e); });
+      } else {
+        createEduRow(null);
+      }
+      if(data.work && data.work.length){
+        data.work.forEach(function(w){ createWorkRow(w); });
+      } else {
+        createWorkRow(null);
+      }
+    } else {
+      createEduRow(null);
+      createWorkRow(null);
+    }
+    renderAll();
+  }
+
+  restore();
+</script>
+</body>
+</html>

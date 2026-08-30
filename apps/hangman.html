@@ -1,0 +1,399 @@
+<!--GUIOS-APP {"id":"hangman","name":"単語当てゲーム","icon":"🔤","color":"#5d4037","version":"1.0.0","author":"Claude","description":"隠された単語をアルファベットを推測しながら当てるゲーム。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>単語当てゲーム</title>
+<style>
+  :root{
+    --accent:#8d6e63;
+    --bg:#1b1310;
+    --card:#261c17;
+    --line:#8d6e63;
+    --fig:#e0b04d;
+    --text:#f5ece7;
+    --sub:#c2a99d;
+    --key:#332420;
+    --key-used:#1f1613;
+    --win:#3a9d6f;
+    --lose:#e05555;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    min-height:100vh;
+    padding:14px;
+    padding-bottom:40px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    -webkit-tap-highlight-color:transparent;
+  }
+  h1{
+    font-size:19px;
+    margin:2px 0 10px;
+  }
+  .record-row{
+    font-size:12px;
+    color:var(--sub);
+    margin-bottom:10px;
+    text-align:center;
+  }
+  .cat-chip{
+    background:var(--card);
+    border-radius:10px;
+    padding:6px 14px;
+    font-size:12px;
+    color:var(--sub);
+    border:1px solid rgba(255,255,255,0.06);
+    margin-bottom:8px;
+  }
+  .figure-wrap{
+    margin-bottom:6px;
+  }
+  .part{ opacity:0; transition:opacity 0.2s; }
+  .part.show{ opacity:1; }
+  .miss-row{
+    font-size:13px;
+    color:var(--sub);
+    margin-bottom:10px;
+  }
+  .miss-row b{ color:var(--lose); }
+  .word-row{
+    font-size:min(7vw, 30px);
+    font-weight:800;
+    letter-spacing:6px;
+    font-family:"Courier New",monospace;
+    margin-bottom:16px;
+    text-align:center;
+    word-break:break-all;
+    max-width:100%;
+    padding:0 8px;
+  }
+  .status-banner{
+    display:none;
+    background:var(--card);
+    border:1px solid var(--win);
+    border-radius:14px;
+    padding:12px 20px;
+    text-align:center;
+    margin-bottom:14px;
+    max-width:360px;
+    font-weight:800;
+    font-size:16px;
+    color:var(--win);
+  }
+  .status-banner.show{ display:block; }
+  .status-banner.lose{ border-color:var(--lose); color:var(--lose); }
+  .keyboard{
+    display:grid;
+    grid-template-columns:repeat(7, 1fr);
+    gap:6px;
+    width:100%;
+    max-width:420px;
+    margin-bottom:16px;
+  }
+  .key{
+    padding:12px 0;
+    border-radius:8px;
+    border:none;
+    background:var(--key);
+    color:var(--text);
+    font-size:15px;
+    font-weight:800;
+    cursor:pointer;
+  }
+  .key:disabled{
+    background:var(--key-used);
+    color:var(--sub);
+    opacity:0.5;
+    cursor:default;
+  }
+  .key.correct{ color:var(--win); }
+  .key.wrong{ color:var(--lose); }
+  .btn-row{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    justify-content:center;
+  }
+  .btn{
+    padding:12px 22px;
+    border-radius:12px;
+    border:none;
+    background:var(--accent);
+    color:#fff;
+    font-weight:800;
+    font-size:14px;
+    cursor:pointer;
+  }
+  .btn.secondary{
+    background:var(--card);
+    color:var(--sub);
+    border:1px solid rgba(255,255,255,0.1);
+    font-size:12px;
+    padding:10px 16px;
+  }
+</style>
+</head>
+<body>
+  <h1>🔤 単語当てゲーム</h1>
+  <div class="record-row" id="recordRow">戦績: 勝ち0 / 負け0</div>
+  <div class="cat-chip" id="catChip">カテゴリ: -</div>
+
+  <div class="figure-wrap">
+    <svg viewBox="0 0 200 200" width="150" height="150">
+      <line x1="20" y1="190" x2="140" y2="190" stroke="var(--line)" stroke-width="6" stroke-linecap="round"/>
+      <line x1="50" y1="190" x2="50" y2="18" stroke="var(--line)" stroke-width="6" stroke-linecap="round"/>
+      <line x1="50" y1="18" x2="130" y2="18" stroke="var(--line)" stroke-width="6" stroke-linecap="round"/>
+      <line x1="130" y1="18" x2="130" y2="42" stroke="var(--line)" stroke-width="4" stroke-linecap="round"/>
+      <circle id="pHead" class="part" cx="130" cy="62" r="20" stroke="var(--fig)" stroke-width="5" fill="none"/>
+      <line id="pBody" class="part" x1="130" y1="82" x2="130" y2="135" stroke="var(--fig)" stroke-width="5" stroke-linecap="round"/>
+      <line id="pArmL" class="part" x1="130" y1="95" x2="103" y2="118" stroke="var(--fig)" stroke-width="5" stroke-linecap="round"/>
+      <line id="pArmR" class="part" x1="130" y1="95" x2="157" y2="118" stroke="var(--fig)" stroke-width="5" stroke-linecap="round"/>
+      <line id="pLegL" class="part" x1="130" y1="135" x2="108" y2="172" stroke="var(--fig)" stroke-width="5" stroke-linecap="round"/>
+      <line id="pLegR" class="part" x1="130" y1="135" x2="152" y2="172" stroke="var(--fig)" stroke-width="5" stroke-linecap="round"/>
+    </svg>
+  </div>
+
+  <div class="miss-row">残りミス: <b id="missVal">6</b></div>
+  <div class="word-row" id="wordRow"></div>
+
+  <div class="status-banner" id="statusBanner">
+    <div id="statusText"></div>
+  </div>
+
+  <div class="keyboard" id="keyboard"></div>
+
+  <div class="btn-row">
+    <button class="btn" id="newBtn" type="button">もう一度</button>
+    <button class="btn secondary" id="resetRecordBtn" type="button">戦績をリセット</button>
+  </div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var STORE_KEY = "record";
+  var LS_KEY = "hangman:" + STORE_KEY;
+  var MAX_WRONG = 6;
+
+  var WORDS = [
+    { word: "cat", cat: "動物" },
+    { word: "dog", cat: "動物" },
+    { word: "tiger", cat: "動物" },
+    { word: "lion", cat: "動物" },
+    { word: "horse", cat: "動物" },
+    { word: "rabbit", cat: "動物" },
+    { word: "monkey", cat: "動物" },
+    { word: "panda", cat: "動物" },
+    { word: "eagle", cat: "動物" },
+    { word: "dolphin", cat: "動物" },
+    { word: "apple", cat: "果物" },
+    { word: "banana", cat: "果物" },
+    { word: "orange", cat: "果物" },
+    { word: "grape", cat: "果物" },
+    { word: "lemon", cat: "果物" },
+    { word: "mango", cat: "果物" },
+    { word: "cherry", cat: "果物" },
+    { word: "peach", cat: "果物" },
+    { word: "melon", cat: "果物" },
+    { word: "papaya", cat: "果物" },
+    { word: "japan", cat: "国" },
+    { word: "canada", cat: "国" },
+    { word: "brazil", cat: "国" },
+    { word: "france", cat: "国" },
+    { word: "egypt", cat: "国" },
+    { word: "kenya", cat: "国" },
+    { word: "mexico", cat: "国" },
+    { word: "norway", cat: "国" },
+    { word: "sweden", cat: "国" },
+    { word: "turkey", cat: "国" }
+  ];
+
+  var recordRow = document.getElementById("recordRow");
+  var catChip = document.getElementById("catChip");
+  var missVal = document.getElementById("missVal");
+  var wordRow = document.getElementById("wordRow");
+  var statusBanner = document.getElementById("statusBanner");
+  var statusText = document.getElementById("statusText");
+  var keyboard = document.getElementById("keyboard");
+  var newBtn = document.getElementById("newBtn");
+  var resetRecordBtn = document.getElementById("resetRecordBtn");
+
+  var PART_ORDER = ["pHead", "pBody", "pArmL", "pArmR", "pLegL", "pLegR"];
+
+  var currentWord = "";
+  var currentCat = "";
+  var guessed = {};   // letter -> true
+  var wrongCount = 0;
+  var gameOver = false;
+  var record = { win: 0, lose: 0 };
+
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify){
+      window.GUIOS.notify(msg, { type: type || "info" });
+    }
+  }
+  function haptic(){
+    if (window.GUIOS && window.GUIOS.haptic){
+      try { window.GUIOS.haptic(); } catch(e){}
+    }
+  }
+
+  async function loadRecord(){
+    try {
+      if (hasSDK){
+        var v = await window.GUIOS.storage.get(STORE_KEY);
+        if (v && typeof v === "object") record = v;
+      } else {
+        var raw = localStorage.getItem(LS_KEY);
+        if (raw) record = JSON.parse(raw);
+      }
+    } catch(e){}
+    renderRecord();
+  }
+  async function saveRecord(){
+    try {
+      if (hasSDK){
+        await window.GUIOS.storage.set(STORE_KEY, record);
+      } else {
+        localStorage.setItem(LS_KEY, JSON.stringify(record));
+      }
+    } catch(e){}
+  }
+  function renderRecord(){
+    recordRow.textContent = "戦績: 勝ち" + record.win + " / 負け" + record.lose;
+  }
+
+  function buildKeyboard(){
+    keyboard.innerHTML = "";
+    for (var i = 0; i < 26; i++){
+      var letter = String.fromCharCode(65 + i);
+      var btn = document.createElement("button");
+      btn.className = "key";
+      btn.type = "button";
+      btn.textContent = letter;
+      btn.setAttribute("data-letter", letter.toLowerCase());
+      keyboard.appendChild(btn);
+    }
+  }
+
+  function renderWord(){
+    var display = currentWord.split("").map(function(ch){
+      return guessed[ch] ? ch.toUpperCase() : "_";
+    }).join(" ");
+    wordRow.textContent = display;
+  }
+
+  function renderMiss(){
+    missVal.textContent = Math.max(0, MAX_WRONG - wrongCount);
+  }
+
+  function renderParts(){
+    PART_ORDER.forEach(function(id, i){
+      var el = document.getElementById(id);
+      el.classList.toggle("show", i < wrongCount);
+    });
+  }
+
+  function isWordComplete(){
+    return currentWord.split("").every(function(ch){ return guessed[ch]; });
+  }
+
+  function endGame(win){
+    gameOver = true;
+    // Disable all remaining keys.
+    Array.prototype.forEach.call(keyboard.children, function(btn){
+      btn.disabled = true;
+    });
+    statusBanner.className = "status-banner show " + (win ? "" : "lose");
+    if (win){
+      statusText.textContent = "正解！ 🎉 " + currentWord.toUpperCase();
+      record.win++;
+      notify("正解です！", "success");
+    } else {
+      wordRow.textContent = currentWord.toUpperCase().split("").join(" ");
+      statusText.textContent = "残念… 正解は " + currentWord.toUpperCase();
+      record.lose++;
+      notify("ゲームオーバー", "error");
+    }
+    saveRecord();
+    renderRecord();
+  }
+
+  function guessLetter(letter, btn){
+    if (gameOver) return;
+    if (guessed[letter]) return; // already used, ignore
+    guessed[letter] = true;
+    btn.disabled = true;
+
+    if (currentWord.indexOf(letter) === -1){
+      wrongCount++;
+      btn.classList.add("wrong");
+      haptic();
+      renderMiss();
+      renderParts();
+      if (wrongCount >= MAX_WRONG){
+        endGame(false);
+        return;
+      }
+    } else {
+      btn.classList.add("correct");
+      haptic();
+      renderWord();
+      if (isWordComplete()){
+        endGame(true);
+        return;
+      }
+    }
+  }
+
+  keyboard.addEventListener("click", function(e){
+    var btn = e.target.closest(".key");
+    if (!btn || btn.disabled) return;
+    guessLetter(btn.getAttribute("data-letter"), btn);
+  });
+
+  document.addEventListener("keydown", function(e){
+    if (gameOver) return;
+    var k = e.key.toLowerCase();
+    if (k.length === 1 && k >= "a" && k <= "z"){
+      var btn = keyboard.querySelector('.key[data-letter="' + k + '"]');
+      if (btn && !btn.disabled) guessLetter(k, btn);
+    }
+  });
+
+  function newGame(){
+    var pick = WORDS[Math.floor(Math.random() * WORDS.length)];
+    currentWord = pick.word;
+    currentCat = pick.cat;
+    guessed = {};
+    wrongCount = 0;
+    gameOver = false;
+    catChip.textContent = "カテゴリ: " + currentCat;
+    statusBanner.className = "status-banner";
+    buildKeyboard();
+    renderWord();
+    renderMiss();
+    renderParts();
+  }
+
+  newBtn.addEventListener("click", function(){
+    newGame();
+  });
+
+  resetRecordBtn.addEventListener("click", function(){
+    record = { win: 0, lose: 0 };
+    saveRecord();
+    renderRecord();
+    notify("戦績をリセットしました", "info");
+  });
+
+  loadRecord();
+  newGame();
+</script>
+</body>
+</html>

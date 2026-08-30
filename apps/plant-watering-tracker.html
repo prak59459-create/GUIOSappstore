@@ -1,0 +1,313 @@
+<!--GUIOS-APP {"id":"plant-watering-tracker","name":"植物の水やり管理","icon":"🪴","color":"#33691e","version":"1.0.0","author":"Claude","description":"観葉植物ごとの水やり間隔を管理し、タイミングを知らせるアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>植物の水やり管理</title>
+<style>
+  :root{
+    --accent:#7cb342;
+    --accent-dark:#33691e;
+    --bg:#10160e;
+    --card:#182014;
+    --text:#eaf3e4;
+    --sub:#a3b799;
+    --line:#2b3924;
+    --danger:#e05c5c;
+    --warn:#e0a95c;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    display:flex; flex-direction:column;
+  }
+  .topbar{padding:14px 16px 10px; flex:none;}
+  .topbar h1{font-size:18px; margin:0 0 12px; display:flex; align-items:center; gap:8px;}
+  .form-card{
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:12px; margin-bottom:4px;
+  }
+  .form-row{display:flex; gap:8px; margin-bottom:8px;}
+  .form-row:last-child{margin-bottom:0;}
+  .form-row label{
+    display:block; font-size:11px; color:var(--sub); margin-bottom:4px;
+  }
+  .field{flex:1; min-width:0;}
+  input[type=text], input[type=number], input[type=date]{
+    width:100%; padding:11px 12px; border-radius:10px; border:1px solid var(--line);
+    background:#0a0f08; color:var(--text); font-size:15px; outline:none;
+  }
+  input:focus{border-color:var(--accent);}
+  #addBtn{
+    width:100%; padding:0 20px; border-radius:10px; border:none; background:var(--accent);
+    color:#0a1206; font-weight:700; font-size:15px; cursor:pointer; min-height:44px; margin-top:2px;
+  }
+  .list-wrap{flex:1; overflow-y:auto; padding:10px 16px 16px;}
+  .plant-card{
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:14px; margin-bottom:10px;
+  }
+  .plant-card.due{border-color:var(--warn);}
+  .plant-card.overdue{border-color:var(--danger);}
+  .plant-head{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:8px; margin-bottom:8px;
+  }
+  .plant-name{font-size:16px; font-weight:700; word-break:break-word; flex:1;}
+  .plant-meta{font-size:12px; color:var(--sub); margin-top:2px;}
+  .plant-del{
+    flex:none; width:36px; height:36px; border-radius:8px; border:none; background:transparent;
+    color:var(--sub); font-size:17px; cursor:pointer;
+  }
+  .plant-del:hover{color:var(--danger);}
+  .status-row{
+    display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:10px;
+  }
+  .status-text{font-size:14px; font-weight:700; color:var(--accent);}
+  .status-text.due{color:var(--warn);}
+  .status-text.overdue{color:var(--danger);}
+  .water-btn{
+    flex:none; padding:0 16px; height:40px; border-radius:10px; border:none;
+    background:var(--accent-dark); color:#eaf3e4; font-weight:700; font-size:13px; cursor:pointer;
+  }
+  .water-btn:active{opacity:0.8;}
+  .empty{color:var(--sub); text-align:center; padding:50px 20px; font-size:14px;}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>🪴 植物の水やり管理</h1>
+    <div class="form-card">
+      <div class="form-row">
+        <div class="field">
+          <label for="nameInput">植物の名前</label>
+          <input type="text" id="nameInput" placeholder="例: モンステラ" maxlength="40">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label for="intervalInput">水やり間隔(日)</label>
+          <input type="number" id="intervalInput" placeholder="7" min="1" max="365" step="1">
+        </div>
+        <div class="field">
+          <label for="lastInput">最後に水やりした日</label>
+          <input type="date" id="lastInput">
+        </div>
+      </div>
+      <button id="addBtn">追加する</button>
+    </div>
+  </div>
+
+  <div class="list-wrap" id="listWrap">
+    <div class="empty">植物がまだ登録されていません</div>
+  </div>
+
+  <div id="toastHost" style="position:fixed; left:0; right:0; bottom:18px; display:flex; justify-content:center; pointer-events:none; z-index:9999;"></div>
+
+<script>
+(function(){
+  'use strict';
+  var STORAGE_KEY = 'plants';
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var LOCAL_KEY = 'plant-watering-tracker:plants';
+
+  var nameInput = document.getElementById('nameInput');
+  var intervalInput = document.getElementById('intervalInput');
+  var lastInput = document.getElementById('lastInput');
+  var addBtn = document.getElementById('addBtn');
+  var listWrap = document.getElementById('listWrap');
+
+  var plants = [];
+
+  function todayStr(){
+    var d = new Date();
+    var y = d.getFullYear();
+    var m = String(d.getMonth()+1).padStart(2,'0');
+    var day = String(d.getDate()).padStart(2,'0');
+    return y+'-'+m+'-'+day;
+  }
+
+  function dateFromStr(s){
+    var parts = s.split('-');
+    return new Date(parseInt(parts[0],10), parseInt(parts[1],10)-1, parseInt(parts[2],10));
+  }
+
+  function daysBetween(fromStr, toStr){
+    var a = dateFromStr(fromStr);
+    var b = dateFromStr(toStr);
+    var ms = b.getTime() - a.getTime();
+    return Math.round(ms / 86400000);
+  }
+
+  function notify(msg, type){
+    if(window.GUIOS && window.GUIOS.notify){
+      GUIOS.notify(msg, {type: type || 'info'});
+      return;
+    }
+    var host = document.getElementById('toastHost');
+    var t = document.createElement('div');
+    t.textContent = msg;
+    t.style.cssText = 'pointer-events:auto;background:#182014;border:1px solid #2b3924;color:#eaf3e4;padding:10px 16px;border-radius:10px;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,0.4);max-width:90vw;';
+    host.appendChild(t);
+    setTimeout(function(){ t.remove(); }, 2200);
+  }
+
+  function genId(){
+    return 'p_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8);
+  }
+
+  async function load(){
+    try{
+      if(hasSDK){
+        var v = await GUIOS.storage.get(STORAGE_KEY);
+        plants = Array.isArray(v) ? v : [];
+      } else {
+        var raw = localStorage.getItem(LOCAL_KEY);
+        plants = raw ? JSON.parse(raw) : [];
+      }
+    }catch(e){
+      plants = [];
+    }
+    render();
+  }
+
+  async function save(){
+    try{
+      if(hasSDK){
+        await GUIOS.storage.set(STORAGE_KEY, plants);
+      } else {
+        localStorage.setItem(LOCAL_KEY, JSON.stringify(plants));
+      }
+    }catch(e){}
+  }
+
+  function statusFor(plant){
+    var elapsed = daysBetween(plant.lastWatered, todayStr());
+    var remaining = plant.interval - elapsed;
+    if(remaining <= 0){
+      return {
+        state: remaining < 0 ? 'overdue' : 'due',
+        text: remaining < 0 ? '水やりの時間です(' + Math.abs(remaining) + '日超過)' : '水やりの時間です',
+        sortKey: remaining
+      };
+    }
+    return {
+      state: 'ok',
+      text: 'あと' + remaining + '日',
+      sortKey: remaining
+    };
+  }
+
+  function render(){
+    if(plants.length === 0){
+      listWrap.innerHTML = '<div class="empty">植物がまだ登録されていません</div>';
+      return;
+    }
+    var withStatus = plants.map(function(p){
+      return { plant: p, status: statusFor(p) };
+    });
+    withStatus.sort(function(a, b){
+      return a.status.sortKey - b.status.sortKey;
+    });
+
+    listWrap.innerHTML = '';
+    withStatus.forEach(function(item){
+      var p = item.plant;
+      var st = item.status;
+      var card = document.createElement('div');
+      card.className = 'plant-card' + (st.state === 'due' ? ' due' : st.state === 'overdue' ? ' overdue' : '');
+
+      var head = document.createElement('div');
+      head.className = 'plant-head';
+
+      var nameWrap = document.createElement('div');
+      nameWrap.style.flex = '1';
+      var nameEl = document.createElement('div');
+      nameEl.className = 'plant-name';
+      nameEl.textContent = p.name;
+      var metaEl = document.createElement('div');
+      metaEl.className = 'plant-meta';
+      metaEl.textContent = '間隔: ' + p.interval + '日 / 最終: ' + p.lastWatered;
+      nameWrap.appendChild(nameEl);
+      nameWrap.appendChild(metaEl);
+
+      var delBtn = document.createElement('button');
+      delBtn.className = 'plant-del';
+      delBtn.textContent = '✕';
+      delBtn.setAttribute('aria-label', '削除');
+      delBtn.addEventListener('click', function(){
+        plants = plants.filter(function(x){ return x.id !== p.id; });
+        save();
+        render();
+        notify(p.name + 'を削除しました', 'info');
+      });
+
+      head.appendChild(nameWrap);
+      head.appendChild(delBtn);
+
+      var statusRow = document.createElement('div');
+      statusRow.className = 'status-row';
+
+      var statusText = document.createElement('div');
+      statusText.className = 'status-text' + (st.state === 'due' ? ' due' : st.state === 'overdue' ? ' overdue' : '');
+      statusText.textContent = st.text;
+
+      var waterBtn = document.createElement('button');
+      waterBtn.className = 'water-btn';
+      waterBtn.textContent = '💧 水やりした';
+      waterBtn.addEventListener('click', function(){
+        p.lastWatered = todayStr();
+        save();
+        render();
+        notify(p.name + 'に水やりしました', 'success');
+      });
+
+      statusRow.appendChild(statusText);
+      statusRow.appendChild(waterBtn);
+
+      card.appendChild(head);
+      card.appendChild(statusRow);
+      listWrap.appendChild(card);
+    });
+  }
+
+  addBtn.addEventListener('click', function(){
+    var name = nameInput.value.trim();
+    var interval = parseInt(intervalInput.value, 10);
+    var last = lastInput.value || todayStr();
+
+    if(!name){
+      notify('植物の名前を入力してください', 'error');
+      return;
+    }
+    if(!interval || interval < 1){
+      notify('水やり間隔を正しく入力してください', 'error');
+      return;
+    }
+
+    plants.push({
+      id: genId(),
+      name: name,
+      interval: interval,
+      lastWatered: last
+    });
+
+    nameInput.value = '';
+    intervalInput.value = '';
+    lastInput.value = '';
+
+    save();
+    render();
+    notify(name + 'を登録しました', 'success');
+  });
+
+  lastInput.max = todayStr();
+
+  load();
+})();
+</script>
+</body>
+</html>

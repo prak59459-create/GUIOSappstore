@@ -1,0 +1,281 @@
+<!--GUIOS-APP {"id":"box-shadow-generator","name":"box-shadow生成","icon":"🔲","color":"#455a64","version":"1.0.0","author":"Claude","description":"CSSのbox-shadowをスライダーで調整して生成できるツール。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>box-shadow生成</title>
+<style>
+  :root{
+    --accent:#78909c;
+    --bg:#12171a;
+    --card:#1c2327;
+    --card2:#151b1e;
+    --text:#eef2f3;
+    --sub:#a6b3b8;
+    --line:#303a3f;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    padding:16px; padding-bottom:48px;
+  }
+  h1{font-size:20px; margin:4px 0 16px; display:flex; align-items:center; gap:8px;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:16px; margin-bottom:16px;
+  }
+  .preview-wrap{
+    background:#e7eaec; border-radius:14px; padding:40px 16px;
+    display:flex; align-items:center; justify-content:center; min-height:180px;
+    margin-bottom:14px; overflow:hidden;
+  }
+  .preview-box{
+    width:120px; height:120px; background:#546e7a; border-radius:12px;
+  }
+  .layerlist{display:flex; flex-direction:column; gap:12px;}
+  .layer{
+    background:var(--card2); border:1px solid var(--line); border-radius:12px; padding:14px;
+  }
+  .layer-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;}
+  .layer-title{font-size:13px; font-weight:700; color:var(--sub);}
+  .rm-btn{
+    background:none; border:1px solid var(--line); color:var(--sub); border-radius:8px;
+    font-size:12px; padding:6px 10px; min-height:32px; cursor:pointer;
+  }
+  .field{margin-bottom:12px;}
+  .field label{display:flex; justify-content:space-between; font-size:12px; color:var(--sub); margin-bottom:6px;}
+  .field label span.v{color:var(--text); font-weight:700; font-variant-numeric:tabular-nums;}
+  input[type=range]{width:100%; height:36px; accent-color:var(--accent);}
+  .colorrow{display:flex; gap:10px; align-items:center;}
+  input[type=color]{
+    width:52px; height:44px; border-radius:10px; border:1px solid var(--line);
+    background:transparent; padding:2px; cursor:pointer;
+  }
+  .checkrow{display:flex; align-items:center; gap:10px; margin-top:10px;}
+  .checkrow input[type=checkbox]{width:22px; height:22px; accent-color:var(--accent);}
+  .checkrow label{font-size:13px; color:var(--text);}
+  button{
+    padding:12px 18px; border-radius:10px; border:none; background:var(--accent);
+    color:#0b1113; font-weight:700; font-size:14px; cursor:pointer; min-height:44px;
+  }
+  button.secondary{background:transparent; color:var(--sub); border:1px solid var(--line);}
+  .btnrow{display:flex; gap:10px; flex-wrap:wrap; margin-top:4px;}
+  .btnrow button{flex:1;}
+  .csscode{
+    background:#0d1113; border:1px solid var(--line); border-radius:10px; padding:12px 14px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:13px;
+    color:#d8f0d0; word-break:break-all; white-space:pre-wrap; margin-bottom:12px;
+  }
+  #toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:#232b2e; color:var(--text); padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; pointer-events:none; transition:all .25s; border:1px solid var(--line);
+    max-width:90%; text-align:center; z-index:999;
+  }
+  #toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+  <h1>🔲 box-shadow生成</h1>
+
+  <div class="card">
+    <div class="preview-wrap">
+      <div class="preview-box" id="previewBox"></div>
+    </div>
+    <div class="csscode" id="cssCode">box-shadow: 4px 4px 12px 0px rgba(0,0,0,0.35);</div>
+    <div class="btnrow">
+      <button id="copyBtn">📋 コピー</button>
+      <button class="secondary" id="addLayerBtn">＋ シャドウ追加</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="layerlist" id="layerList"></div>
+  </div>
+
+  <div id="toast"></div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+
+  function showToast(msg){
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(function(){ t.classList.remove('show'); }, 1800);
+  }
+  function notify(msg, type){
+    if(window.GUIOS && window.GUIOS.notify){
+      GUIOS.notify(msg, {type: type || 'info'});
+    } else {
+      showToast(msg);
+    }
+  }
+  async function copyText(text){
+    var ok = false;
+    try{
+      if(window.GUIOS && window.GUIOS.clipboard && window.GUIOS.clipboard.writeText){
+        await GUIOS.clipboard.writeText(text);
+        ok = true;
+      } else if(navigator.clipboard && navigator.clipboard.writeText){
+        await navigator.clipboard.writeText(text);
+        ok = true;
+      }
+    }catch(e){ ok = false; }
+    if(!ok){
+      try{
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        ok = true;
+      }catch(e2){ ok = false; }
+    }
+    return ok;
+  }
+
+  function hexToRgb(hex){
+    hex = hex.replace('#','');
+    if(hex.length === 3){
+      hex = hex.split('').map(function(c){ return c+c; }).join('');
+    }
+    var num = parseInt(hex, 16);
+    return { r:(num>>16)&255, g:(num>>8)&255, b:num&255 };
+  }
+
+  var layerIdSeq = 1;
+
+  function defaultLayer(){
+    return {
+      id: layerIdSeq++,
+      x: 4, y: 4, blur: 12, spread: 0,
+      color: '#000000', opacity: 35, inset: false
+    };
+  }
+
+  var layers = [ defaultLayer() ];
+
+  function layerToCss(l){
+    var rgb = hexToRgb(l.color);
+    var alpha = Math.round((l.opacity/100) * 100) / 100;
+    var parts = [];
+    if(l.inset) parts.push('inset');
+    parts.push(l.x + 'px');
+    parts.push(l.y + 'px');
+    parts.push(l.blur + 'px');
+    parts.push(l.spread + 'px');
+    parts.push('rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',' + alpha + ')');
+    return parts.join(' ');
+  }
+
+  function fullCss(){
+    return layers.map(layerToCss).join(', ');
+  }
+
+  function render(){
+    var css = fullCss();
+    document.getElementById('previewBox').style.boxShadow = css;
+    document.getElementById('cssCode').textContent = 'box-shadow: ' + css + ';';
+    renderLayerList();
+  }
+
+  function renderLayerList(){
+    var wrap = document.getElementById('layerList');
+    wrap.innerHTML = '';
+    layers.forEach(function(l, idx){
+      var div = document.createElement('div');
+      div.className = 'layer';
+      div.innerHTML =
+        '<div class="layer-head">' +
+          '<div class="layer-title">シャドウ ' + (idx+1) + '</div>' +
+          (layers.length > 1 ? '<button class="rm-btn" data-rm="'+l.id+'">削除</button>' : '') +
+        '</div>' +
+        '<div class="field"><label>X方向オフセット <span class="v" data-role="xval">'+l.x+'px</span></label>' +
+          '<input type="range" min="-60" max="60" value="'+l.x+'" data-role="x" data-id="'+l.id+'"></div>' +
+        '<div class="field"><label>Y方向オフセット <span class="v" data-role="yval">'+l.y+'px</span></label>' +
+          '<input type="range" min="-60" max="60" value="'+l.y+'" data-role="y" data-id="'+l.id+'"></div>' +
+        '<div class="field"><label>ぼかし (blur) <span class="v" data-role="blurval">'+l.blur+'px</span></label>' +
+          '<input type="range" min="0" max="100" value="'+l.blur+'" data-role="blur" data-id="'+l.id+'"></div>' +
+        '<div class="field"><label>広がり (spread) <span class="v" data-role="spreadval">'+l.spread+'px</span></label>' +
+          '<input type="range" min="-40" max="40" value="'+l.spread+'" data-role="spread" data-id="'+l.id+'"></div>' +
+        '<div class="field"><label>不透明度 <span class="v" data-role="opval">'+l.opacity+'%</span></label>' +
+          '<input type="range" min="0" max="100" value="'+l.opacity+'" data-role="opacity" data-id="'+l.id+'"></div>' +
+        '<div class="colorrow"><input type="color" value="'+l.color+'" data-role="color" data-id="'+l.id+'">' +
+          '<span style="font-size:12px;color:var(--sub);">影の色</span></div>' +
+        '<div class="checkrow"><input type="checkbox" id="inset-'+l.id+'" data-role="inset" data-id="'+l.id+'" '+(l.inset?'checked':'')+'>' +
+          '<label for="inset-'+l.id+'">inset（内側）</label></div>';
+      wrap.appendChild(div);
+    });
+
+    wrap.querySelectorAll('input[type=range]').forEach(function(inp){
+      inp.addEventListener('input', function(){
+        var id = parseInt(inp.getAttribute('data-id'), 10);
+        var role = inp.getAttribute('data-role');
+        var layer = layers.find(function(l){ return l.id === id; });
+        if(!layer) return;
+        var val = parseFloat(inp.value);
+        layer[role] = val;
+        var labelSpan = inp.parentElement.querySelector('[data-role="'+role+'val"]');
+        if(labelSpan){
+          labelSpan.textContent = (role === 'opacity') ? (val + '%') : (val + 'px');
+        }
+        document.getElementById('previewBox').style.boxShadow = fullCss();
+        document.getElementById('cssCode').textContent = 'box-shadow: ' + fullCss() + ';';
+      });
+    });
+    wrap.querySelectorAll('input[type=color]').forEach(function(inp){
+      inp.addEventListener('input', function(){
+        var id = parseInt(inp.getAttribute('data-id'), 10);
+        var layer = layers.find(function(l){ return l.id === id; });
+        if(!layer) return;
+        layer.color = inp.value;
+        document.getElementById('previewBox').style.boxShadow = fullCss();
+        document.getElementById('cssCode').textContent = 'box-shadow: ' + fullCss() + ';';
+      });
+    });
+    wrap.querySelectorAll('input[type=checkbox]').forEach(function(inp){
+      inp.addEventListener('change', function(){
+        var id = parseInt(inp.getAttribute('data-id'), 10);
+        var layer = layers.find(function(l){ return l.id === id; });
+        if(!layer) return;
+        layer.inset = inp.checked;
+        document.getElementById('previewBox').style.boxShadow = fullCss();
+        document.getElementById('cssCode').textContent = 'box-shadow: ' + fullCss() + ';';
+      });
+    });
+    wrap.querySelectorAll('[data-rm]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var id = parseInt(btn.getAttribute('data-rm'), 10);
+        layers = layers.filter(function(l){ return l.id !== id; });
+        render();
+      });
+    });
+  }
+
+  document.getElementById('addLayerBtn').addEventListener('click', function(){
+    if(layers.length >= 6){
+      notify('シャドウは最大6個までです', 'error');
+      return;
+    }
+    layers.push(defaultLayer());
+    render();
+  });
+
+  document.getElementById('copyBtn').addEventListener('click', async function(){
+    var css = 'box-shadow: ' + fullCss() + ';';
+    var ok = await copyText(css);
+    notify(ok ? 'CSSをコピーしました' : 'コピーに失敗しました', ok ? 'success' : 'error');
+  });
+
+  render();
+</script>
+</body>
+</html>

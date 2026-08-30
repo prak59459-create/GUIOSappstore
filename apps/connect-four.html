@@ -1,0 +1,453 @@
+<!--GUIOS-APP {"id":"connect-four","name":"四目並べ","icon":"🔴","color":"#0d47a1","version":"1.0.0","author":"Claude","description":"交互に石を落として縦横斜め4つ並べたら勝ちの対戦ゲーム。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>四目並べ</title>
+<style>
+  :root{
+    --accent:#0d47a1;
+    --bg:#0a1626;
+    --card:#122135;
+    --board:#0d47a1;
+    --hole:#0a1626;
+    --red:#e53935;
+    --yellow:#fdd835;
+    --text:#f2f6fc;
+    --sub:#93a9c7;
+    --win:#3a9d6f;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    min-height:100vh;
+    padding:14px;
+    padding-bottom:40px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    -webkit-tap-highlight-color:transparent;
+  }
+  h1{
+    font-size:19px;
+    margin:2px 0 10px;
+  }
+  .turn-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:10px;
+    font-size:14px;
+    color:var(--sub);
+    min-height:22px;
+  }
+  .turn-dot{
+    width:16px;
+    height:16px;
+    border-radius:50%;
+    display:inline-block;
+  }
+  .turn-dot.red{ background:var(--red); }
+  .turn-dot.yellow{ background:var(--yellow); }
+  .record-row{
+    display:flex;
+    gap:10px;
+    margin-bottom:12px;
+    flex-wrap:wrap;
+    justify-content:center;
+  }
+  .record-chip{
+    background:var(--card);
+    border-radius:10px;
+    padding:6px 12px;
+    font-size:12px;
+    color:var(--sub);
+    border:1px solid rgba(255,255,255,0.06);
+  }
+  .status-banner{
+    display:none;
+    background:var(--card);
+    border:1px solid var(--win);
+    border-radius:14px;
+    padding:12px 20px;
+    text-align:center;
+    margin-bottom:12px;
+    max-width:360px;
+    font-weight:800;
+    font-size:16px;
+  }
+  .status-banner.show{ display:block; }
+  .status-banner.lose{ border-color:var(--red); color:var(--red); }
+  .status-banner.win{ color:var(--win); }
+  .status-banner.draw{ border-color:var(--sub); color:var(--sub); }
+  .board-wrap{
+    width:100%;
+    max-width:420px;
+    display:flex;
+    justify-content:center;
+    margin-bottom:14px;
+  }
+  .board{
+    display:grid;
+    grid-template-columns:repeat(7, 1fr);
+    grid-template-rows:repeat(6, 1fr);
+    gap:1.6vmin;
+    width:min(94vmin, 400px);
+    height:min(80vmin, 344px);
+    background:var(--board);
+    padding:1.6vmin;
+    border-radius:14px;
+  }
+  .cell{
+    background:var(--hole);
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    position:relative;
+  }
+  .disc{
+    width:88%;
+    height:88%;
+    border-radius:50%;
+    transition:transform 0.15s;
+  }
+  .disc.red{ background:radial-gradient(circle at 35% 30%, #ff8a80, var(--red)); }
+  .disc.yellow{ background:radial-gradient(circle at 35% 30%, #fff59d, var(--yellow)); }
+  .cell.winning .disc{
+    box-shadow:0 0 0 3px #fff, 0 0 12px 2px #fff;
+  }
+  .col-hit{
+    cursor:pointer;
+  }
+  .btn-row{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    justify-content:center;
+  }
+  .btn{
+    padding:12px 24px;
+    border-radius:12px;
+    border:none;
+    background:var(--accent);
+    color:#fff;
+    font-weight:800;
+    font-size:15px;
+    cursor:pointer;
+  }
+  .btn.secondary{
+    background:var(--card);
+    color:var(--sub);
+    border:1px solid rgba(255,255,255,0.1);
+    font-size:12px;
+    padding:10px 16px;
+  }
+</style>
+</head>
+<body>
+  <h1>🔴 四目並べ</h1>
+
+  <div class="turn-row" id="turnRow">
+    <span class="turn-dot red"></span><span id="turnText">あなたの番（赤）</span>
+  </div>
+
+  <div class="record-row" id="recordRow">戦績: 勝ち0 / 負け0 / 引き分け0</div>
+
+  <div class="status-banner" id="statusBanner">
+    <div id="statusText"></div>
+  </div>
+
+  <div class="board-wrap">
+    <div class="board" id="board"></div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn" id="newBtn" type="button">もう一度</button>
+    <button class="btn secondary" id="resetRecordBtn" type="button">戦績をリセット</button>
+  </div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var STORE_KEY = "record";
+  var LS_KEY = "connect-four:" + STORE_KEY;
+
+  var ROWS = 6, COLS = 7;
+  var EMPTY = 0, RED = 1, YELLOW = 2;
+
+  var boardEl = document.getElementById("board");
+  var turnText = document.getElementById("turnText");
+  var turnRow = document.getElementById("turnRow");
+  var recordRow = document.getElementById("recordRow");
+  var statusBanner = document.getElementById("statusBanner");
+  var statusText = document.getElementById("statusText");
+  var newBtn = document.getElementById("newBtn");
+  var resetRecordBtn = document.getElementById("resetRecordBtn");
+
+  var grid = [];      // ROWS*COLS, EMPTY/RED/YELLOW, row 0 = top
+  var current = RED;
+  var gameOver = false;
+  var busy = false;   // true while CPU is "thinking" to block double taps
+  var record = { win: 0, lose: 0, draw: 0 };
+
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify){
+      window.GUIOS.notify(msg, { type: type || "info" });
+    }
+  }
+  function haptic(){
+    if (window.GUIOS && window.GUIOS.haptic){
+      try { window.GUIOS.haptic(); } catch(e){}
+    }
+  }
+
+  async function loadRecord(){
+    try {
+      if (hasSDK){
+        var v = await window.GUIOS.storage.get(STORE_KEY);
+        if (v && typeof v === "object") record = v;
+      } else {
+        var raw = localStorage.getItem(LS_KEY);
+        if (raw) record = JSON.parse(raw);
+      }
+    } catch(e){}
+    renderRecord();
+  }
+  async function saveRecord(){
+    try {
+      if (hasSDK){
+        await window.GUIOS.storage.set(STORE_KEY, record);
+      } else {
+        localStorage.setItem(LS_KEY, JSON.stringify(record));
+      }
+    } catch(e){}
+  }
+  function renderRecord(){
+    recordRow.textContent = "戦績: 勝ち" + record.win + " / 負け" + record.lose + " / 引き分け" + record.draw;
+  }
+
+  function idx(r, c){ return r * COLS + c; }
+
+  function buildDom(){
+    boardEl.innerHTML = "";
+    for (var r = 0; r < ROWS; r++){
+      for (var c = 0; c < COLS; c++){
+        var cell = document.createElement("div");
+        cell.className = "cell";
+        cell.setAttribute("data-r", r);
+        cell.setAttribute("data-c", c);
+        boardEl.appendChild(cell);
+      }
+    }
+  }
+
+  function renderCell(r, c){
+    var cell = boardEl.children[idx(r, c)];
+    cell.innerHTML = "";
+    cell.classList.remove("winning");
+    var v = grid[idx(r, c)];
+    if (v !== EMPTY){
+      var disc = document.createElement("div");
+      disc.className = "disc " + (v === RED ? "red" : "yellow");
+      cell.appendChild(disc);
+    }
+  }
+
+  function renderAll(){
+    for (var r = 0; r < ROWS; r++){
+      for (var c = 0; c < COLS; c++) renderCell(r, c);
+    }
+  }
+
+  function lowestEmptyRow(col){
+    for (var r = ROWS - 1; r >= 0; r--){
+      if (grid[idx(r, col)] === EMPTY) return r;
+    }
+    return -1;
+  }
+
+  function isColumnFull(col){
+    return grid[idx(0, col)] !== EMPTY;
+  }
+
+  function isBoardFull(){
+    for (var c = 0; c < COLS; c++){
+      if (!isColumnFull(c)) return false;
+    }
+    return true;
+  }
+
+  // Returns the winning line (array of [r,c]) for the player who just moved at (r,c), or null.
+  function checkWinAt(r, c){
+    var player = grid[idx(r, c)];
+    if (player === EMPTY) return null;
+    var dirs = [
+      [[0,1],[0,-1]],   // horizontal
+      [[1,0],[-1,0]],   // vertical
+      [[1,1],[-1,-1]],  // diagonal down-right / up-left
+      [[1,-1],[-1,1]]   // diagonal down-left / up-right
+    ];
+    for (var d = 0; d < dirs.length; d++){
+      var line = [[r, c]];
+      dirs[d].forEach(function(step){
+        var dr = step[0], dc = step[1];
+        var rr = r + dr, cc = c + dc;
+        while (rr >= 0 && rr < ROWS && cc >= 0 && cc < COLS && grid[idx(rr, cc)] === player){
+          line.push([rr, cc]);
+          rr += dr; cc += dc;
+        }
+      });
+      if (line.length >= 4) return line;
+    }
+    return null;
+  }
+
+  function dropDisc(col, player){
+    var r = lowestEmptyRow(col);
+    if (r === -1) return null;
+    grid[idx(r, col)] = player;
+    renderCell(r, col);
+    return r;
+  }
+
+  function highlightWin(line){
+    line.forEach(function(p){
+      boardEl.children[idx(p[0], p[1])].classList.add("winning");
+    });
+  }
+
+  function setTurnDisplay(){
+    if (current === RED){
+      turnRow.innerHTML = '<span class="turn-dot red"></span><span id="turnText">あなたの番（赤）</span>';
+    } else {
+      turnRow.innerHTML = '<span class="turn-dot yellow"></span><span id="turnText">CPUの番（黄）</span>';
+    }
+  }
+
+  function endGame(kind, line){
+    gameOver = true;
+    busy = false;
+    if (line) highlightWin(line);
+    statusBanner.className = "status-banner show " + kind;
+    if (kind === "win"){
+      statusText.textContent = "あなたの勝ち！ 🎉";
+      record.win++;
+      notify("あなたの勝ちです", "success");
+    } else if (kind === "lose"){
+      statusText.textContent = "CPUの勝ち…";
+      record.lose++;
+      notify("CPUの勝ちです", "error");
+    } else {
+      statusText.textContent = "引き分け";
+      record.draw++;
+      notify("引き分けです", "info");
+    }
+    saveRecord();
+    renderRecord();
+  }
+
+  function playerMove(col){
+    if (gameOver || busy || current !== RED) return;
+    if (isColumnFull(col)) return;
+    var r = dropDisc(col, RED);
+    if (r === null) return;
+    haptic();
+    var line = checkWinAt(r, col);
+    if (line){
+      endGame("win", line);
+      return;
+    }
+    if (isBoardFull()){
+      endGame("draw", null);
+      return;
+    }
+    current = YELLOW;
+    setTurnDisplay();
+    busy = true;
+    setTimeout(cpuMove, 450);
+  }
+
+  function findImmediateWin(player){
+    for (var c = 0; c < COLS; c++){
+      if (isColumnFull(c)) continue;
+      var r = lowestEmptyRow(c);
+      grid[idx(r, c)] = player;
+      var line = checkWinAt(r, c);
+      grid[idx(r, c)] = EMPTY;
+      if (line) return c;
+    }
+    return -1;
+  }
+
+  function scoreBoardForCpu(){
+    // Simple heuristic: prefer center columns.
+    var centerOrder = [3, 2, 4, 1, 5, 0, 6];
+    for (var i = 0; i < centerOrder.length; i++){
+      var c = centerOrder[i];
+      if (!isColumnFull(c)) return c;
+    }
+    return -1;
+  }
+
+  function cpuMove(){
+    if (gameOver) return;
+    var col = findImmediateWin(YELLOW);
+    if (col === -1) col = findImmediateWin(RED);   // block
+    if (col === -1) col = scoreBoardForCpu();
+    if (col === -1){ busy = false; return; }
+
+    var r = dropDisc(col, YELLOW);
+    busy = false;
+    if (r === null) return;
+    var line = checkWinAt(r, col);
+    if (line){
+      endGame("lose", line);
+      return;
+    }
+    if (isBoardFull()){
+      endGame("draw", null);
+      return;
+    }
+    current = RED;
+    setTurnDisplay();
+  }
+
+  function newGame(){
+    grid = [];
+    for (var i = 0; i < ROWS * COLS; i++) grid.push(EMPTY);
+    current = RED;
+    gameOver = false;
+    busy = false;
+    statusBanner.className = "status-banner";
+    buildDom();
+    renderAll();
+    setTurnDisplay();
+  }
+
+  boardEl.addEventListener("click", function(e){
+    var cell = e.target.closest(".cell");
+    if (!cell) return;
+    var c = parseInt(cell.getAttribute("data-c"), 10);
+    playerMove(c);
+  });
+
+  newBtn.addEventListener("click", function(){
+    newGame();
+  });
+
+  resetRecordBtn.addEventListener("click", function(){
+    record = { win: 0, lose: 0, draw: 0 };
+    saveRecord();
+    renderRecord();
+    notify("戦績をリセットしました", "info");
+  });
+
+  loadRecord();
+  newGame();
+</script>
+</body>
+</html>

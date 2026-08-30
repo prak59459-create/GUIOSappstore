@@ -1,0 +1,431 @@
+<!--GUIOS-APP {"id":"meditation-timer","name":"瞑想タイマー","icon":"🧘","color":"#6a1b9a","version":"1.0.0","author":"Claude","description":"開始・終了時にベルの音が鳴る瞑想用のシンプルなタイマーアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>瞑想タイマー</title>
+<style>
+  :root{
+    --accent:#a568e0;
+    --accent-dark:#6a1b9a;
+    --bg:#150c20;
+    --card:#211430;
+    --card2:#2a1a3b;
+    --text:#f2ecfa;
+    --sub:#bda6d6;
+    --line:#3a2650;
+    --input:#150c20;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; }
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text); min-height:100vh; padding:16px; padding-bottom:48px;
+  }
+  h1{ font-size:19px; margin:4px 0 4px; display:flex; align-items:center; gap:8px; }
+  .wrap{ max-width:520px; margin:0 auto; display:flex; flex-direction:column; gap:14px; }
+  .sub-tag{ font-size:12px; color:var(--sub); margin:0 0 4px; }
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:16px;
+  }
+  label{ display:block; font-size:12px; color:var(--sub); margin-bottom:6px; }
+  .field{ margin-bottom:14px; }
+  .field:last-child{ margin-bottom:0; }
+  input[type=number]{
+    width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--line);
+    background:var(--input); color:var(--text); font-size:16px; outline:none;
+  }
+  input[type=number]:focus{ border-color:var(--accent); }
+  .row2{ display:flex; gap:10px; }
+  .row2 > *{ flex:1; min-width:0; }
+  .toggle-row{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    background:var(--input); border:1px solid var(--line); border-radius:12px; padding:12px 14px;
+  }
+  .toggle-row .t-label{ font-size:14px; }
+  .toggle-row .t-sub{ font-size:11px; color:var(--sub); margin-top:2px; }
+  .switch{
+    position:relative; width:46px; height:26px; flex:none;
+  }
+  .switch input{ opacity:0; width:0; height:0; position:absolute; }
+  .slider{
+    position:absolute; inset:0; background:#3a2650; border-radius:999px; cursor:pointer; transition:.2s;
+  }
+  .slider:before{
+    content:""; position:absolute; width:20px; height:20px; left:3px; top:3px;
+    background:#e8ddf5; border-radius:50%; transition:.2s;
+  }
+  input:checked + .slider{ background:var(--accent); }
+  input:checked + .slider:before{ transform:translateX(20px); }
+  button{
+    padding:12px 22px; border-radius:12px; border:none; background:var(--accent);
+    color:#1d0930; font-weight:700; font-size:16px; cursor:pointer; min-height:48px; width:100%;
+  }
+  button.stop-btn{ background:#c0392b; color:#2a0808; }
+  button.secondary{
+    background:transparent; color:var(--sub); border:1px solid var(--line); font-weight:600;
+  }
+  .stage{ display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .stage.hidden{ display:none; }
+  .run-wrap{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:40px 10px 30px; gap:18px;
+  }
+  .run-wrap.hidden{ display:none; }
+  .time-display{
+    font-size:64px; font-weight:800; letter-spacing:2px; font-variant-numeric:tabular-nums;
+    color:var(--text);
+  }
+  .run-caption{ font-size:13px; color:var(--sub); text-align:center; }
+  .ring{
+    width:220px; height:220px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    background: conic-gradient(var(--accent) var(--pct,0%), var(--card2) var(--pct,0%) 100%);
+    transition: background .3s linear;
+  }
+  .ring-inner{
+    width:190px; height:190px; border-radius:50%; background:var(--bg);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
+  }
+  .setup.hidden{ display:none; }
+  .section-title{ font-size:13px; color:var(--sub); margin:0 0 10px; font-weight:600; }
+  .stat-grid{ display:flex; gap:10px; }
+  .stat-box{
+    flex:1; background:var(--input); border:1px solid var(--line); border-radius:12px;
+    padding:12px; text-align:center;
+  }
+  .stat-box .v{ font-size:20px; font-weight:800; color:var(--accent); }
+  .stat-box .l{ font-size:11px; color:var(--sub); margin-top:2px; }
+  .toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:var(--card2); color:var(--text); padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; transition:opacity .25s, transform .25s; pointer-events:none;
+    max-width:90%; text-align:center; box-shadow:0 6px 18px rgba(0,0,0,.35); z-index:50;
+    border:1px solid var(--line);
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🧘 瞑想タイマー</h1>
+    <p class="sub-tag">開始・終了時にベルが鳴ります。落ち着ける場所でどうぞ。</p>
+
+    <div class="card setup" id="setupCard">
+      <div class="section-title">設定</div>
+      <div class="field">
+        <label for="durationInput">瞑想時間（分）</label>
+        <input type="number" id="durationInput" inputmode="numeric" min="1" max="180" value="10">
+      </div>
+      <div class="toggle-row" style="margin-bottom:14px;">
+        <div>
+          <div class="t-label">インターバルベル</div>
+          <div class="t-sub">一定間隔でやさしいベルを鳴らす</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="intervalToggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="field" id="intervalField" style="display:none;">
+        <label for="intervalInput">ベル間隔（分）</label>
+        <input type="number" id="intervalInput" inputmode="numeric" min="1" max="60" value="5">
+      </div>
+      <button id="startBtn">開始</button>
+    </div>
+
+    <div class="run-wrap hidden" id="runWrap">
+      <div class="ring" id="ring">
+        <div class="ring-inner">
+          <div class="time-display" id="timeDisplay">10:00</div>
+        </div>
+      </div>
+      <div class="run-caption" id="runCaption">深呼吸をして、心を落ち着けましょう</div>
+      <button class="stop-btn" id="stopBtn">停止</button>
+    </div>
+
+    <div class="card">
+      <div class="section-title">これまでの記録</div>
+      <div class="stat-grid">
+        <div class="stat-box">
+          <div class="v" id="sessionCount">0</div>
+          <div class="l">セッション数</div>
+        </div>
+        <div class="stat-box">
+          <div class="v" id="totalMinutes">0</div>
+          <div class="l">合計時間（分）</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+  var APP_ID = 'meditation-timer';
+  var FALLBACK_KEY = 'guios-fallback-' + APP_ID + '-stats';
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+
+  var toastEl = document.getElementById('toast');
+  var toastTimer = null;
+  function showToast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ toastEl.classList.remove('show'); }, 1800);
+  }
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify) {
+      try { window.GUIOS.notify(msg, { type: type || 'info' }); return; } catch(e){}
+    }
+    showToast(msg);
+  }
+  function haptic(){
+    if (window.GUIOS && window.GUIOS.haptic) {
+      try { window.GUIOS.haptic(); } catch(e){}
+    }
+  }
+
+  async function loadStats(){
+    var def = { count: 0, totalMinutes: 0 };
+    if (hasSDK) {
+      try {
+        var v = await window.GUIOS.storage.get('stats');
+        if (v && typeof v === 'object') return { count: v.count||0, totalMinutes: v.totalMinutes||0 };
+        return def;
+      } catch(e){ return def; }
+    } else {
+      try {
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        var obj = raw ? JSON.parse(raw) : def;
+        return { count: obj.count||0, totalMinutes: obj.totalMinutes||0 };
+      } catch(e){ return def; }
+    }
+  }
+  async function saveStats(stats){
+    if (hasSDK) {
+      try { await window.GUIOS.storage.set('stats', stats); } catch(e){}
+    } else {
+      try { localStorage.setItem(FALLBACK_KEY, JSON.stringify(stats)); } catch(e){}
+    }
+  }
+
+  var stats = { count: 0, totalMinutes: 0 };
+  function renderStats(){
+    document.getElementById('sessionCount').textContent = stats.count;
+    document.getElementById('totalMinutes').textContent = stats.totalMinutes;
+  }
+
+  /* ---------- Audio (WebAudio bell, no external file) ---------- */
+  var audioCtx = null;
+  function getCtx(){
+    if (!audioCtx) {
+      var Ctor = window.AudioContext || window.webkitAudioContext;
+      if (!Ctor) return null;
+      audioCtx = new Ctor();
+    }
+    if (audioCtx.state === 'suspended') {
+      try { audioCtx.resume(); } catch(e){}
+    }
+    return audioCtx;
+  }
+
+  var activeBellNodes = [];
+  function stopAllBells(){
+    activeBellNodes.forEach(function(n){
+      try { n.osc.stop(); } catch(e){}
+      try { n.osc.disconnect(); } catch(e){}
+      try { n.gain.disconnect(); } catch(e){}
+    });
+    activeBellNodes = [];
+  }
+
+  function playBell(strength){
+    var ctx = getCtx();
+    if (!ctx) return;
+    var now = ctx.currentTime;
+    var freqs = strength === 'soft' ? [660, 990] : [523.25, 784, 1046.5];
+    var dur = strength === 'soft' ? 2.2 : 3.2;
+    var peakGain = strength === 'soft' ? 0.18 : 0.28;
+
+    freqs.forEach(function(freq, idx){
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      var startAt = now + idx * 0.02;
+      var g = peakGain / (idx + 1);
+      gain.gain.setValueAtTime(0.0001, startAt);
+      gain.gain.exponentialRampToValueAtTime(Math.max(g, 0.0002), startAt + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, startAt + dur);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(startAt);
+      osc.stop(startAt + dur + 0.05);
+      var rec = { osc: osc, gain: gain };
+      activeBellNodes.push(rec);
+      osc.addEventListener('ended', function(){
+        var i = activeBellNodes.indexOf(rec);
+        if (i >= 0) activeBellNodes.splice(i, 1);
+        try { osc.disconnect(); } catch(e){}
+        try { gain.disconnect(); } catch(e){}
+      });
+    });
+  }
+
+  /* ---------- Timer state ---------- */
+  var totalSeconds = 0;
+  var remainingSeconds = 0;
+  var tickHandle = null;
+  var intervalEnabled = false;
+  var intervalSeconds = 0;
+  var elapsedSinceLastBell = 0;
+  var running = false;
+
+  var setupCard = document.getElementById('setupCard');
+  var runWrap = document.getElementById('runWrap');
+  var timeDisplay = document.getElementById('timeDisplay');
+  var ring = document.getElementById('ring');
+  var runCaption = document.getElementById('runCaption');
+
+  function formatTime(sec){
+    sec = Math.max(0, Math.round(sec));
+    var m = Math.floor(sec / 60);
+    var s = sec % 60;
+    return (m < 10 ? '0'+m : ''+m) + ':' + (s < 10 ? '0'+s : ''+s);
+  }
+
+  function updateDisplay(){
+    timeDisplay.textContent = formatTime(remainingSeconds);
+    var pct = totalSeconds > 0 ? ((totalSeconds - remainingSeconds) / totalSeconds) * 100 : 0;
+    ring.style.setProperty('--pct', pct.toFixed(2) + '%');
+  }
+
+  function clearTick(){
+    if (tickHandle !== null) {
+      clearInterval(tickHandle);
+      tickHandle = null;
+    }
+  }
+
+  async function startSession(){
+    var minutes = parseFloat(document.getElementById('durationInput').value);
+    if (!Number.isFinite(minutes) || minutes <= 0) {
+      notify('瞑想時間を正しく入力してください', 'error');
+      return;
+    }
+    intervalEnabled = document.getElementById('intervalToggle').checked;
+    var intervalMin = parseFloat(document.getElementById('intervalInput').value);
+    if (intervalEnabled && (!Number.isFinite(intervalMin) || intervalMin <= 0)) {
+      notify('ベル間隔を正しく入力してください', 'error');
+      return;
+    }
+    intervalSeconds = intervalEnabled ? Math.round(intervalMin * 60) : 0;
+
+    // ensure any previous timers/oscillators are fully cleared before starting fresh
+    clearTick();
+    stopAllBells();
+    elapsedSinceLastBell = 0;
+
+    totalSeconds = Math.round(minutes * 60);
+    remainingSeconds = totalSeconds;
+    running = true;
+
+    setupCard.classList.add('hidden');
+    runWrap.classList.remove('hidden');
+    runCaption.textContent = '深呼吸をして、心を落ち着けましょう';
+    updateDisplay();
+
+    playBell('start');
+    haptic();
+
+    tickHandle = setInterval(onTick, 1000);
+  }
+
+  function onTick(){
+    if (!running) return;
+    remainingSeconds -= 1;
+    elapsedSinceLastBell += 1;
+
+    if (intervalEnabled && intervalSeconds > 0 && remainingSeconds > 0 &&
+        elapsedSinceLastBell >= intervalSeconds) {
+      elapsedSinceLastBell = 0;
+      playBell('soft');
+    }
+
+    if (remainingSeconds <= 0) {
+      remainingSeconds = 0;
+      updateDisplay();
+      finishSession();
+      return;
+    }
+    updateDisplay();
+  }
+
+  async function finishSession(){
+    clearTick();
+    running = false;
+    playBell('end');
+    runCaption.textContent = 'お疲れさまでした';
+    haptic();
+
+    var minutesDone = Math.round(totalSeconds / 60);
+    stats.count += 1;
+    stats.totalMinutes += minutesDone;
+    await saveStats(stats);
+    renderStats();
+
+    notify('瞑想が終了しました', 'success');
+
+    setTimeout(function(){
+      resetToSetup();
+    }, 1800);
+  }
+
+  function stopSession(){
+    if (!running) return;
+    running = false;
+    clearTick();
+    stopAllBells();
+    notify('瞑想を停止しました', 'info');
+    resetToSetup();
+  }
+
+  function resetToSetup(){
+    clearTick();
+    running = false;
+    runWrap.classList.add('hidden');
+    setupCard.classList.remove('hidden');
+    timeDisplay.textContent = formatTime(totalSeconds || 0);
+    ring.style.setProperty('--pct', '0%');
+  }
+
+  document.getElementById('startBtn').addEventListener('click', startSession);
+  document.getElementById('stopBtn').addEventListener('click', stopSession);
+  document.getElementById('intervalToggle').addEventListener('change', function(){
+    document.getElementById('intervalField').style.display = this.checked ? 'block' : 'none';
+  });
+
+  // Clean up any pending audio/timers if the app is hidden or unloaded
+  document.addEventListener('visibilitychange', function(){
+    // keep timer running in background is fine (setInterval continues),
+    // but ensure no dangling nodes accumulate if the tab reloads.
+  });
+  window.addEventListener('pagehide', function(){
+    clearTick();
+    stopAllBells();
+    if (audioCtx) {
+      try { audioCtx.close(); } catch(e){}
+      audioCtx = null;
+    }
+  });
+
+  (async function init(){
+    stats = await loadStats();
+    renderStats();
+  })();
+</script>
+</body>
+</html>

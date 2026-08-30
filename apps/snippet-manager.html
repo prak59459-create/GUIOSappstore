@@ -1,0 +1,438 @@
+<!--GUIOS-APP {"id":"snippet-manager","name":"スニペット管理","icon":"📋","color":"#616161","version":"1.0.0","author":"Claude","description":"よく使う定型文やコードをタグ付きで保存し、すぐコピーできるアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>スニペット管理</title>
+<style>
+  :root{
+    --accent:#9e9e9e;
+    --accent-dark:#616161;
+    --bg:#121212;
+    --card:#1c1c1c;
+    --card2:#161616;
+    --text:#f0f0f0;
+    --sub:#a8a8a8;
+    --line:rgba(255,255,255,0.09);
+    --danger:#e5484d;
+    --ok:#4caf7d;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    padding:16px; padding-bottom:48px;
+  }
+  .wrap{max-width:680px; margin:0 auto;}
+  h1{font-size:18px; margin:2px 0 14px; display:flex; align-items:center; gap:8px;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:14px; margin-bottom:12px;
+  }
+  label{display:block; font-size:12px; color:var(--sub); margin-bottom:6px;}
+  .field{margin-bottom:10px;}
+  input[type=text], textarea{
+    width:100%; padding:11px 12px; border-radius:10px; border:1px solid var(--line);
+    background:var(--card2); color:var(--text); font-size:14px; outline:none; font-family:inherit;
+  }
+  textarea{ min-height:90px; resize:vertical; white-space:pre-wrap; line-height:1.5; }
+  input:focus, textarea:focus{ border-color:var(--accent); }
+  button.primary{
+    padding:12px 18px; border-radius:10px; border:none; background:var(--accent);
+    color:#111; font-weight:800; font-size:14px; cursor:pointer; min-height:46px; width:100%;
+  }
+  .toggle-add{ display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  #addPanel{ display:none; }
+  #addPanel.show{ display:block; }
+
+  .search-row{ display:flex; gap:8px; margin-bottom:10px; }
+  .search-row input{ flex:1; }
+
+  .tag-filter{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; }
+  .tag-chip{
+    padding:6px 12px; border-radius:20px; border:1px solid var(--line); background:var(--card2);
+    color:var(--sub); font-size:12px; cursor:pointer; min-height:32px; display:inline-flex; align-items:center;
+  }
+  .tag-chip.active{ background:var(--accent-dark); color:#fff; border-color:var(--accent); font-weight:700; }
+
+  .snippet-list{ display:flex; flex-direction:column; gap:12px; }
+  .snippet-card{
+    background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px;
+  }
+  .snip-title{ font-size:15px; font-weight:700; margin-bottom:6px; word-break:break-word; }
+  .snip-tags{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+  .snip-tag{
+    font-size:11px; padding:3px 9px; border-radius:16px; background:var(--card2); color:var(--sub); border:1px solid var(--line);
+  }
+  .snip-body{
+    font-size:13.5px; color:#dcdcdc; white-space:pre-wrap; word-break:break-word; line-height:1.55;
+    background:var(--card2); border-radius:8px; padding:10px; margin-bottom:10px; max-height:220px; overflow-y:auto;
+  }
+  .snip-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+  .btn-sm{
+    flex:1; min-width:70px; padding:10px 6px; border-radius:9px; border:1px solid var(--line); background:var(--card2);
+    color:var(--text); font-size:12.5px; font-weight:700; cursor:pointer; min-height:42px;
+  }
+  .btn-sm.copy{ background:var(--accent-dark); border-color:var(--accent); color:#fff; }
+  .btn-sm.del{ color:var(--danger); }
+
+  .empty{ text-align:center; color:var(--sub); font-size:13px; padding:30px 10px; }
+
+  .toast{
+    position:fixed; left:50%; bottom:20px; transform:translateX(-50%) translateY(20px);
+    background:#222; color:#fff; padding:11px 18px; border-radius:10px; font-size:13px;
+    opacity:0; transition:opacity .25s, transform .25s; pointer-events:none; z-index:999; max-width:88vw; text-align:center;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+  .toast.error{background:#5a1e1e;}
+  .toast.success{background:#1e4a2a;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📋 スニペット管理</h1>
+
+  <div class="card toggle-add" id="toggleAddBtn">
+    <h2 style="margin:0; font-size:14px; color:var(--sub);">＋ 新しいスニペットを追加</h2>
+  </div>
+
+  <div class="card" id="addPanel">
+    <div class="field">
+      <label>タイトル</label>
+      <input type="text" id="snipTitle" placeholder="例: メール署名" maxlength="80">
+    </div>
+    <div class="field">
+      <label>タグ (カンマ区切り・任意)</label>
+      <input type="text" id="snipTags" placeholder="例: 仕事, メール">
+    </div>
+    <div class="field">
+      <label>本文</label>
+      <textarea id="snipBody" placeholder="ここに定型文やコードを入力"></textarea>
+    </div>
+    <button class="primary" id="addSnipBtn">追加する</button>
+  </div>
+
+  <div class="search-row">
+    <input type="text" id="searchInput" placeholder="🔍 タイトル・タグ・本文で検索">
+  </div>
+  <div class="tag-filter" id="tagFilter"></div>
+
+  <div class="snippet-list" id="snippetList"></div>
+  <div class="empty" id="emptyMsg" style="display:none;">スニペットがありません。<br>上の「＋ 新しいスニペットを追加」から登録しましょう。</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  var APP_ID = "snippet-manager";
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var LS_KEY = APP_ID + "::snippets";
+
+  var snippets = [];
+  var searchQuery = "";
+  var activeTag = null;
+  var editingId = null;
+
+  function toast(msg, type){
+    if(hasSDK && window.GUIOS.notify){
+      try{ window.GUIOS.notify(msg, {type: type||'info'}); return; }catch(e){}
+    }
+    var el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'toast show' + (type ? (' '+type) : '');
+    clearTimeout(el._t);
+    el._t = setTimeout(function(){ el.className = 'toast'; }, 2200);
+  }
+  function haptic(){
+    if(hasSDK && window.GUIOS.haptic){ try{ window.GUIOS.haptic(); }catch(e){} }
+  }
+
+  function loadSnippets(){
+    if(hasSDK){
+      return window.GUIOS.storage.get('snippets').then(function(v){
+        return Array.isArray(v) ? v : [];
+      }).catch(function(){ return []; });
+    }
+    try{
+      var raw = localStorage.getItem(LS_KEY);
+      var v = raw ? JSON.parse(raw) : [];
+      return Promise.resolve(Array.isArray(v) ? v : []);
+    }catch(e){ return Promise.resolve([]); }
+  }
+  function saveSnippets(){
+    if(hasSDK){
+      return window.GUIOS.storage.set('snippets', snippets).catch(function(){});
+    }
+    try{ localStorage.setItem(LS_KEY, JSON.stringify(snippets)); }catch(e){}
+    return Promise.resolve(true);
+  }
+
+  function uid(){ return 's' + Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+  function parseTags(str){
+    return (str || '').split(',').map(function(t){ return t.trim(); }).filter(function(t){ return t.length > 0; });
+  }
+
+  function copyText(text){
+    if(hasSDK && window.GUIOS.clipboard && window.GUIOS.clipboard.writeText){
+      window.GUIOS.clipboard.writeText(text).then(function(){
+        toast('コピーしました', 'success');
+      }).catch(function(){ fallbackCopy(text); });
+    } else {
+      fallbackCopy(text);
+    }
+  }
+  function fallbackCopy(text){
+    try{
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(function(){
+          toast('コピーしました', 'success');
+        }).catch(function(){ legacyCopy(text); });
+        return;
+      }
+    }catch(e){}
+    legacyCopy(text);
+  }
+  function legacyCopy(text){
+    try{
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      ta.style.top = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      var ok = false;
+      try{ ok = document.execCommand('copy'); }catch(e2){ ok = false; }
+      document.body.removeChild(ta);
+      toast(ok ? 'コピーしました' : 'コピーに失敗しました', ok ? 'success' : 'error');
+    }catch(e){
+      toast('コピーに失敗しました', 'error');
+    }
+  }
+
+  function getAllTags(){
+    var set = {};
+    snippets.forEach(function(s){
+      (s.tags || []).forEach(function(t){ set[t] = true; });
+    });
+    return Object.keys(set).sort(function(a,b){ return a.localeCompare(b, 'ja'); });
+  }
+
+  function matchesFilter(s){
+    if(activeTag && (!s.tags || s.tags.indexOf(activeTag) === -1)) return false;
+    if(!searchQuery) return true;
+    var q = searchQuery.toLowerCase();
+    if(s.title && s.title.toLowerCase().indexOf(q) !== -1) return true;
+    if(s.body && s.body.toLowerCase().indexOf(q) !== -1) return true;
+    if(s.tags && s.tags.some(function(t){ return t.toLowerCase().indexOf(q) !== -1; })) return true;
+    return false;
+  }
+
+  function renderTagFilter(){
+    var wrap = document.getElementById('tagFilter');
+    var tags = getAllTags();
+    wrap.innerHTML = '';
+    if(tags.length === 0){ wrap.style.display = 'none'; return; }
+    wrap.style.display = 'flex';
+    var allChip = document.createElement('button');
+    allChip.type = 'button';
+    allChip.className = 'tag-chip' + (activeTag === null ? ' active' : '');
+    allChip.textContent = 'すべて';
+    allChip.addEventListener('click', function(){ activeTag = null; render(); });
+    wrap.appendChild(allChip);
+    tags.forEach(function(t){
+      var chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'tag-chip' + (activeTag === t ? ' active' : '');
+      chip.textContent = t;
+      chip.addEventListener('click', function(){ activeTag = (activeTag === t) ? null : t; render(); });
+      wrap.appendChild(chip);
+    });
+  }
+
+  function buildEditForm(s){
+    var box = document.createElement('div');
+    var f1 = document.createElement('div'); f1.className = 'field';
+    f1.innerHTML = '<label>タイトル</label>';
+    var titleInput = document.createElement('input');
+    titleInput.type = 'text'; titleInput.value = s.title; titleInput.maxLength = 80;
+    f1.appendChild(titleInput);
+
+    var f2 = document.createElement('div'); f2.className = 'field';
+    f2.innerHTML = '<label>タグ (カンマ区切り)</label>';
+    var tagsInput = document.createElement('input');
+    tagsInput.type = 'text'; tagsInput.value = (s.tags || []).join(', ');
+    f2.appendChild(tagsInput);
+
+    var f3 = document.createElement('div'); f3.className = 'field';
+    f3.innerHTML = '<label>本文</label>';
+    var bodyInput = document.createElement('textarea');
+    bodyInput.value = s.body;
+    f3.appendChild(bodyInput);
+
+    var actions = document.createElement('div');
+    actions.className = 'snip-actions';
+    var saveBtn = document.createElement('button');
+    saveBtn.className = 'btn-sm copy'; saveBtn.textContent = '保存';
+    saveBtn.addEventListener('click', function(){
+      var title = titleInput.value.trim();
+      if(!title){ toast('タイトルを入力してください', 'error'); return; }
+      s.title = title;
+      s.tags = parseTags(tagsInput.value);
+      s.body = bodyInput.value;
+      editingId = null;
+      saveSnippets().then(render);
+      toast('保存しました', 'success');
+    });
+    var cancelBtn = document.createElement('button');
+    cancelBtn.className = 'btn-sm'; cancelBtn.textContent = 'キャンセル';
+    cancelBtn.addEventListener('click', function(){ editingId = null; render(); });
+    actions.appendChild(saveBtn);
+    actions.appendChild(cancelBtn);
+
+    box.appendChild(f1); box.appendChild(f2); box.appendChild(f3); box.appendChild(actions);
+    return box;
+  }
+
+  function render(){
+    renderTagFilter();
+    var list = document.getElementById('snippetList');
+    var emptyMsg = document.getElementById('emptyMsg');
+    list.innerHTML = '';
+
+    var filtered = snippets.filter(matchesFilter);
+
+    if(snippets.length === 0){
+      emptyMsg.textContent = 'スニペットがありません。上の「＋ 新しいスニペットを追加」から登録しましょう。';
+      emptyMsg.style.display = 'block';
+      return;
+    }
+    if(filtered.length === 0){
+      emptyMsg.textContent = '条件に一致するスニペットがありません。';
+      emptyMsg.style.display = 'block';
+      return;
+    }
+    emptyMsg.style.display = 'none';
+
+    filtered.forEach(function(s){
+      var card = document.createElement('div');
+      card.className = 'snippet-card';
+
+      if(editingId === s.id){
+        card.appendChild(buildEditForm(s));
+        list.appendChild(card);
+        return;
+      }
+
+      var title = document.createElement('div');
+      title.className = 'snip-title';
+      title.textContent = s.title;
+      card.appendChild(title);
+
+      if(s.tags && s.tags.length){
+        var tagsWrap = document.createElement('div');
+        tagsWrap.className = 'snip-tags';
+        s.tags.forEach(function(t){
+          var chip = document.createElement('span');
+          chip.className = 'snip-tag';
+          chip.textContent = t;
+          tagsWrap.appendChild(chip);
+        });
+        card.appendChild(tagsWrap);
+      }
+
+      var body = document.createElement('div');
+      body.className = 'snip-body';
+      body.textContent = s.body;
+      card.appendChild(body);
+
+      var actions = document.createElement('div');
+      actions.className = 'snip-actions';
+      var copyBtn = document.createElement('button');
+      copyBtn.className = 'btn-sm copy';
+      copyBtn.textContent = '📋 コピー';
+      copyBtn.addEventListener('click', function(){ haptic(); copyText(s.body); });
+      var editBtn = document.createElement('button');
+      editBtn.className = 'btn-sm';
+      editBtn.textContent = '編集';
+      editBtn.addEventListener('click', function(){ editingId = s.id; render(); });
+      var delBtn = document.createElement('button');
+      delBtn.className = 'btn-sm del';
+      delBtn.textContent = '削除';
+      delBtn.addEventListener('click', function(){
+        snippets = snippets.filter(function(x){ return x.id !== s.id; });
+        saveSnippets().then(render);
+        toast('削除しました', 'info');
+      });
+      actions.appendChild(copyBtn);
+      actions.appendChild(editBtn);
+      actions.appendChild(delBtn);
+      card.appendChild(actions);
+
+      list.appendChild(card);
+    });
+  }
+
+  function addSnippet(){
+    var titleInput = document.getElementById('snipTitle');
+    var tagsInput = document.getElementById('snipTags');
+    var bodyInput = document.getElementById('snipBody');
+    var title = titleInput.value.trim();
+    var body = bodyInput.value;
+    if(!title){
+      toast('タイトルを入力してください', 'error');
+      titleInput.focus();
+      return;
+    }
+    if(!body.trim()){
+      toast('本文を入力してください', 'error');
+      bodyInput.focus();
+      return;
+    }
+    var snip = {
+      id: uid(),
+      title: title,
+      tags: parseTags(tagsInput.value),
+      body: body,
+      createdAt: Date.now()
+    };
+    snippets.unshift(snip);
+    saveSnippets().then(render);
+    toast('追加しました', 'success');
+    titleInput.value = '';
+    tagsInput.value = '';
+    bodyInput.value = '';
+    document.getElementById('addPanel').classList.remove('show');
+  }
+
+  document.getElementById('toggleAddBtn').addEventListener('click', function(){
+    document.getElementById('addPanel').classList.toggle('show');
+  });
+  document.getElementById('addSnipBtn').addEventListener('click', addSnippet);
+  document.getElementById('searchInput').addEventListener('input', function(e){
+    searchQuery = e.target.value.trim();
+    render();
+  });
+
+  function init(){
+    loadSnippets().then(function(v){
+      snippets = v;
+      render();
+    });
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>

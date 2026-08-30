@@ -1,0 +1,457 @@
+<!--GUIOS-APP {"id":"medication-reminder","name":"服薬リマインダー","icon":"💊","color":"#ad1457","version":"1.0.0","author":"Claude","description":"薬を飲む時間を登録し、時間になったら知らせてくれるリマインダーアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>服薬リマインダー</title>
+<style>
+  :root{
+    --accent:#ec407a;
+    --accent-deep:#ad1457;
+    --bg:#160b11;
+    --card:#241019;
+    --card2:#1b0c13;
+    --text:#fbe9ef;
+    --sub:#cd9bb0;
+    --line:rgba(255,255,255,0.08);
+    --ok:#4caf7d;
+    --warn:#e5a13d;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text); min-height:100vh; padding:16px; padding-bottom:56px;
+  }
+  h1{ font-size:19px; margin:4px 0 10px; display:flex; align-items:center; gap:8px; }
+  .wrap{ max-width:560px; margin:0 auto; display:flex; flex-direction:column; gap:14px; }
+  .notice{
+    font-size:12px; color:var(--sub); background:var(--card2); border:1px solid var(--line);
+    border-radius:10px; padding:10px 12px; line-height:1.6;
+  }
+  .notice.warn{ color:#f3c98f; border-color:rgba(229,161,61,0.35); }
+
+  .add-btn{
+    background:var(--accent); color:#2a0512; border:none; border-radius:14px; font-weight:700;
+    font-size:15px; padding:14px; min-height:48px; cursor:pointer; width:100%;
+  }
+  .add-btn:active{ filter:brightness(1.1); }
+
+  .today-label{ font-size:13px; color:var(--sub); margin-top:2px; }
+
+  .med-list{ display:flex; flex-direction:column; gap:12px; }
+  .med-card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px 16px;
+    display:flex; flex-direction:column; gap:10px;
+  }
+  .med-top{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .med-name{ font-size:16px; font-weight:700; }
+  .med-memo{ font-size:12px; color:var(--sub); }
+  .med-actions{ display:flex; gap:8px; }
+  .icon-btn{
+    background:var(--card2); color:var(--sub); border:1px solid var(--line); border-radius:10px;
+    padding:8px 12px; font-size:12px; min-height:36px; cursor:pointer;
+  }
+  .icon-btn.danger{ color:var(--accent); }
+
+  .dose-row{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    background:var(--card2); border:1px solid var(--line); border-radius:12px; padding:10px 12px;
+    min-height:48px;
+  }
+  .dose-info{ display:flex; flex-direction:column; gap:2px; }
+  .dose-label{ font-size:13px; color:var(--text); }
+  .dose-time{ font-size:18px; font-weight:700; font-variant-numeric:tabular-nums; }
+  .dose-btn{
+    border:none; border-radius:10px; padding:10px 14px; font-size:13px; font-weight:700; cursor:pointer;
+    min-height:40px; min-width:88px;
+  }
+  .dose-btn.pending{ background:var(--accent); color:#2a0512; }
+  .dose-btn.taken{ background:rgba(76,175,125,0.18); color:var(--ok); border:1px solid rgba(76,175,125,0.4); }
+
+  .empty{ text-align:center; color:var(--sub); font-size:13px; padding:30px 10px; }
+
+  /* modal */
+  .overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.6); display:flex; align-items:flex-end;
+    justify-content:center; z-index:40; padding:0;
+  }
+  .overlay[hidden]{ display:none; }
+  .sheet{
+    background:var(--card); width:100%; max-width:560px; border-radius:20px 20px 0 0;
+    padding:18px 18px 26px; max-height:88vh; overflow-y:auto;
+  }
+  .sheet h2{ font-size:16px; margin:0 0 14px; }
+  .field{ margin-bottom:14px; }
+  label{ display:block; font-size:12px; color:var(--sub); margin-bottom:6px; }
+  input[type="time"], input[type="text"]{
+    width:100%; background:var(--card2); border:1px solid var(--line); border-radius:10px;
+    color:var(--text); font-size:16px; padding:12px; height:48px;
+  }
+  textarea{
+    width:100%; background:var(--card2); border:1px solid var(--line); border-radius:10px;
+    color:var(--text); font-size:14px; padding:12px; min-height:70px; resize:vertical; font-family:inherit;
+  }
+  .time-entry{ display:flex; gap:8px; margin-bottom:8px; align-items:center; }
+  .time-entry input[type="text"]{ flex:1.2; }
+  .time-entry input[type="time"]{ flex:1; }
+  .time-entry .rmTimeBtn{
+    background:var(--card2); border:1px solid var(--line); color:var(--sub); border-radius:10px;
+    min-width:44px; min-height:44px; font-size:16px; cursor:pointer;
+  }
+  .add-time-btn{
+    background:var(--card2); border:1px dashed var(--line); color:var(--sub); border-radius:10px;
+    padding:10px; width:100%; font-size:13px; cursor:pointer; min-height:44px;
+  }
+  .sheet-actions{ display:flex; gap:10px; margin-top:6px; }
+  .sheet-actions button{
+    flex:1; padding:14px; border-radius:12px; border:none; font-size:15px; font-weight:700; cursor:pointer;
+    min-height:48px;
+  }
+  .btn-cancel{ background:var(--card2); color:var(--text); }
+  .btn-save{ background:var(--accent); color:#2a0512; }
+
+  .toast{
+    position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--card);color:var(--text);
+    padding:10px 18px;border-radius:10px;font-size:13px;z-index:200;box-shadow:0 6px 18px rgba(0,0,0,.4);
+    border:1px solid var(--line); max-width:88vw; text-align:center;
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>💊 服薬リマインダー</h1>
+    <div class="notice warn">
+      ⚠️ 本アプリは服薬管理を補助する簡易的な記録ツールです。医療的な助言は行いません。服薬に関する判断は必ず医師・薬剤師の指示に従ってください。
+    </div>
+    <div class="notice">
+      ⏰ 通知はこのアプリを開いている間のみ届きます。アプリを閉じている間は時間になってもお知らせできません。
+    </div>
+
+    <button class="add-btn" id="openAddBtn">＋ 薬を登録</button>
+    <div class="today-label" id="todayLabel">今日: ----年--月--日</div>
+
+    <div class="med-list" id="medList"></div>
+    <div class="empty" id="emptyMsg" hidden>登録されている薬がありません</div>
+  </div>
+
+  <div class="overlay" id="editOverlay" hidden>
+    <div class="sheet">
+      <h2 id="sheetTitle">薬を登録</h2>
+      <div class="field">
+        <label>薬の名前</label>
+        <input type="text" id="nameInput" placeholder="例: 血圧の薬" maxlength="40">
+      </div>
+      <div class="field">
+        <label>服用時刻(複数登録できます)</label>
+        <div id="timesWrap"></div>
+        <button class="add-time-btn" id="addTimeBtn">＋ 時刻を追加</button>
+      </div>
+      <div class="field">
+        <label>メモ(任意)</label>
+        <textarea id="memoInput" placeholder="例: 食後に水と一緒に" maxlength="200"></textarea>
+      </div>
+      <div class="sheet-actions">
+        <button class="btn-cancel" id="cancelBtn">キャンセル</button>
+        <button class="btn-save" id="saveBtn">保存</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var APP_ID = 'medication-reminder';
+  var FALLBACK_KEY = 'guios-fallback-' + APP_ID + '-data';
+
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify) {
+      try { window.GUIOS.notify(msg, { type: type || 'info' }); return; } catch(e){}
+    }
+    var t = document.createElement('div');
+    t.className = 'toast';
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(function(){ t.remove(); }, 3500);
+  }
+
+  function pad2(n){ return (n < 10 ? '0' : '') + n; }
+  function localDateStr(d){
+    return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate());
+  }
+  function uid(){ return 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+  var state = {
+    medications: [],      // [{id, name, memo, times:[{id, label, time}]}]
+    todayDate: '',         // last-active local date string
+    takenToday: {},        // "medId:timeId" -> true
+    notifiedToday: {}       // "medId:timeId" -> true
+  };
+
+  async function loadState(){
+    if (hasSDK) {
+      try {
+        var v = await window.GUIOS.storage.get('state');
+        if (v && typeof v === 'object') return normalizeState(v);
+      } catch(e){}
+      return normalizeState({});
+    } else {
+      try {
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        return normalizeState(raw ? JSON.parse(raw) : {});
+      } catch(e){ return normalizeState({}); }
+    }
+  }
+  function normalizeState(v){
+    return {
+      medications: Array.isArray(v.medications) ? v.medications : [],
+      todayDate: typeof v.todayDate === 'string' ? v.todayDate : '',
+      takenToday: (v.takenToday && typeof v.takenToday === 'object') ? v.takenToday : {},
+      notifiedToday: (v.notifiedToday && typeof v.notifiedToday === 'object') ? v.notifiedToday : {}
+    };
+  }
+  async function saveState(){
+    if (hasSDK) {
+      try { await window.GUIOS.storage.set('state', state); } catch(e){}
+    } else {
+      try { localStorage.setItem(FALLBACK_KEY, JSON.stringify(state)); } catch(e){}
+    }
+  }
+
+  function ensureTodayRollover(){
+    var todayStr = localDateStr(new Date());
+    if (state.todayDate !== todayStr) {
+      state.todayDate = todayStr;
+      state.takenToday = {};
+      state.notifiedToday = {};
+      return true;
+    }
+    return false;
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+    });
+  }
+
+  function updateTodayLabel(){
+    var now = new Date();
+    var DAY_NAMES = ['日','月','火','水','木','金','土'];
+    document.getElementById('todayLabel').textContent =
+      '今日: ' + now.getFullYear() + '年' + (now.getMonth()+1) + '月' + now.getDate() + '日(' + DAY_NAMES[now.getDay()] + ')';
+  }
+
+  function renderList(){
+    var listEl = document.getElementById('medList');
+    var emptyEl = document.getElementById('emptyMsg');
+    if (!state.medications.length){
+      listEl.innerHTML = '';
+      emptyEl.hidden = false;
+      return;
+    }
+    emptyEl.hidden = true;
+    listEl.innerHTML = state.medications.map(function(med){
+      var timesSorted = (med.times || []).slice().sort(function(a,b){
+        return a.time < b.time ? -1 : (a.time > b.time ? 1 : 0);
+      });
+      var rows = timesSorted.map(function(t){
+        var key = med.id + ':' + t.id;
+        var taken = !!state.takenToday[key];
+        return '' +
+          '<div class="dose-row">' +
+            '<div class="dose-info">' +
+              '<div class="dose-label">' + (t.label ? escapeHtml(t.label) : '服用') + '</div>' +
+              '<div class="dose-time">' + t.time + '</div>' +
+            '</div>' +
+            '<button class="dose-btn ' + (taken ? 'taken' : 'pending') + '" data-key="' + key + '">' +
+              (taken ? '✓ 服用済み' : '服用する') +
+            '</button>' +
+          '</div>';
+      }).join('');
+      return '' +
+        '<div class="med-card" data-id="' + med.id + '">' +
+          '<div class="med-top">' +
+            '<div>' +
+              '<div class="med-name">' + escapeHtml(med.name) + '</div>' +
+              (med.memo ? '<div class="med-memo">' + escapeHtml(med.memo) + '</div>' : '') +
+            '</div>' +
+            '<div class="med-actions">' +
+              '<button class="icon-btn editBtn" data-id="' + med.id + '">編集</button>' +
+              '<button class="icon-btn danger deleteBtn" data-id="' + med.id + '">削除</button>' +
+            '</div>' +
+          '</div>' +
+          rows +
+        '</div>';
+    }).join('');
+
+    listEl.querySelectorAll('.dose-btn').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var key = btn.dataset.key;
+        state.takenToday[key] = !state.takenToday[key];
+        if (state.takenToday[key]) { state.notifiedToday[key] = true; }
+        saveState();
+        renderList();
+      });
+    });
+    listEl.querySelectorAll('.editBtn').forEach(function(el){
+      el.addEventListener('click', function(){ openEdit(el.dataset.id); });
+    });
+    listEl.querySelectorAll('.deleteBtn').forEach(function(el){
+      el.addEventListener('click', function(){
+        if (!confirm('この薬を削除しますか？')) return;
+        state.medications = state.medications.filter(function(m){ return m.id !== el.dataset.id; });
+        saveState();
+        renderList();
+      });
+    });
+  }
+
+  // --- edit sheet ---
+  var editingId = null;
+  var editTimes = []; // [{id, label, time}]
+
+  function renderTimesWrap(){
+    var wrap = document.getElementById('timesWrap');
+    wrap.innerHTML = editTimes.map(function(t){
+      return '' +
+        '<div class="time-entry" data-id="' + t.id + '">' +
+          '<input type="text" class="timeLabelInput" placeholder="例: 朝食後" maxlength="20" value="' + escapeHtml(t.label || '') + '">' +
+          '<input type="time" class="timeValueInput" value="' + (t.time || '08:00') + '">' +
+          '<button type="button" class="rmTimeBtn" data-id="' + t.id + '">×</button>' +
+        '</div>';
+    }).join('');
+    wrap.querySelectorAll('.timeLabelInput').forEach(function(inp, idx){
+      inp.addEventListener('input', function(){ editTimes[idx].label = inp.value; });
+    });
+    wrap.querySelectorAll('.timeValueInput').forEach(function(inp, idx){
+      inp.addEventListener('input', function(){ editTimes[idx].time = inp.value; });
+    });
+    wrap.querySelectorAll('.rmTimeBtn').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        editTimes = editTimes.filter(function(t){ return t.id !== btn.dataset.id; });
+        renderTimesWrap();
+      });
+    });
+  }
+
+  document.getElementById('addTimeBtn').addEventListener('click', function(){
+    editTimes.push({ id: uid(), label: '', time: '08:00' });
+    renderTimesWrap();
+  });
+
+  function openAdd(){
+    editingId = null;
+    document.getElementById('sheetTitle').textContent = '薬を登録';
+    document.getElementById('nameInput').value = '';
+    document.getElementById('memoInput').value = '';
+    editTimes = [{ id: uid(), label: '朝食後', time: '08:00' }];
+    renderTimesWrap();
+    document.getElementById('editOverlay').hidden = false;
+  }
+
+  function openEdit(id){
+    var med = state.medications.find(function(m){ return m.id === id; });
+    if (!med) return;
+    editingId = id;
+    document.getElementById('sheetTitle').textContent = '薬を編集';
+    document.getElementById('nameInput').value = med.name || '';
+    document.getElementById('memoInput').value = med.memo || '';
+    editTimes = (med.times || []).map(function(t){ return { id: t.id, label: t.label, time: t.time }; });
+    if (!editTimes.length) editTimes = [{ id: uid(), label: '', time: '08:00' }];
+    renderTimesWrap();
+    document.getElementById('editOverlay').hidden = false;
+  }
+
+  document.getElementById('openAddBtn').addEventListener('click', openAdd);
+  document.getElementById('cancelBtn').addEventListener('click', function(){
+    document.getElementById('editOverlay').hidden = true;
+  });
+
+  document.getElementById('saveBtn').addEventListener('click', function(){
+    var name = document.getElementById('nameInput').value.trim();
+    if (!name) { notify('薬の名前を入力してください', 'error'); return; }
+    var validTimes = editTimes.filter(function(t){ return t.time; });
+    if (!validTimes.length) { notify('服用時刻を1つ以上設定してください', 'error'); return; }
+    var memo = document.getElementById('memoInput').value.trim();
+
+    if (editingId) {
+      var med = state.medications.find(function(m){ return m.id === editingId; });
+      if (med) {
+        med.name = name;
+        med.memo = memo;
+        med.times = validTimes.map(function(t){ return { id: t.id, label: t.label.trim(), time: t.time }; });
+      }
+    } else {
+      state.medications.push({
+        id: uid(),
+        name: name,
+        memo: memo,
+        times: validTimes.map(function(t){ return { id: t.id, label: t.label.trim(), time: t.time }; })
+      });
+    }
+    saveState();
+    renderList();
+    document.getElementById('editOverlay').hidden = true;
+  });
+
+  // --- periodic dose check ---
+  function checkDoses(){
+    var rolled = ensureTodayRollover();
+    var now = new Date();
+    var nowMinutes = now.getHours() * 60 + now.getMinutes();
+    var fired = [];
+
+    state.medications.forEach(function(med){
+      (med.times || []).forEach(function(t){
+        if (!t.time) return;
+        var parts = t.time.split(':');
+        var doseMinutes = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+        var key = med.id + ':' + t.id;
+        if (state.takenToday[key]) return;
+        if (state.notifiedToday[key]) return;
+        if (nowMinutes >= doseMinutes) {
+          state.notifiedToday[key] = true;
+          fired.push({ med: med, t: t });
+        }
+      });
+    });
+
+    if (fired.length) {
+      fired.forEach(function(f){
+        var msg = '💊 ' + f.med.name + ' (' + (f.t.label ? f.t.label + ' ' : '') + f.t.time + ') の服用時間です';
+        notify(msg, 'info');
+      });
+      saveState();
+    } else if (rolled) {
+      saveState();
+      renderList();
+    }
+  }
+
+  var checkInterval = null;
+  function startTimers(){
+    if (checkInterval === null) {
+      checkDoses();
+      checkInterval = setInterval(checkDoses, 30000);
+    }
+  }
+  function stopTimers(){
+    if (checkInterval !== null) { clearInterval(checkInterval); checkInterval = null; }
+  }
+  window.addEventListener('beforeunload', stopTimers);
+  window.addEventListener('pagehide', stopTimers);
+
+  (async function init(){
+    state = await loadState();
+    ensureTodayRollover();
+    updateTodayLabel();
+    renderList();
+    saveState();
+    startTimers();
+    if (window.GUIOS && window.GUIOS.setTitle) {
+      try { window.GUIOS.setTitle('服薬リマインダー'); } catch(e){}
+    }
+  })();
+</script>
+</body>
+</html>

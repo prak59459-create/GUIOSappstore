@@ -1,0 +1,558 @@
+<!--GUIOS-APP {"id":"dots-and-boxes","name":"点と箱取りゲーム","icon":"⬜","color":"#2e7d32","version":"1.0.0","author":"Claude","description":"線を引いて箱を完成させ、より多く箱を取り合う対戦ゲーム。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>点と箱取りゲーム</title>
+<style>
+  :root{
+    --accent:#66bb6a;
+    --accent-dark:#2e7d32;
+    --bg:#0a140b;
+    --card:#122013;
+    --text:#e9f5ea;
+    --sub:#9dc2a0;
+    --win:#4caf7d;
+    --lose:#e0554f;
+    --draw:#e0a63a;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    min-height:100vh;
+    padding:16px;
+    padding-bottom:40px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  h1{ font-size:19px; margin:2px 0 14px; text-align:center; }
+  .panel{
+    width:100%;
+    max-width:380px;
+    background:var(--card);
+    border-radius:16px;
+    padding:16px;
+    border:1px solid rgba(255,255,255,0.06);
+    margin-bottom:14px;
+  }
+  .hud{
+    width:100%;
+    max-width:380px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:12px;
+  }
+  .score-box{
+    flex:1;
+    text-align:center;
+    padding:10px 6px;
+    border-radius:12px;
+    background:var(--card);
+    margin:0 4px;
+    border:1px solid rgba(255,255,255,0.06);
+  }
+  .score-box .num{ font-size:24px; font-weight:800; }
+  .score-box.you .num{ color:var(--accent); }
+  .score-box.cpu .num{ color:#ff8a80; }
+  .score-box .lbl{ font-size:12px; color:var(--sub); margin-top:2px; }
+  .status-text{
+    text-align:center;
+    font-size:15px;
+    font-weight:700;
+    min-height:22px;
+    margin-bottom:10px;
+    color:var(--sub);
+  }
+  .status-text.active{ color:var(--accent); }
+  .board-wrap{
+    width:100%;
+    max-width:340px;
+    padding:10px;
+    background:#081008;
+    border-radius:14px;
+    border:1px solid rgba(255,255,255,0.06);
+    margin-bottom:14px;
+  }
+  .board{
+    position:relative;
+    display:grid;
+    grid-template-columns:14px 1fr 14px 1fr 14px 1fr 14px 1fr 14px;
+    grid-template-rows:14px 1fr 14px 1fr 14px 1fr 14px 1fr 14px;
+    width:100%;
+    aspect-ratio:1;
+  }
+  .dot{
+    width:8px;
+    height:8px;
+    border-radius:50%;
+    background:var(--sub);
+    justify-self:center;
+    align-self:center;
+  }
+  .edge-cell{ position:relative; }
+  .edge-line{
+    position:absolute;
+    background:rgba(255,255,255,0.16);
+    border-radius:3px;
+    transition:background 0.15s;
+  }
+  .edge-cell.h .edge-line{ left:0; right:0; top:50%; height:4px; transform:translateY(-50%); }
+  .edge-cell.v .edge-line{ top:0; bottom:0; left:50%; width:4px; transform:translateX(-50%); }
+  .edge-cell.drawn .edge-line{ background:var(--accent); }
+  .edge-hit{
+    position:absolute;
+    border:none;
+    background:transparent;
+    padding:0;
+    margin:0;
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .edge-cell.h .edge-hit{ left:0; right:0; top:-9px; bottom:-9px; }
+  .edge-cell.v .edge-hit{ top:0; bottom:0; left:-9px; right:-9px; }
+  .board.locked .edge-hit{ pointer-events:none; }
+  .box-cell{
+    border-radius:4px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:15px;
+    font-weight:800;
+    background:rgba(255,255,255,0.03);
+  }
+  .box-cell.human{ background:rgba(102,187,106,0.35); color:#d3f5d5; }
+  .box-cell.cpu{ background:rgba(255,138,128,0.35); color:#ffdcd9; }
+  .restart-btn{
+    width:100%;
+    padding:14px;
+    border-radius:12px;
+    border:none;
+    background:var(--accent);
+    color:#052b09;
+    font-size:16px;
+    font-weight:800;
+    cursor:pointer;
+    box-shadow:0 3px 0 rgba(0,0,0,0.3);
+    margin-bottom:14px;
+  }
+  .restart-btn:active{ transform:translateY(2px); box-shadow:none; }
+  .record-row{
+    display:flex;
+    justify-content:space-around;
+    text-align:center;
+    margin-bottom:10px;
+  }
+  .record-row .num{ font-size:20px; font-weight:800; }
+  .record-row .num.win{ color:var(--win); }
+  .record-row .num.lose{ color:var(--lose); }
+  .record-row .num.draw{ color:var(--draw); }
+  .record-row .lbl{ font-size:12px; color:var(--sub); margin-top:2px; }
+  .reset-btn{
+    display:block;
+    margin:0 auto;
+    padding:9px 20px;
+    border-radius:10px;
+    border:1px solid rgba(255,255,255,0.15);
+    background:transparent;
+    color:var(--sub);
+    font-size:13px;
+    cursor:pointer;
+  }
+</style>
+</head>
+<body>
+  <h1>⬜ 点と箱取りゲーム</h1>
+
+  <div class="hud">
+    <div class="score-box you">
+      <div class="num" id="humanScore">0</div>
+      <div class="lbl">あなた</div>
+    </div>
+    <div class="score-box cpu">
+      <div class="num" id="cpuScore">0</div>
+      <div class="lbl">CPU</div>
+    </div>
+  </div>
+  <div class="status-text active" id="statusText">あなたの番です</div>
+
+  <div class="board-wrap">
+    <div class="board" id="board"></div>
+  </div>
+
+  <button class="restart-btn" id="restartBtn" type="button">もう一度</button>
+
+  <div class="panel">
+    <div class="record-row">
+      <div>
+        <div class="num win" id="recWin">0</div>
+        <div class="lbl">勝ち</div>
+      </div>
+      <div>
+        <div class="num lose" id="recLose">0</div>
+        <div class="lbl">負け</div>
+      </div>
+      <div>
+        <div class="num draw" id="recDraw">0</div>
+        <div class="lbl">引き分け</div>
+      </div>
+    </div>
+    <button class="reset-btn" id="resetRecordBtn" type="button">記録をリセット</button>
+  </div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var APP_ID = "dots-and-boxes";
+  var STORE_KEY = "record";
+
+  var N = 5;      // dots per side
+  var BOX_N = 4;  // boxes per side
+  var TOTAL_EDGES = N * BOX_N * 2; // 40
+
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify){
+      try { window.GUIOS.notify(msg, { type: type || "info" }); } catch(e){}
+    }
+  }
+  function haptic(){
+    if (window.GUIOS && window.GUIOS.haptic){
+      try { window.GUIOS.haptic(); } catch(e){}
+    }
+  }
+  function randInt(min, max){
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  function edgeId(type, r, c){ return type + "-" + r + "-" + c; }
+
+  function allEdges(){
+    var edges = [];
+    for (var r = 0; r < N; r++) for (var c = 0; c < BOX_N; c++) edges.push(edgeId("h", r, c));
+    for (var r2 = 0; r2 < BOX_N; r2++) for (var c2 = 0; c2 < N; c2++) edges.push(edgeId("v", r2, c2));
+    return edges;
+  }
+  var ALL_EDGES = allEdges();
+
+  function edgesForBox(r, c){
+    return {
+      top: edgeId("h", r, c),
+      bottom: edgeId("h", r + 1, c),
+      left: edgeId("v", r, c),
+      right: edgeId("v", r, c + 1)
+    };
+  }
+
+  function boxesForEdge(id){
+    var parts = id.split("-");
+    var type = parts[0];
+    var r = parseInt(parts[1], 10);
+    var c = parseInt(parts[2], 10);
+    var boxes = [];
+    if (type === "h"){
+      if (r - 1 >= 0) boxes.push([r - 1, c]);
+      if (r <= BOX_N - 1) boxes.push([r, c]);
+    } else {
+      if (c - 1 >= 0) boxes.push([r, c - 1]);
+      if (c <= BOX_N - 1) boxes.push([r, c]);
+    }
+    return boxes;
+  }
+
+  // ---- game state ----
+  var drawn = {};
+  var boxOwner = [];
+  var scores = { human: 0, cpu: 0 };
+  var currentPlayer = "human";
+  var gameOver = false;
+  var edgesDrawnCount = 0;
+  var cpuTimer = null;
+  var record = { win: 0, lose: 0, draw: 0 };
+
+  var boardEl = document.getElementById("board");
+  var humanScoreEl = document.getElementById("humanScore");
+  var cpuScoreEl = document.getElementById("cpuScore");
+  var statusText = document.getElementById("statusText");
+  var restartBtn = document.getElementById("restartBtn");
+  var recWinEl = document.getElementById("recWin");
+  var recLoseEl = document.getElementById("recLose");
+  var recDrawEl = document.getElementById("recDraw");
+  var resetRecordBtn = document.getElementById("resetRecordBtn");
+
+  var edgeEls = {};
+  var boxEls = [];
+
+  function filledCount(r, c){
+    var e = edgesForBox(r, c);
+    var n = 0;
+    if (drawn[e.top]) n++;
+    if (drawn[e.bottom]) n++;
+    if (drawn[e.left]) n++;
+    if (drawn[e.right]) n++;
+    return n;
+  }
+
+  function buildBoard(){
+    boardEl.innerHTML = "";
+    edgeEls = {};
+    boxEls = [];
+
+    for (var r = 0; r < N; r++){
+      for (var c = 0; c < N; c++){
+        var dot = document.createElement("div");
+        dot.className = "dot";
+        dot.style.gridRow = String(2 * r + 1);
+        dot.style.gridColumn = String(2 * c + 1);
+        boardEl.appendChild(dot);
+      }
+    }
+
+    for (var r1 = 0; r1 < N; r1++){
+      for (var c1 = 0; c1 < BOX_N; c1++){
+        var id = edgeId("h", r1, c1);
+        buildEdgeCell(id, "h", 2 * r1 + 1, 2 * c1 + 2);
+      }
+    }
+    for (var r2 = 0; r2 < BOX_N; r2++){
+      for (var c2 = 0; c2 < N; c2++){
+        var id2 = edgeId("v", r2, c2);
+        buildEdgeCell(id2, "v", 2 * r2 + 2, 2 * c2 + 1);
+      }
+    }
+
+    for (var r3 = 0; r3 < BOX_N; r3++){
+      boxEls[r3] = [];
+      for (var c3 = 0; c3 < BOX_N; c3++){
+        var box = document.createElement("div");
+        box.className = "box-cell";
+        box.style.gridRow = String(2 * r3 + 2);
+        box.style.gridColumn = String(2 * c3 + 2);
+        boardEl.appendChild(box);
+        boxEls[r3][c3] = box;
+      }
+    }
+  }
+
+  function buildEdgeCell(id, type, gridRow, gridCol){
+    var cell = document.createElement("div");
+    cell.className = "edge-cell " + type;
+    cell.style.gridRow = String(gridRow);
+    cell.style.gridColumn = String(gridCol);
+    var line = document.createElement("div");
+    line.className = "edge-line";
+    var hit = document.createElement("button");
+    hit.type = "button";
+    hit.className = "edge-hit";
+    hit.setAttribute("aria-label", "line");
+    hit.addEventListener("click", function(){ onEdgeClick(id); });
+    cell.appendChild(line);
+    cell.appendChild(hit);
+    boardEl.appendChild(cell);
+    edgeEls[id] = { cell: cell, line: line };
+  }
+
+  function updateBoardVisuals(){
+    for (var i = 0; i < ALL_EDGES.length; i++){
+      var id = ALL_EDGES[i];
+      edgeEls[id].cell.classList.toggle("drawn", !!drawn[id]);
+    }
+    for (var r = 0; r < BOX_N; r++){
+      for (var c = 0; c < BOX_N; c++){
+        var owner = boxOwner[r][c];
+        var el = boxEls[r][c];
+        el.classList.remove("human", "cpu");
+        if (owner) el.classList.add(owner);
+        el.textContent = owner === "human" ? "●" : owner === "cpu" ? "■" : "";
+      }
+    }
+  }
+
+  function updateHud(){
+    humanScoreEl.textContent = scores.human;
+    cpuScoreEl.textContent = scores.cpu;
+    if (gameOver) return;
+    if (currentPlayer === "human"){
+      statusText.textContent = "あなたの番です";
+      statusText.classList.add("active");
+      boardEl.classList.remove("locked");
+    } else {
+      statusText.textContent = "CPUの番です…";
+      statusText.classList.remove("active");
+      boardEl.classList.add("locked");
+    }
+  }
+
+  function applyMove(id, player){
+    if (drawn[id]) return 0;
+    drawn[id] = true;
+    edgesDrawnCount++;
+    var completed = 0;
+    var boxes = boxesForEdge(id);
+    for (var i = 0; i < boxes.length; i++){
+      var r = boxes[i][0], c = boxes[i][1];
+      if (boxOwner[r][c] === null && filledCount(r, c) === 4){
+        boxOwner[r][c] = player;
+        scores[player]++;
+        completed++;
+      }
+    }
+    return completed;
+  }
+
+  function availableEdges(){
+    return ALL_EDGES.filter(function(id){ return !drawn[id]; });
+  }
+
+  function wouldCompleteCount(id){
+    var boxes = boxesForEdge(id);
+    var n = 0;
+    for (var i = 0; i < boxes.length; i++){
+      var r = boxes[i][0], c = boxes[i][1];
+      if (boxOwner[r][c] === null && filledCount(r, c) === 3) n++;
+    }
+    return n;
+  }
+
+  function chooseCpuMove(){
+    var avail = availableEdges();
+    var completing = avail.filter(function(id){ return wouldCompleteCount(id) > 0; });
+    if (completing.length > 0){
+      completing.sort(function(a, b){ return wouldCompleteCount(b) - wouldCompleteCount(a); });
+      return completing[0];
+    }
+    var safe = avail.filter(function(id){
+      var boxes = boxesForEdge(id);
+      for (var i = 0; i < boxes.length; i++){
+        var r = boxes[i][0], c = boxes[i][1];
+        if (boxOwner[r][c] === null && filledCount(r, c) === 2) return false;
+      }
+      return true;
+    });
+    if (safe.length > 0) return safe[randInt(0, safe.length - 1)];
+    return avail[randInt(0, avail.length - 1)];
+  }
+
+  function checkGameOver(){
+    if (edgesDrawnCount >= TOTAL_EDGES){
+      endGame();
+      return true;
+    }
+    return false;
+  }
+
+  async function endGame(){
+    gameOver = true;
+    if (cpuTimer){ clearTimeout(cpuTimer); cpuTimer = null; }
+    boardEl.classList.add("locked");
+    var result;
+    if (scores.human > scores.cpu) result = "win";
+    else if (scores.human < scores.cpu) result = "lose";
+    else result = "draw";
+
+    record[result] += 1;
+    await saveRecord();
+    renderRecord();
+
+    var msgMap = { win: "あなたの勝ちです!", lose: "CPUの勝ちです", draw: "引き分けです" };
+    statusText.textContent = msgMap[result] + " (" + scores.human + " - " + scores.cpu + ")";
+    statusText.classList.remove("active");
+    notify(msgMap[result], result === "win" ? "success" : (result === "lose" ? "error" : "info"));
+    haptic();
+  }
+
+  function onEdgeClick(id){
+    if (gameOver || currentPlayer !== "human" || drawn[id]) return;
+    var completed = applyMove(id, "human");
+    updateBoardVisuals();
+    if (checkGameOver()){ updateHud(); return; }
+    if (completed === 0){
+      currentPlayer = "cpu";
+      updateHud();
+      scheduleCpuTurn();
+    } else {
+      updateHud();
+      haptic();
+    }
+  }
+
+  function scheduleCpuTurn(){
+    if (cpuTimer){ clearTimeout(cpuTimer); cpuTimer = null; }
+    cpuTimer = setTimeout(cpuMove, 550);
+  }
+
+  function cpuMove(){
+    cpuTimer = null;
+    if (gameOver || currentPlayer !== "cpu") return;
+    var id = chooseCpuMove();
+    var completed = applyMove(id, "cpu");
+    updateBoardVisuals();
+    if (checkGameOver()){ updateHud(); return; }
+    if (completed > 0){
+      scheduleCpuTurn();
+    } else {
+      currentPlayer = "human";
+      updateHud();
+    }
+  }
+
+  function renderRecord(){
+    recWinEl.textContent = record.win;
+    recLoseEl.textContent = record.lose;
+    recDrawEl.textContent = record.draw;
+  }
+
+  async function loadRecord(){
+    try {
+      if (hasSDK){
+        var v = await window.GUIOS.storage.get(STORE_KEY);
+        if (v && typeof v === "object") record = Object.assign(record, v);
+      } else {
+        var raw = localStorage.getItem(APP_ID + ":" + STORE_KEY);
+        if (raw) record = Object.assign(record, JSON.parse(raw));
+      }
+    } catch(e){}
+    renderRecord();
+  }
+  async function saveRecord(){
+    try {
+      if (hasSDK){
+        await window.GUIOS.storage.set(STORE_KEY, record);
+      } else {
+        localStorage.setItem(APP_ID + ":" + STORE_KEY, JSON.stringify(record));
+      }
+    } catch(e){}
+  }
+
+  function restartGame(){
+    if (cpuTimer){ clearTimeout(cpuTimer); cpuTimer = null; }
+    drawn = {};
+    edgesDrawnCount = 0;
+    boxOwner = [];
+    for (var r = 0; r < BOX_N; r++){
+      boxOwner[r] = [null, null, null, null];
+    }
+    scores = { human: 0, cpu: 0 };
+    currentPlayer = "human";
+    gameOver = false;
+    updateBoardVisuals();
+    updateHud();
+  }
+
+  restartBtn.addEventListener("click", restartGame);
+  resetRecordBtn.addEventListener("click", async function(){
+    record = { win: 0, lose: 0, draw: 0 };
+    await saveRecord();
+    renderRecord();
+    notify("記録をリセットしました", "info");
+  });
+
+  buildBoard();
+  restartGame();
+  loadRecord();
+</script>
+</body>
+</html>

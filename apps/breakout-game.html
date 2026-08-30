@@ -1,0 +1,423 @@
+<!--GUIOS-APP {"id":"breakout-game","name":"ブロック崩し","icon":"🧱","color":"#0d47a1","version":"1.0.0","author":"Claude","description":"ボールを跳ね返してブロックを崩していくブロック崩しゲーム。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ブロック崩し</title>
+<style>
+  :root{
+    --accent:#5c9dff;
+    --accent-dark:#0d47a1;
+    --bg:#070d1a;
+    --card:#101a2e;
+    --text:#e8f0ff;
+    --sub:#8fa3c9;
+    --good:#4caf7d;
+    --bad:#e0554f;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body{ overscroll-behavior:none; }
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    min-height:100vh;
+    padding:14px;
+    padding-bottom:36px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    touch-action:none;
+  }
+  h1{ font-size:19px; margin:2px 0 12px; text-align:center; }
+  .game-wrap{
+    width:100%;
+    max-width:360px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  .hud{
+    width:100%;
+    display:flex;
+    justify-content:space-between;
+    background:var(--card);
+    border-radius:12px;
+    padding:10px 14px;
+    margin-bottom:10px;
+    font-size:13px;
+    color:var(--sub);
+    border:1px solid rgba(255,255,255,0.06);
+  }
+  .hud b{ color:var(--text); font-size:15px; }
+  .canvas-wrap{
+    position:relative;
+    width:100%;
+    max-width:320px;
+    border-radius:14px;
+    overflow:hidden;
+    border:1px solid rgba(255,255,255,0.08);
+    background:#040914;
+  }
+  canvas{
+    display:block;
+    width:100%;
+    height:auto;
+    touch-action:none;
+  }
+  .overlay{
+    position:absolute;
+    inset:0;
+    background:rgba(4,9,20,0.92);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    padding:20px;
+  }
+  .overlay[hidden]{ display:none; }
+  .overlay-title{ font-size:22px; font-weight:800; margin-bottom:10px; }
+  .overlay-msg{ font-size:13px; color:var(--sub); margin-bottom:18px; line-height:1.6; }
+  .overlay-btn{
+    padding:14px 30px;
+    border-radius:12px;
+    border:none;
+    background:var(--accent);
+    color:#04101f;
+    font-size:16px;
+    font-weight:800;
+    cursor:pointer;
+  }
+  .overlay-btn:active{ transform:translateY(2px); }
+  .controls{
+    width:100%;
+    max-width:320px;
+    display:flex;
+    gap:12px;
+    margin-top:14px;
+  }
+  .ctrl-btn{
+    flex:1;
+    padding:20px 0;
+    border-radius:14px;
+    border:none;
+    background:var(--card);
+    border:1px solid rgba(255,255,255,0.1);
+    color:var(--text);
+    font-size:24px;
+    cursor:pointer;
+    touch-action:none;
+    user-select:none;
+  }
+  .ctrl-btn:active{ background:var(--accent-dark); }
+  .hint{ font-size:12px; color:var(--sub); margin-top:10px; text-align:center; }
+</style>
+</head>
+<body>
+  <h1>🧱 ブロック崩し</h1>
+  <div class="game-wrap">
+    <div class="hud">
+      <span>スコア <b id="scoreVal">0</b></span>
+      <span>ライフ <b id="livesVal">3</b></span>
+      <span>ハイスコア <b id="highScoreVal">0</b></span>
+    </div>
+    <div class="canvas-wrap">
+      <canvas id="gameCanvas" width="320" height="460"></canvas>
+      <div class="overlay" id="overlay">
+        <div class="overlay-title" id="overlayTitle">ブロック崩し</div>
+        <div class="overlay-msg" id="overlayMsg">パドルをドラッグ、下のボタン、または左右キーで操作してボールを跳ね返そう</div>
+        <button class="overlay-btn" id="overlayBtn" type="button">スタート</button>
+      </div>
+    </div>
+    <div class="controls">
+      <button class="ctrl-btn" id="leftBtn" type="button">←</button>
+      <button class="ctrl-btn" id="rightBtn" type="button">→</button>
+    </div>
+    <div class="hint">画面のブロックをタップして操作することもできます(ドラッグ)</div>
+  </div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var APP_ID = "breakout-game";
+  var STORE_KEY = "highScore";
+
+  var canvas = document.getElementById("gameCanvas");
+  var ctx = canvas.getContext("2d");
+  var CANVAS_W = canvas.width;
+  var CANVAS_H = canvas.height;
+
+  var overlay = document.getElementById("overlay");
+  var overlayTitle = document.getElementById("overlayTitle");
+  var overlayMsg = document.getElementById("overlayMsg");
+  var overlayBtn = document.getElementById("overlayBtn");
+  var scoreVal = document.getElementById("scoreVal");
+  var livesVal = document.getElementById("livesVal");
+  var highScoreVal = document.getElementById("highScoreVal");
+  var leftBtn = document.getElementById("leftBtn");
+  var rightBtn = document.getElementById("rightBtn");
+
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify){
+      try { window.GUIOS.notify(msg, { type: type || "info" }); } catch(e){}
+    }
+  }
+  function haptic(){
+    if (window.GUIOS && window.GUIOS.haptic){
+      try { window.GUIOS.haptic(); } catch(e){}
+    }
+  }
+
+  var highScore = 0;
+  async function loadHighScore(){
+    try {
+      if (hasSDK){
+        var v = await window.GUIOS.storage.get(STORE_KEY);
+        if (typeof v === "number") highScore = v;
+      } else {
+        var raw = localStorage.getItem(APP_ID + ":" + STORE_KEY);
+        if (raw) highScore = parseInt(raw, 10) || 0;
+      }
+    } catch(e){}
+    highScoreVal.textContent = highScore;
+  }
+  async function saveHighScore(){
+    try {
+      if (hasSDK){
+        await window.GUIOS.storage.set(STORE_KEY, highScore);
+      } else {
+        localStorage.setItem(APP_ID + ":" + STORE_KEY, String(highScore));
+      }
+    } catch(e){}
+  }
+
+  // ---- Game constants ----
+  var COLS = 6, ROWS = 5;
+  var BRICK_PAD = 4, BRICK_OFFSET_TOP = 32, BRICK_OFFSET_LEFT = 4;
+  var BRICK_W = (CANVAS_W - BRICK_OFFSET_LEFT * 2 - BRICK_PAD * (COLS - 1)) / COLS;
+  var BRICK_H = 15;
+  var PADDLE_W = 58, PADDLE_H = 10;
+  var BALL_R = 5;
+  var BASE_SPEED = 3.4;
+  var ROW_COLORS = ["#ff6b6b", "#ffa94d", "#ffd43b", "#69db7c", "#5c9dff"];
+
+  var paddle, ball, bricks, score, lives, leftPressed, rightPressed, running, rafId;
+
+  function initBricks(){
+    bricks = [];
+    for (var r = 0; r < ROWS; r++){
+      for (var c = 0; c < COLS; c++){
+        bricks.push({
+          x: BRICK_OFFSET_LEFT + c * (BRICK_W + BRICK_PAD),
+          y: BRICK_OFFSET_TOP + r * (BRICK_H + BRICK_PAD),
+          width: BRICK_W,
+          height: BRICK_H,
+          color: ROW_COLORS[r % ROW_COLORS.length],
+          status: 1
+        });
+      }
+    }
+  }
+
+  function resetBallAndPaddle(){
+    paddle = { x: (CANVAS_W - PADDLE_W) / 2, y: CANVAS_H - 22, width: PADDLE_W, height: PADDLE_H };
+    ball = {
+      x: CANVAS_W / 2,
+      y: paddle.y - BALL_R - 2,
+      dx: BASE_SPEED * (Math.random() < 0.5 ? -1 : 1),
+      dy: -BASE_SPEED
+    };
+  }
+
+  function resetGame(){
+    score = 0;
+    lives = 3;
+    leftPressed = false;
+    rightPressed = false;
+    initBricks();
+    resetBallAndPaddle();
+    scoreVal.textContent = score;
+    livesVal.textContent = lives;
+  }
+
+  function bricksRemaining(){
+    var n = 0;
+    for (var i = 0; i < bricks.length; i++) if (bricks[i].status === 1) n++;
+    return n;
+  }
+
+  function update(){
+    if (leftPressed) paddle.x -= 5.5;
+    if (rightPressed) paddle.x += 5.5;
+    if (paddle.x < 0) paddle.x = 0;
+    if (paddle.x + paddle.width > CANVAS_W) paddle.x = CANVAS_W - paddle.width;
+
+    ball.x += ball.dx;
+    ball.y += ball.dy;
+
+    if (ball.x - BALL_R < 0){ ball.x = BALL_R; ball.dx = -ball.dx; }
+    else if (ball.x + BALL_R > CANVAS_W){ ball.x = CANVAS_W - BALL_R; ball.dx = -ball.dx; }
+    if (ball.y - BALL_R < 0){ ball.y = BALL_R; ball.dy = -ball.dy; }
+
+    // paddle collision
+    if (ball.dy > 0 &&
+        ball.y + BALL_R >= paddle.y &&
+        ball.y + BALL_R <= paddle.y + paddle.height + ball.dy &&
+        ball.x >= paddle.x - BALL_R &&
+        ball.x <= paddle.x + paddle.width + BALL_R){
+      var hitPos = (ball.x - (paddle.x + paddle.width / 2)) / (paddle.width / 2);
+      hitPos = Math.max(-1, Math.min(1, hitPos));
+      ball.dx = hitPos * BASE_SPEED * 1.4;
+      ball.dy = -Math.abs(BASE_SPEED);
+      ball.y = paddle.y - BALL_R;
+    }
+
+    // brick collision
+    for (var i = 0; i < bricks.length; i++){
+      var b = bricks[i];
+      if (b.status !== 1) continue;
+      if (ball.x + BALL_R > b.x && ball.x - BALL_R < b.x + b.width &&
+          ball.y + BALL_R > b.y && ball.y - BALL_R < b.y + b.height){
+        b.status = 0;
+        ball.dy = -ball.dy;
+        score += 10;
+        scoreVal.textContent = score;
+        break;
+      }
+    }
+
+    // ball lost
+    if (ball.y - BALL_R > CANVAS_H){
+      lives -= 1;
+      livesVal.textContent = lives;
+      if (lives <= 0){
+        endGame(false);
+        return;
+      }
+      resetBallAndPaddle();
+    }
+
+    if (bricksRemaining() === 0){
+      endGame(true);
+      return;
+    }
+  }
+
+  function render(){
+    ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+    ctx.fillStyle = "#040914";
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+    for (var i = 0; i < bricks.length; i++){
+      var b = bricks[i];
+      if (b.status !== 1) continue;
+      ctx.fillStyle = b.color;
+      ctx.fillRect(b.x, b.y, b.width, b.height);
+    }
+
+    ctx.fillStyle = "#5c9dff";
+    ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
+
+    ctx.beginPath();
+    ctx.arc(ball.x, ball.y, BALL_R, 0, Math.PI * 2);
+    ctx.fillStyle = "#ffffff";
+    ctx.fill();
+    ctx.closePath();
+  }
+
+  function gameLoop(){
+    if (!running) return;
+    update();
+    if (!running) { render(); return; }
+    render();
+    rafId = requestAnimationFrame(gameLoop);
+  }
+
+  function stopLoop(){
+    running = false;
+    if (rafId !== null){
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
+  }
+
+  function startGame(){
+    stopLoop();
+    resetGame();
+    overlay.hidden = true;
+    running = true;
+    rafId = requestAnimationFrame(gameLoop);
+  }
+
+  async function endGame(won){
+    stopLoop();
+    var isNewBest = false;
+    if (score > highScore){
+      highScore = score;
+      isNewBest = true;
+      await saveHighScore();
+    }
+    highScoreVal.textContent = highScore;
+    overlayTitle.textContent = won ? "クリア!" : "ゲームオーバー";
+    overlayMsg.textContent = "スコア: " + score + (isNewBest ? "  新記録!" : "  ハイスコア: " + highScore);
+    overlayBtn.textContent = "もう一度";
+    overlay.hidden = false;
+    notify(won ? "クリア! スコア " + score : "ゲームオーバー スコア " + score, won ? "success" : "info");
+    haptic();
+  }
+
+  overlayBtn.addEventListener("click", function(){
+    startGame();
+  });
+
+  // keyboard controls
+  window.addEventListener("keydown", function(e){
+    if (e.key === "ArrowLeft"){ leftPressed = true; e.preventDefault(); }
+    else if (e.key === "ArrowRight"){ rightPressed = true; e.preventDefault(); }
+  });
+  window.addEventListener("keyup", function(e){
+    if (e.key === "ArrowLeft") leftPressed = false;
+    else if (e.key === "ArrowRight") rightPressed = false;
+  });
+
+  // on-screen buttons (pointer events unify mouse + touch)
+  function bindHold(el, setter){
+    el.addEventListener("pointerdown", function(e){ e.preventDefault(); setter(true); });
+    el.addEventListener("pointerup", function(e){ e.preventDefault(); setter(false); });
+    el.addEventListener("pointercancel", function(){ setter(false); });
+    el.addEventListener("pointerleave", function(){ setter(false); });
+  }
+  bindHold(leftBtn, function(v){ leftPressed = v; });
+  bindHold(rightBtn, function(v){ rightPressed = v; });
+
+  // drag / touch-position tracking directly on the canvas
+  var dragging = false;
+  function setPaddleFromClientX(clientX){
+    var rect = canvas.getBoundingClientRect();
+    var scaleX = CANVAS_W / rect.width;
+    var x = (clientX - rect.left) * scaleX;
+    paddle.x = x - paddle.width / 2;
+    if (paddle.x < 0) paddle.x = 0;
+    if (paddle.x + paddle.width > CANVAS_W) paddle.x = CANVAS_W - paddle.width;
+  }
+  canvas.addEventListener("pointerdown", function(e){
+    dragging = true;
+    if (running) setPaddleFromClientX(e.clientX);
+  });
+  canvas.addEventListener("pointermove", function(e){
+    if (!dragging || !running) return;
+    setPaddleFromClientX(e.clientX);
+  });
+  window.addEventListener("pointerup", function(){ dragging = false; });
+  canvas.addEventListener("pointercancel", function(){ dragging = false; });
+
+  running = false;
+  rafId = null;
+  resetGame();
+  render();
+  loadHighScore();
+</script>
+</body>
+</html>

@@ -1,0 +1,409 @@
+<!--GUIOS-APP {"id":"blackjack","name":"ブラックジャック","icon":"🃏","color":"#1b5e20","version":"1.0.0","author":"Claude","description":"プレイヤーとディーラーで21を目指すトランプゲーム(賭け金なし)。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ブラックジャック</title>
+<style>
+  :root{
+    --accent:#43a047;
+    --bg:#0f1a10;
+    --card:#17241a;
+    --card2:#132018;
+    --text:#f2f2f2;
+    --sub:#9db09f;
+    --line:rgba(255,255,255,0.09);
+    --felt:#0e3d1e;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text); min-height:100vh; padding:14px; padding-bottom:40px;
+  }
+  .wrap{ max-width:520px; margin:0 auto; display:flex; flex-direction:column; gap:12px; }
+  h1{ font-size:19px; margin:2px 0 0; display:flex; align-items:center; gap:8px; }
+
+  .table{ background:var(--felt); border-radius:16px; padding:14px; display:flex; flex-direction:column; gap:14px; border:1px solid rgba(255,255,255,0.06); }
+
+  .hand-block{ display:flex; flex-direction:column; gap:8px; }
+  .hand-label{ display:flex; align-items:center; justify-content:space-between; font-size:13px; color:var(--sub); }
+  .hand-label b{ font-size:18px; color:var(--text); font-variant-numeric:tabular-nums; }
+  .cards-row{ display:flex; gap:6px; flex-wrap:wrap; min-height:74px; }
+  .card{
+    width:50px; height:70px; border-radius:8px; background:#fdfdfd; color:#222;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    font-weight:800; font-size:16px; box-shadow:0 2px 6px rgba(0,0,0,0.4); flex-shrink:0;
+  }
+  .card.red{ color:#c62828; }
+  .card .suit{ font-size:20px; margin-top:2px; }
+  .card.back{ background:repeating-linear-gradient(45deg,#1b5e20,#1b5e20 6px,#164a1a 6px,#164a1a 12px); border:2px solid #0a3010; color:transparent; }
+  .card.back::after{ content:'?'; color:#eaeaea; font-size:22px; }
+
+  .status{ text-align:center; font-size:14px; color:var(--sub); min-height:20px; font-weight:600; }
+  .status.win{ color:#8bd98f; }
+  .status.lose{ color:#ff8a8a; }
+  .status.push{ color:#ffd479; }
+
+  .record-row{ display:flex; gap:8px; }
+  .record-card{
+    flex:1; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:8px 10px;
+    text-align:center; font-size:11px; color:var(--sub);
+  }
+  .record-card b{ display:block; font-size:16px; color:var(--text); margin-top:2px; }
+
+  .btn-row{ display:flex; gap:10px; }
+  .btn{
+    flex:1; padding:14px; border-radius:12px; border:1px solid var(--line); font-size:15px; font-weight:700;
+    cursor:pointer; min-height:50px; background:var(--card2); color:var(--text);
+  }
+  .btn.primary{ background:var(--accent); color:#08210c; border-color:var(--accent); }
+  .btn.danger{ color:#ff8a8a; }
+  .btn:active{ filter:brightness(1.15); }
+  .btn:disabled{ opacity:0.4; cursor:default; }
+
+  .overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.7); display:flex; align-items:center;
+    justify-content:center; z-index:40; padding:20px;
+  }
+  .overlay[hidden]{ display:none; }
+  .modal{
+    background:var(--card); border-radius:18px; padding:26px 22px; text-align:center; max-width:340px; width:100%;
+  }
+  .modal h2{ font-size:24px; margin:0 0 8px; }
+  .modal p{ font-size:14px; color:var(--sub); margin:0 0 18px; }
+  .modal button{
+    width:100%; padding:14px; border-radius:12px; border:none; background:var(--accent); color:#08210c;
+    font-size:15px; font-weight:700; cursor:pointer; min-height:48px;
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🃏 ブラックジャック</h1>
+
+    <div class="table">
+      <div class="hand-block">
+        <div class="hand-label"><span>ディーラー</span><b id="dealerTotal">?</b></div>
+        <div class="cards-row" id="dealerCards"></div>
+      </div>
+      <div class="hand-block">
+        <div class="hand-label"><span>あなた</span><b id="playerTotal">0</b></div>
+        <div class="cards-row" id="playerCards"></div>
+      </div>
+    </div>
+
+    <div class="status" id="statusMsg">カードを配っています...</div>
+
+    <div class="record-row">
+      <div class="record-card">勝ち<b id="winCount">0</b></div>
+      <div class="record-card">負け<b id="loseCount">0</b></div>
+      <div class="record-card">プッシュ<b id="pushCount">0</b></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn primary" id="hitBtn">ヒット</button>
+      <button class="btn" id="standBtn">スタンド</button>
+    </div>
+    <div class="btn-row">
+      <button class="btn" id="restartBtn">もう一度</button>
+      <button class="btn danger" id="resetRecordBtn">記録リセット</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="resultOverlay" hidden>
+    <div class="modal">
+      <h2 id="resultTitle">勝ち!</h2>
+      <p id="resultDesc">あなた 20 - ディーラー 18</p>
+      <button id="modalCloseBtn">もう一度</button>
+    </div>
+  </div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var APP_ID = 'blackjack';
+  var FALLBACK_KEY = 'guios-fallback-' + APP_ID + '-record';
+
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify) {
+      try { window.GUIOS.notify(msg, { type: type || 'info' }); return; } catch(e){}
+    }
+    var t = document.createElement('div');
+    t.textContent = msg;
+    t.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1f1f1f;color:#f2f2f2;padding:10px 18px;border-radius:10px;font-size:13px;z-index:200;box-shadow:0 6px 18px rgba(0,0,0,.4);';
+    document.body.appendChild(t);
+    setTimeout(function(){ t.remove(); }, 2500);
+  }
+  function haptic(){
+    if (window.GUIOS && window.GUIOS.haptic) {
+      try { window.GUIOS.haptic(); } catch(e){}
+    }
+  }
+
+  async function loadRecord(){
+    var def = { win:0, lose:0, push:0 };
+    if (hasSDK) {
+      try {
+        var v = await window.GUIOS.storage.get('record');
+        return (v && typeof v === 'object') ? Object.assign(def, v) : def;
+      } catch(e){ return def; }
+    } else {
+      try {
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        return raw ? Object.assign(def, JSON.parse(raw)) : def;
+      } catch(e){ return def; }
+    }
+  }
+  async function saveRecord(r){
+    if (hasSDK) {
+      try { await window.GUIOS.storage.set('record', r); } catch(e){}
+    } else {
+      try { localStorage.setItem(FALLBACK_KEY, JSON.stringify(r)); } catch(e){}
+    }
+  }
+
+  var SUITS = [
+    { s:'♠', red:false },
+    { s:'♥', red:true },
+    { s:'♦', red:true },
+    { s:'♣', red:false }
+  ];
+  var RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+
+  var deck = [];
+  var playerHand = [];
+  var dealerHand = [];
+  var record = { win:0, lose:0, push:0 };
+  var roundOver = false;
+  var dealerTimer = null;
+
+  function freshDeck(){
+    var d = [];
+    for (var s=0; s<SUITS.length; s++){
+      for (var r=0; r<RANKS.length; r++){
+        d.push({ rank: RANKS[r], suit: SUITS[s].s, red: SUITS[s].red });
+      }
+    }
+    // Fisher-Yates shuffle
+    for (var i = d.length - 1; i > 0; i--){
+      var j = Math.floor(Math.random() * (i+1));
+      var tmp = d[i]; d[i] = d[j]; d[j] = tmp;
+    }
+    return d;
+  }
+
+  function drawCard(){
+    if (deck.length === 0) deck = freshDeck();
+    return deck.pop();
+  }
+
+  function handValue(cards){
+    var total = 0;
+    var aces = 0;
+    cards.forEach(function(c){
+      if (c.rank === 'A') { aces++; total += 11; }
+      else if (c.rank === 'K' || c.rank === 'Q' || c.rank === 'J') { total += 10; }
+      else { total += parseInt(c.rank, 10); }
+    });
+    var softAces = aces;
+    while (total > 21 && softAces > 0) {
+      total -= 10;
+      softAces--;
+    }
+    return { total: total, soft: softAces > 0 };
+  }
+
+  function renderCard(c){
+    var el = document.createElement('div');
+    el.className = 'card' + (c.red ? ' red' : '');
+    var rankEl = document.createElement('div');
+    rankEl.textContent = c.rank;
+    var suitEl = document.createElement('div');
+    suitEl.className = 'suit';
+    suitEl.textContent = c.suit;
+    el.appendChild(rankEl);
+    el.appendChild(suitEl);
+    return el;
+  }
+
+  function renderHands(hideDealerHole){
+    var pRow = document.getElementById('playerCards');
+    var dRow = document.getElementById('dealerCards');
+    pRow.innerHTML = '';
+    dRow.innerHTML = '';
+
+    playerHand.forEach(function(c){ pRow.appendChild(renderCard(c)); });
+
+    dealerHand.forEach(function(c, idx){
+      if (idx === 1 && hideDealerHole) {
+        var back = document.createElement('div');
+        back.className = 'card back';
+        dRow.appendChild(back);
+      } else {
+        dRow.appendChild(renderCard(c));
+      }
+    });
+
+    var pv = handValue(playerHand);
+    document.getElementById('playerTotal').textContent = pv.total + (pv.soft ? ' (soft)' : '');
+
+    if (hideDealerHole && dealerHand.length > 0) {
+      var upVal = handValue([dealerHand[0]]);
+      document.getElementById('dealerTotal').textContent = upVal.total + ' + ?';
+    } else {
+      var dv = handValue(dealerHand);
+      document.getElementById('dealerTotal').textContent = dv.total + (dv.soft ? ' (soft)' : '');
+    }
+  }
+
+  function setStatus(msg, cls){
+    var el = document.getElementById('statusMsg');
+    el.textContent = msg;
+    el.className = 'status' + (cls ? (' ' + cls) : '');
+  }
+
+  function setControlsEnabled(enabled){
+    document.getElementById('hitBtn').disabled = !enabled;
+    document.getElementById('standBtn').disabled = !enabled;
+  }
+
+  function startRound(){
+    if (dealerTimer !== null) { clearTimeout(dealerTimer); dealerTimer = null; }
+    if (deck.length < 15) deck = freshDeck();
+    playerHand = [drawCard(), drawCard()];
+    dealerHand = [drawCard(), drawCard()];
+    roundOver = false;
+    document.getElementById('resultOverlay').hidden = true;
+    setControlsEnabled(true);
+    renderHands(true);
+    var pv = handValue(playerHand);
+    if (pv.total === 21) {
+      setStatus('21です！スタンドします');
+      setTimeout(function(){ if (!roundOver) standAction(); }, 500);
+    } else {
+      setStatus('ヒットするかスタンドしてください');
+    }
+  }
+
+  function playerBust(){
+    roundOver = true;
+    setControlsEnabled(false);
+    renderHands(false);
+    record.lose++;
+    finishRound('😢 バスト・負け', 'あなた ' + handValue(playerHand).total + ' - バースト', 'lose');
+  }
+
+  function hitAction(){
+    if (roundOver) return;
+    playerHand.push(drawCard());
+    haptic();
+    var pv = handValue(playerHand);
+    if (pv.total > 21) {
+      playerBust();
+      return;
+    }
+    renderHands(true);
+    if (pv.total === 21) {
+      setStatus('21です！スタンドします');
+      setTimeout(function(){ if (!roundOver) standAction(); }, 500);
+    }
+  }
+
+  function standAction(){
+    if (roundOver) return;
+    roundOver = true;
+    setControlsEnabled(false);
+    renderHands(false);
+    setStatus('ディーラーの番です...');
+    dealerPlay();
+  }
+
+  function dealerPlay(){
+    var dv = handValue(dealerHand);
+    if (dv.total <= 16) {
+      dealerTimer = setTimeout(function(){
+        dealerTimer = null;
+        dealerHand.push(drawCard());
+        renderHands(false);
+        dealerPlay();
+      }, 650);
+    } else {
+      dealerTimer = setTimeout(function(){
+        dealerTimer = null;
+        resolveRound();
+      }, 500);
+    }
+  }
+
+  function resolveRound(){
+    var pv = handValue(playerHand).total;
+    var dv = handValue(dealerHand).total;
+    var title, desc, cls;
+    if (dv > 21) {
+      title = '🎉 ディーラーバースト・勝ち';
+      cls = 'win';
+      record.win++;
+    } else if (pv > dv) {
+      title = '🎉 勝ち!';
+      cls = 'win';
+      record.win++;
+    } else if (pv < dv) {
+      title = '😢 負け...';
+      cls = 'lose';
+      record.lose++;
+    } else {
+      title = '🤝 プッシュ(引き分け)';
+      cls = 'push';
+      record.push++;
+    }
+    desc = 'あなた ' + pv + ' - ディーラー ' + dv;
+    finishRound(title, desc, cls);
+  }
+
+  async function finishRound(title, desc, cls){
+    setStatus(desc, cls);
+    await saveRecord(record);
+    renderRecord();
+    document.getElementById('resultTitle').textContent = title;
+    document.getElementById('resultDesc').textContent = desc;
+    document.getElementById('resultOverlay').hidden = false;
+    haptic();
+  }
+
+  function renderRecord(){
+    document.getElementById('winCount').textContent = record.win;
+    document.getElementById('loseCount').textContent = record.lose;
+    document.getElementById('pushCount').textContent = record.push;
+  }
+
+  document.getElementById('hitBtn').addEventListener('click', hitAction);
+  document.getElementById('standBtn').addEventListener('click', standAction);
+  document.getElementById('restartBtn').addEventListener('click', startRound);
+  document.getElementById('modalCloseBtn').addEventListener('click', function(){
+    document.getElementById('resultOverlay').hidden = true;
+    startRound();
+  });
+  document.getElementById('resetRecordBtn').addEventListener('click', async function(){
+    if (!confirm('勝敗記録をリセットしますか？')) return;
+    record = { win:0, lose:0, push:0 };
+    await saveRecord(record);
+    renderRecord();
+    notify('記録をリセットしました', 'success');
+  });
+
+  window.addEventListener('beforeunload', function(){
+    if (dealerTimer !== null) { clearTimeout(dealerTimer); dealerTimer = null; }
+  });
+  window.addEventListener('pagehide', function(){
+    if (dealerTimer !== null) { clearTimeout(dealerTimer); dealerTimer = null; }
+  });
+
+  (async function init(){
+    deck = freshDeck();
+    record = await loadRecord();
+    renderRecord();
+    startRound();
+  })();
+</script>
+</body>
+</html>

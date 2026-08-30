@@ -1,0 +1,301 @@
+<!--GUIOS-APP {"id":"gratitude-journal","name":"感謝日記","icon":"🙏","color":"#8d6e63","version":"1.0.0","author":"Claude","description":"毎日感謝していることを記録できるシンプルな感謝日記アプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>感謝日記</title>
+<style>
+  :root{
+    --accent:#bcaaa4;
+    --accent-text:#2c211d;
+    --bg:#1c1512;
+    --card:#261d19;
+    --card2:#2d2320;
+    --text:#f3e9e4;
+    --sub:#c6ada2;
+    --line:#40332c;
+    --input:#160f0c;
+    --streak:#e0b04a;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    padding:16px; padding-bottom:56px;
+  }
+  h1{font-size:20px; margin:4px 0 4px; display:flex; align-items:center; gap:8px;}
+  .sub-tag{font-size:12px; color:var(--sub); margin:0 0 14px;}
+  .streak-card{
+    background:linear-gradient(135deg, #3a2b22, #2d2119);
+    border:1px solid var(--line); border-radius:16px;
+    padding:16px; margin-bottom:16px; display:flex; align-items:center; gap:14px;
+  }
+  .streak-num{font-size:32px; font-weight:800; color:var(--streak);}
+  .streak-label{font-size:13px; color:var(--sub); line-height:1.4;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:16px; margin-bottom:16px;
+  }
+  .date-row{display:flex; align-items:center; gap:8px; margin-bottom:14px; flex-wrap:wrap;}
+  .date-row input[type=date]{
+    flex:1; min-width:140px; padding:11px 12px; border-radius:10px; border:1px solid var(--line);
+    background:var(--input); color:var(--text); font-size:15px; outline:none;
+  }
+  .today-btn{
+    flex:none; padding:11px 14px; border-radius:10px; border:1px solid var(--line);
+    background:transparent; color:var(--sub); font-weight:600; font-size:13px; cursor:pointer; min-height:44px;
+  }
+  .field{margin-bottom:12px;}
+  label{display:block; font-size:12px; color:var(--sub); margin-bottom:6px; font-weight:600;}
+  input[type=text]{
+    width:100%; padding:11px 12px; border-radius:10px; border:1px solid var(--line);
+    background:var(--input); color:var(--text); font-size:15px; outline:none; font-family:inherit;
+  }
+  input[type=text]:focus{border-color:var(--accent);}
+  button{
+    padding:12px 22px; border-radius:10px; border:none; background:var(--accent);
+    color:var(--accent-text); font-weight:700; font-size:15px; cursor:pointer; min-height:44px;
+  }
+  button.block{width:100%;}
+  .section-title{font-size:14px; color:var(--sub); margin:18px 0 10px; font-weight:700;}
+  .entry-card{
+    background:var(--card2); border:1px solid var(--line); border-radius:14px;
+    padding:12px 14px; margin-bottom:10px; cursor:pointer;
+  }
+  .entry-card:active{border-color:var(--accent);}
+  .entry-date{font-size:13px; font-weight:700; color:var(--text); margin-bottom:8px;}
+  .entry-item{font-size:13px; color:var(--sub); margin-bottom:3px; line-height:1.5; display:flex; gap:6px;}
+  .entry-item .bullet{color:var(--accent);}
+  .empty{color:var(--sub); text-align:center; padding:40px 20px; font-size:14px;}
+  .saved-flag{font-size:12px; color:#8fbf8f; margin-top:10px; min-height:16px;}
+</style>
+</head>
+<body>
+  <h1>🙏 感謝日記</h1>
+  <p class="sub-tag">毎日の小さな感謝を書き留めましょう</p>
+
+  <div class="streak-card">
+    <div class="streak-num" id="streakNum">0</div>
+    <div class="streak-label">日連続で<br>記録しています</div>
+  </div>
+
+  <div class="card">
+    <div class="date-row">
+      <input type="date" id="dateInput">
+      <button type="button" class="today-btn" id="todayBtn">今日</button>
+    </div>
+
+    <div class="field">
+      <label>今日感謝していること 1</label>
+      <input type="text" id="item1" placeholder="例: 天気が良かったこと">
+    </div>
+    <div class="field">
+      <label>今日感謝していること 2 (任意)</label>
+      <input type="text" id="item2" placeholder="例: 友達が助けてくれたこと">
+    </div>
+    <div class="field">
+      <label>今日感謝していること 3 (任意)</label>
+      <input type="text" id="item3" placeholder="例: 美味しいご飯が食べられたこと">
+    </div>
+
+    <button type="button" class="block" id="saveBtn">保存する</button>
+    <div class="saved-flag" id="savedFlag"></div>
+  </div>
+
+  <div class="section-title">これまでの記録</div>
+  <div id="listWrap">
+    <div class="empty">まだ記録がありません</div>
+  </div>
+
+  <div id="toast" style="position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:var(--card2); color:var(--text); padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; pointer-events:none; transition:all .25s; border:1px solid var(--line);
+    max-width:90%; text-align:center; z-index:999;"></div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var STORAGE_KEY = 'entries';
+  var FALLBACK_KEY = 'guios-fallback-gratitude-journal-entries';
+
+  var entries = {}; // date string -> {items:[..], updatedAt}
+
+  function showToast(msg){
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.opacity = '1';
+    t.style.transform = 'translateX(-50%) translateY(0)';
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(function(){
+      t.style.opacity = '0';
+      t.style.transform = 'translateX(-50%) translateY(20px)';
+    }, 1800);
+  }
+  function notify(msg, type){
+    if(window.GUIOS && window.GUIOS.notify){
+      GUIOS.notify(msg, {type: type || 'info'});
+    } else {
+      showToast(msg);
+    }
+  }
+
+  function pad2(n){ return ('0'+n).slice(-2); }
+  function localDateStr(d){
+    return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
+  }
+  function todayStr(){ return localDateStr(new Date()); }
+  function formatDisplayDate(key){
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key || '');
+    if(!m) return key || '';
+    var d = new Date(Number(m[1]), Number(m[2])-1, Number(m[3]));
+    var wd = ['日','月','火','水','木','金','土'][d.getDay()];
+    return m[1]+'/'+m[2]+'/'+m[3]+' ('+wd+')';
+  }
+  function hasText(s){ return !!(s && String(s).trim().length > 0); }
+
+  async function loadEntries(){
+    if(hasSDK){
+      var v = await GUIOS.storage.get(STORAGE_KEY);
+      return (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
+    } else {
+      try{
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        return raw ? JSON.parse(raw) : {};
+      }catch(e){ return {}; }
+    }
+  }
+  async function saveEntriesData(obj){
+    if(hasSDK){
+      await GUIOS.storage.set(STORAGE_KEY, obj);
+    } else {
+      try{ localStorage.setItem(FALLBACK_KEY, JSON.stringify(obj)); }catch(e){}
+    }
+  }
+
+  function currentDateKey(){
+    return document.getElementById('dateInput').value || todayStr();
+  }
+
+  function loadFormFor(key){
+    var e = entries[key] || {items:['','','']};
+    var items = e.items || ['','',''];
+    document.getElementById('item1').value = items[0] || '';
+    document.getElementById('item2').value = items[1] || '';
+    document.getElementById('item3').value = items[2] || '';
+    document.getElementById('savedFlag').textContent = '';
+  }
+
+  async function saveCurrent(){
+    var key = currentDateKey();
+    var i1 = document.getElementById('item1').value.trim();
+    var i2 = document.getElementById('item2').value.trim();
+    var i3 = document.getElementById('item3').value.trim();
+
+    if(!i1 && !i2 && !i3){
+      notify('少なくとも1つは入力してください', 'error');
+      return;
+    }
+
+    entries[key] = {items:[i1, i2, i3], updatedAt: Date.now()};
+    await saveEntriesData(entries);
+    renderList();
+    renderStreak();
+    notify('保存しました', 'success');
+    var flag = document.getElementById('savedFlag');
+    flag.textContent = '✓ ' + formatDisplayDate(key) + ' の記録を保存しました';
+  }
+
+  function sortedKeys(){
+    return Object.keys(entries).sort(function(a,b){ return b.localeCompare(a); });
+  }
+
+  function dayHasEntry(key){
+    var e = entries[key];
+    return !!(e && e.items && e.items.some(hasText));
+  }
+
+  function computeStreak(){
+    var count = 0;
+    var d = new Date();
+    if(!dayHasEntry(localDateStr(d))){
+      d.setDate(d.getDate() - 1);
+    }
+    while(true){
+      var key = localDateStr(d);
+      if(dayHasEntry(key)){
+        count++;
+        d.setDate(d.getDate() - 1);
+      } else {
+        break;
+      }
+    }
+    return count;
+  }
+
+  function renderStreak(){
+    document.getElementById('streakNum').textContent = String(computeStreak());
+  }
+
+  function renderList(){
+    var wrap = document.getElementById('listWrap');
+    var keys = sortedKeys();
+    if(keys.length === 0){
+      wrap.innerHTML = '<div class="empty">まだ記録がありません</div>';
+      return;
+    }
+    wrap.innerHTML = '';
+    keys.forEach(function(key){
+      var e = entries[key];
+      var items = (e.items || []).filter(hasText);
+      if(items.length === 0) return;
+
+      var card = document.createElement('div');
+      card.className = 'entry-card';
+      card.addEventListener('click', function(){
+        document.getElementById('dateInput').value = key;
+        loadFormFor(key);
+        window.scrollTo(0,0);
+      });
+
+      var dateEl = document.createElement('div');
+      dateEl.className = 'entry-date';
+      dateEl.textContent = formatDisplayDate(key);
+      card.appendChild(dateEl);
+
+      items.forEach(function(it){
+        var lineEl = document.createElement('div');
+        lineEl.className = 'entry-item';
+        var bullet = document.createElement('span');
+        bullet.className = 'bullet';
+        bullet.textContent = '🙏';
+        lineEl.appendChild(bullet);
+        lineEl.appendChild(document.createTextNode(it));
+        card.appendChild(lineEl);
+      });
+
+      wrap.appendChild(card);
+    });
+  }
+
+  document.getElementById('saveBtn').addEventListener('click', saveCurrent);
+  document.getElementById('todayBtn').addEventListener('click', function(){
+    document.getElementById('dateInput').value = todayStr();
+    loadFormFor(todayStr());
+  });
+  document.getElementById('dateInput').addEventListener('change', function(){
+    loadFormFor(currentDateKey());
+  });
+
+  async function init(){
+    document.getElementById('dateInput').value = todayStr();
+    entries = await loadEntries();
+    loadFormFor(todayStr());
+    renderList();
+    renderStreak();
+  }
+  init();
+</script>
+</body>
+</html>

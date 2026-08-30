@@ -1,0 +1,365 @@
+<!--GUIOS-APP {"id":"random-team-generator","name":"チーム分けツール","icon":"👥","color":"#00796b","version":"1.0.0","author":"Claude","description":"名前リストからランダムに指定人数のチームへ分けてくれるツール。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>チーム分けツール</title>
+<style>
+  :root{
+    --accent:#26a69a;
+    --accent-text:#04211d;
+    --bg:#0c1817;
+    --card:#12211f;
+    --card2:#172925;
+    --text:#e3f3f0;
+    --sub:#9fc4bd;
+    --line:#26403b;
+    --input:#0a1513;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    padding:16px; padding-bottom:56px;
+  }
+  h1{font-size:20px; margin:4px 0 4px; display:flex; align-items:center; gap:8px;}
+  .sub-tag{font-size:12px; color:var(--sub); margin:0 0 14px;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:16px; margin-bottom:16px;
+  }
+  .field{margin-bottom:14px;}
+  label{display:block; font-size:12px; color:var(--sub); margin-bottom:6px; font-weight:600;}
+  textarea{
+    width:100%; padding:11px 12px; border-radius:10px; border:1px solid var(--line);
+    background:var(--input); color:var(--text); font-size:15px; outline:none; font-family:inherit;
+    resize:vertical; min-height:96px; line-height:1.5;
+  }
+  textarea:focus{border-color:var(--accent);}
+  .hint{font-size:11px; color:var(--sub); margin-top:6px;}
+  .count-badge{font-size:12px; color:var(--sub); margin-top:6px;}
+  .mode-row{display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;}
+  .mode-opt{
+    flex:1; min-width:140px; display:flex; align-items:center; gap:8px;
+    background:var(--card2); border:1px solid var(--line); border-radius:10px; padding:10px 12px;
+    cursor:pointer; min-height:44px;
+  }
+  .mode-opt.active{border-color:var(--accent); background:rgba(38,166,154,0.16);}
+  .mode-opt input{accent-color:var(--accent); width:18px; height:18px; flex:none;}
+  .mode-opt span{font-size:13px; font-weight:600;}
+  .num-row{display:flex; align-items:center; gap:10px; margin-bottom:14px;}
+  .num-row label{margin:0; flex:none; font-size:13px; color:var(--text); font-weight:600;}
+  input[type=number]{
+    width:90px; padding:11px 12px; border-radius:10px; border:1px solid var(--line);
+    background:var(--input); color:var(--text); font-size:16px; outline:none; text-align:center;
+  }
+  input[type=number]:focus{border-color:var(--accent);}
+  button{
+    padding:12px 22px; border-radius:10px; border:none; background:var(--accent);
+    color:var(--accent-text); font-weight:700; font-size:15px; cursor:pointer; min-height:44px;
+  }
+  button.secondary{background:transparent; color:var(--sub); border:1px solid var(--line); font-weight:600;}
+  button.block{width:100%;}
+  .btn-row{display:flex; gap:10px; margin-top:4px;}
+  .btn-row button{flex:1;}
+  .section-title{font-size:14px; color:var(--sub); margin:18px 0 10px; font-weight:700;}
+  .teams-wrap{display:flex; flex-direction:column; gap:12px;}
+  .team-card{
+    background:var(--card2); border:1px solid var(--line); border-radius:14px; padding:14px;
+  }
+  .team-name{font-size:15px; font-weight:800; color:var(--accent); margin-bottom:8px;}
+  .team-members{display:flex; flex-wrap:wrap; gap:6px;}
+  .member-chip{
+    background:var(--input); border:1px solid var(--line); border-radius:999px;
+    padding:6px 12px; font-size:13px;
+  }
+  .empty{color:var(--sub); text-align:center; padding:30px 20px; font-size:14px;}
+</style>
+</head>
+<body>
+  <h1>👥 チーム分けツール</h1>
+  <p class="sub-tag">名前リストをランダムに公平なチームへ分割します</p>
+
+  <div class="card">
+    <div class="field">
+      <label for="namesInput">参加者リスト</label>
+      <textarea id="namesInput" placeholder="1行に1人ずつ、またはカンマ区切りで入力&#10;例:&#10;田中&#10;佐藤&#10;鈴木, 高橋, 伊藤"></textarea>
+      <div class="hint">改行区切り・カンマ区切りどちらでもOKです</div>
+      <div class="count-badge" id="countBadge">参加者: 0人</div>
+    </div>
+
+    <div class="mode-row">
+      <label class="mode-opt" id="modeCountOpt">
+        <input type="radio" name="mode" value="count" checked>
+        <span>チーム数を指定</span>
+      </label>
+      <label class="mode-opt" id="modeSizeOpt">
+        <input type="radio" name="mode" value="size">
+        <span>1チームの人数を指定</span>
+      </label>
+    </div>
+
+    <div class="num-row">
+      <label for="numInput" id="numLabel">チーム数</label>
+      <input type="number" id="numInput" min="1" value="2" inputmode="numeric">
+    </div>
+
+    <div class="btn-row">
+      <button type="button" class="block" id="splitBtn">分ける</button>
+    </div>
+    <div class="btn-row" id="reshuffleRow" style="display:none;">
+      <button type="button" class="secondary block" id="reshuffleBtn">もう一度分ける</button>
+    </div>
+  </div>
+
+  <div class="section-title">結果</div>
+  <div id="resultWrap">
+    <div class="empty">参加者を入力して「分ける」を押してください</div>
+  </div>
+
+  <div id="toast" style="position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:var(--card2); color:var(--text); padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; pointer-events:none; transition:all .25s; border:1px solid var(--line);
+    max-width:90%; text-align:center; z-index:999;"></div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var STORAGE_KEY = 'lastInput';
+  var FALLBACK_KEY = 'guios-fallback-random-team-generator-lastInput';
+
+  var lastNames = [];
+  var lastMode = 'count';
+  var lastNum = 2;
+
+  function showToast(msg){
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.opacity = '1';
+    t.style.transform = 'translateX(-50%) translateY(0)';
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(function(){
+      t.style.opacity = '0';
+      t.style.transform = 'translateX(-50%) translateY(20px)';
+    }, 1800);
+  }
+  function notify(msg, type){
+    if(window.GUIOS && window.GUIOS.notify){
+      GUIOS.notify(msg, {type: type || 'info'});
+    } else {
+      showToast(msg);
+    }
+  }
+
+  async function loadLast(){
+    if(hasSDK){
+      var v = await GUIOS.storage.get(STORAGE_KEY);
+      return (v && typeof v === 'object') ? v : null;
+    } else {
+      try{
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        return raw ? JSON.parse(raw) : null;
+      }catch(e){ return null; }
+    }
+  }
+  async function saveLast(obj){
+    if(hasSDK){
+      await GUIOS.storage.set(STORAGE_KEY, obj);
+    } else {
+      try{ localStorage.setItem(FALLBACK_KEY, JSON.stringify(obj)); }catch(e){}
+    }
+  }
+
+  function parseNames(raw){
+    var names = [];
+    raw.split(/\r?\n/).forEach(function(line){
+      line.split(',').forEach(function(part){
+        var t = part.trim();
+        if(t) names.push(t);
+      });
+    });
+    return names;
+  }
+
+  // Fisher-Yates (Knuth) shuffle: unbiased in-place shuffle.
+  function fisherYatesShuffle(arr){
+    var a = arr.slice();
+    for(var i = a.length - 1; i > 0; i--){
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = a[i];
+      a[i] = a[j];
+      a[j] = tmp;
+    }
+    return a;
+  }
+
+  // Split shuffled list into `teamCount` groups as evenly as possible.
+  // Remainder members are distributed one-per-team across the FIRST
+  // `remainder` teams (fair distribution), not dumped into a single team.
+  function partitionIntoTeams(shuffledNames, teamCount){
+    var n = shuffledNames.length;
+    var base = Math.floor(n / teamCount);
+    var remainder = n % teamCount;
+    var teams = [];
+    var idx = 0;
+    for(var i = 0; i < teamCount; i++){
+      var size = base + (i < remainder ? 1 : 0);
+      teams.push(shuffledNames.slice(idx, idx + size));
+      idx += size;
+    }
+    return teams;
+  }
+
+  function teamLabel(i){
+    // A, B, C ... Z, AA, AB ... (rarely needed, but safe for large team counts)
+    var s = '';
+    i = i + 1;
+    while(i > 0){
+      var rem = (i - 1) % 26;
+      s = String.fromCharCode(65 + rem) + s;
+      i = Math.floor((i - 1) / 26);
+    }
+    return s;
+  }
+
+  function updateCountBadge(){
+    var names = parseNames(document.getElementById('namesInput').value);
+    document.getElementById('countBadge').textContent = '参加者: ' + names.length + '人';
+  }
+
+  function currentMode(){
+    var r = document.querySelector('input[name=mode]:checked');
+    return r ? r.value : 'count';
+  }
+
+  function updateModeUI(){
+    var mode = currentMode();
+    document.getElementById('modeCountOpt').classList.toggle('active', mode === 'count');
+    document.getElementById('modeSizeOpt').classList.toggle('active', mode === 'size');
+    document.getElementById('numLabel').textContent = mode === 'count' ? 'チーム数' : '1チームの人数';
+  }
+
+  function renderTeams(teams){
+    var wrap = document.getElementById('resultWrap');
+    if(!teams || teams.length === 0){
+      wrap.innerHTML = '<div class="empty">参加者を入力して「分ける」を押してください</div>';
+      document.getElementById('reshuffleRow').style.display = 'none';
+      return;
+    }
+    wrap.innerHTML = '';
+    var teamsWrap = document.createElement('div');
+    teamsWrap.className = 'teams-wrap';
+    teams.forEach(function(team, i){
+      var card = document.createElement('div');
+      card.className = 'team-card';
+      var nameEl = document.createElement('div');
+      nameEl.className = 'team-name';
+      nameEl.textContent = 'チーム' + teamLabel(i) + ' (' + team.length + '人)';
+      card.appendChild(nameEl);
+      var membersEl = document.createElement('div');
+      membersEl.className = 'team-members';
+      team.forEach(function(name){
+        var chip = document.createElement('div');
+        chip.className = 'member-chip';
+        chip.textContent = name;
+        membersEl.appendChild(chip);
+      });
+      card.appendChild(membersEl);
+      teamsWrap.appendChild(card);
+    });
+    wrap.appendChild(teamsWrap);
+    document.getElementById('reshuffleRow').style.display = 'flex';
+  }
+
+  function computeTeamCount(names, mode, num){
+    if(mode === 'count'){
+      return num;
+    } else {
+      return Math.max(1, Math.ceil(names.length / num));
+    }
+  }
+
+  async function doSplit(){
+    var names = parseNames(document.getElementById('namesInput').value);
+    var mode = currentMode();
+    var num = parseInt(document.getElementById('numInput').value, 10);
+
+    if(names.length === 0){
+      notify('参加者を入力してください', 'error');
+      return;
+    }
+    if(!Number.isFinite(num) || num < 1){
+      notify('人数・チーム数は1以上の整数で入力してください', 'error');
+      return;
+    }
+    var teamCount = computeTeamCount(names, mode, num);
+    if(teamCount > names.length){
+      notify('チーム数が参加人数を超えています', 'error');
+      return;
+    }
+
+    lastNames = names;
+    lastMode = mode;
+    lastNum = num;
+    await saveLast({names: names.join('\n'), mode: mode, num: num});
+
+    var shuffled = fisherYatesShuffle(names);
+    var teams = partitionIntoTeams(shuffled, teamCount);
+    renderTeams(teams);
+    notify('チーム分けしました', 'success');
+  }
+
+  function reshuffle(){
+    if(!lastNames || lastNames.length === 0){
+      notify('先に「分ける」を実行してください', 'error');
+      return;
+    }
+    var teamCount = computeTeamCount(lastNames, lastMode, lastNum);
+    var shuffled = fisherYatesShuffle(lastNames);
+    var teams = partitionIntoTeams(shuffled, teamCount);
+    renderTeams(teams);
+    notify('もう一度分けました', 'success');
+  }
+
+  document.getElementById('namesInput').addEventListener('input', updateCountBadge);
+  document.querySelectorAll('input[name=mode]').forEach(function(r){
+    r.addEventListener('change', updateModeUI);
+  });
+  document.getElementById('modeCountOpt').addEventListener('click', function(e){
+    if(e.target.tagName !== 'INPUT'){
+      document.querySelector('input[name=mode][value=count]').checked = true;
+      updateModeUI();
+    }
+  });
+  document.getElementById('modeSizeOpt').addEventListener('click', function(e){
+    if(e.target.tagName !== 'INPUT'){
+      document.querySelector('input[name=mode][value=size]').checked = true;
+      updateModeUI();
+    }
+  });
+  document.getElementById('splitBtn').addEventListener('click', doSplit);
+  document.getElementById('reshuffleBtn').addEventListener('click', reshuffle);
+
+  async function init(){
+    updateModeUI();
+    updateCountBadge();
+    var last = await loadLast();
+    if(last && last.names){
+      document.getElementById('namesInput').value = last.names;
+      updateCountBadge();
+      if(last.mode){
+        var radio = document.querySelector('input[name=mode][value=' + last.mode + ']');
+        if(radio) radio.checked = true;
+        updateModeUI();
+      }
+      if(last.num){
+        document.getElementById('numInput').value = last.num;
+      }
+    }
+  }
+  init();
+</script>
+</body>
+</html>

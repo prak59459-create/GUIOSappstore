@@ -1,0 +1,377 @@
+<!--GUIOS-APP {"id":"snake-game","name":"スネークゲーム","icon":"🐍","color":"#1b5e20","version":"1.0.0","author":"Claude","description":"エサを食べて長くなりながら壁や自分の体を避けるスネークゲーム。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>スネークゲーム</title>
+<style>
+  :root{
+    --accent:#66bb6a;
+    --bg:#0e1a10;
+    --card:#17251a;
+    --card2:#122016;
+    --text:#e7f3e9;
+    --sub:#9ab8a1;
+    --line:rgba(255,255,255,0.08);
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text); min-height:100vh; padding:14px; padding-bottom:30px;
+    overflow-x:hidden;
+  }
+  .wrap{ max-width:480px; margin:0 auto; display:flex; flex-direction:column; gap:10px; }
+  h1{ font-size:19px; margin:2px 0 0; display:flex; align-items:center; gap:8px; }
+
+  .info-row{ display:flex; gap:10px; }
+  .info-card{
+    flex:1; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:8px 12px;
+    text-align:center;
+  }
+  .info-card .lbl{ font-size:11px; color:var(--sub); }
+  .info-card .val{ font-size:20px; font-weight:700; font-variant-numeric:tabular-nums; }
+
+  .board-wrap{
+    width:100%; aspect-ratio:1/1; background:var(--card2); border-radius:14px; border:1px solid var(--line);
+    padding:6px; position:relative;
+  }
+  canvas{ width:100%; height:100%; display:block; border-radius:8px; touch-action:none; }
+
+  .dpad{
+    display:grid; grid-template-columns:repeat(3,64px); grid-template-rows:repeat(3,64px);
+    gap:6px; justify-content:center; margin:4px auto 0;
+  }
+  .dpad button{
+    background:var(--card); border:1px solid var(--line); border-radius:12px; color:var(--text);
+    font-size:22px; cursor:pointer; min-height:56px;
+  }
+  .dpad button:active{ background:var(--accent); }
+  .dpad .up{ grid-column:2; grid-row:1; }
+  .dpad .left{ grid-column:1; grid-row:2; }
+  .dpad .center{ grid-column:2; grid-row:2; visibility:hidden; }
+  .dpad .right{ grid-column:3; grid-row:2; }
+  .dpad .down{ grid-column:2; grid-row:3; }
+
+  .btn-row{ display:flex; gap:10px; }
+  .btn{
+    flex:1; padding:14px; border-radius:12px; border:1px solid var(--line); font-size:14px; font-weight:700;
+    cursor:pointer; min-height:48px; background:var(--card2); color:var(--text);
+  }
+  .btn.primary{ background:var(--accent); color:#04220a; border-color:var(--accent); }
+  .btn:active{ filter:brightness(1.15); }
+
+  .overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.75); display:flex; align-items:center;
+    justify-content:center; z-index:40; padding:20px;
+  }
+  .overlay[hidden]{ display:none; }
+  .modal{
+    background:var(--card); border-radius:18px; padding:26px 22px; text-align:center; max-width:320px; width:100%;
+  }
+  .modal h2{ font-size:22px; margin:0 0 10px; }
+  .modal p{ font-size:14px; color:var(--sub); margin:4px 0; }
+  .modal button{
+    width:100%; margin-top:16px; padding:14px; border-radius:12px; border:none; background:var(--accent);
+    color:#04220a; font-size:15px; font-weight:700; cursor:pointer; min-height:48px;
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🐍 スネークゲーム</h1>
+
+    <div class="info-row">
+      <div class="info-card"><div class="lbl">スコア</div><div class="val" id="scoreVal">0</div></div>
+      <div class="info-card"><div class="lbl">長さ</div><div class="val" id="lengthVal">3</div></div>
+      <div class="info-card"><div class="lbl">ハイスコア</div><div class="val" id="highVal">0</div></div>
+    </div>
+
+    <div class="board-wrap">
+      <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <div class="dpad">
+      <button class="up" id="btnUp">▲</button>
+      <button class="left" id="btnLeft">◀</button>
+      <div class="center"></div>
+      <button class="right" id="btnRight">▶</button>
+      <button class="down" id="btnDown">▼</button>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn primary" id="startBtn">スタート</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="overOverlay" hidden>
+    <div class="modal">
+      <h2>ゲームオーバー</h2>
+      <p id="overScore">スコア: 0</p>
+      <p id="overLength">長さ: 3</p>
+      <p id="overHigh">ハイスコア: 0</p>
+      <button id="retryBtn">もう一度</button>
+    </div>
+  </div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var APP_ID = 'snake-game';
+  var FALLBACK_KEY = 'guios-fallback-' + APP_ID + '-high';
+
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify) {
+      try { window.GUIOS.notify(msg, { type: type || 'info' }); return; } catch(e){}
+    }
+    var t = document.createElement('div');
+    t.textContent = msg;
+    t.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#17251a;color:#e7f3e9;padding:10px 18px;border-radius:10px;font-size:13px;z-index:200;box-shadow:0 6px 18px rgba(0,0,0,.4);';
+    document.body.appendChild(t);
+    setTimeout(function(){ t.remove(); }, 2500);
+  }
+  function haptic(){
+    if (window.GUIOS && window.GUIOS.haptic) {
+      try { window.GUIOS.haptic(); } catch(e){}
+    }
+  }
+
+  async function loadHigh(){
+    if (hasSDK) {
+      try {
+        var v = await window.GUIOS.storage.get('highScore');
+        return (typeof v === 'number' && !isNaN(v)) ? v : 0;
+      } catch(e){ return 0; }
+    } else {
+      try {
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        var n = raw ? parseInt(raw,10) : 0;
+        return isNaN(n) ? 0 : n;
+      } catch(e){ return 0; }
+    }
+  }
+  async function saveHigh(v){
+    if (hasSDK) {
+      try { await window.GUIOS.storage.set('highScore', v); } catch(e){}
+    } else {
+      try { localStorage.setItem(FALLBACK_KEY, String(v)); } catch(e){}
+    }
+  }
+
+  var GRID = 18;
+  var canvas = document.getElementById('gameCanvas');
+  var ctx = canvas.getContext('2d');
+  var cellSize = 0;
+
+  function resizeCanvas(){
+    var wrap = canvas.parentElement;
+    var size = Math.min(wrap.clientWidth, wrap.clientHeight) - 12;
+    var dpr = window.devicePixelRatio || 1;
+    canvas.width = size * dpr;
+    canvas.height = size * dpr;
+    canvas.style.width = size + 'px';
+    canvas.style.height = size + 'px';
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    cellSize = size / GRID;
+    draw();
+  }
+
+  var snake, dir, nextDir, food, score, highScore, gameRunning, loopTimer, tickMs;
+
+  function resetState(){
+    var mid = Math.floor(GRID/2);
+    snake = [ {x:mid-1,y:mid}, {x:mid-2,y:mid}, {x:mid-3,y:mid} ];
+    dir = { x:1, y:0 };
+    nextDir = { x:1, y:0 };
+    score = 0;
+    tickMs = 140;
+    gameRunning = false;
+    placeFood();
+    updateHud();
+  }
+
+  function placeFood(){
+    var occupied = {};
+    snake.forEach(function(s){ occupied[s.x+'_'+s.y] = true; });
+    var empties = [];
+    for (var x=0;x<GRID;x++) for (var y=0;y<GRID;y++){
+      if (!occupied[x+'_'+y]) empties.push({x:x,y:y});
+    }
+    if (!empties.length) { food = null; return; }
+    food = empties[Math.floor(Math.random()*empties.length)];
+  }
+
+  function updateHud(){
+    document.getElementById('scoreVal').textContent = score;
+    document.getElementById('lengthVal').textContent = snake.length;
+    document.getElementById('highVal').textContent = highScore;
+  }
+
+  function draw(){
+    var size = canvas.width / (window.devicePixelRatio||1);
+    ctx.fillStyle = '#0d1a0f';
+    ctx.fillRect(0,0,size,size);
+
+    // grid lines subtle
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    for (var i=1;i<GRID;i++){
+      ctx.beginPath(); ctx.moveTo(i*cellSize,0); ctx.lineTo(i*cellSize,size); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0,i*cellSize); ctx.lineTo(size,i*cellSize); ctx.stroke();
+    }
+
+    if (food) {
+      ctx.fillStyle = '#ff5252';
+      var fx = food.x*cellSize + cellSize/2, fy = food.y*cellSize + cellSize/2;
+      ctx.beginPath();
+      ctx.arc(fx, fy, cellSize*0.35, 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    snake.forEach(function(seg, idx){
+      ctx.fillStyle = idx === 0 ? '#a5d6a7' : '#4caf50';
+      var pad = cellSize*0.08;
+      ctx.beginPath();
+      var rx = seg.x*cellSize+pad, ry = seg.y*cellSize+pad, rw = cellSize-pad*2, rh = cellSize-pad*2;
+      var rr = cellSize*0.22;
+      ctx.moveTo(rx+rr, ry);
+      ctx.arcTo(rx+rw, ry, rx+rw, ry+rh, rr);
+      ctx.arcTo(rx+rw, ry+rh, rx, ry+rh, rr);
+      ctx.arcTo(rx, ry+rh, rx, ry, rr);
+      ctx.arcTo(rx, ry, rx+rw, ry, rr);
+      ctx.closePath();
+      ctx.fill();
+    });
+  }
+
+  function tryChangeDir(nx, ny){
+    // prevent reversing directly into itself
+    if (snake.length > 1 && nx === -dir.x && ny === -dir.y) return;
+    nextDir = { x:nx, y:ny };
+  }
+
+  function step(){
+    dir = nextDir;
+    var head = snake[0];
+    var newHead = { x: head.x + dir.x, y: head.y + dir.y };
+
+    if (newHead.x < 0 || newHead.x >= GRID || newHead.y < 0 || newHead.y >= GRID) {
+      endGame();
+      return;
+    }
+    var hitsSelf = snake.some(function(s){ return s.x === newHead.x && s.y === newHead.y; });
+    if (hitsSelf) {
+      endGame();
+      return;
+    }
+
+    snake.unshift(newHead);
+
+    var ate = food && newHead.x === food.x && newHead.y === food.y;
+    if (ate) {
+      score += 10;
+      haptic();
+      placeFood();
+      if (tickMs > 70) {
+        tickMs = Math.max(70, tickMs - 3);
+        restartLoop();
+      }
+    } else {
+      snake.pop();
+    }
+
+    updateHud();
+    draw();
+
+    if (!food) { endGame(); } // board full = win, treat as end
+  }
+
+  function startLoop(){
+    stopLoop();
+    loopTimer = setInterval(step, tickMs);
+  }
+  function restartLoop(){
+    if (gameRunning) startLoop();
+  }
+  function stopLoop(){
+    if (loopTimer !== null) { clearInterval(loopTimer); loopTimer = null; }
+  }
+
+  async function endGame(){
+    gameRunning = false;
+    stopLoop();
+    haptic();
+    var isNewHigh = score > highScore;
+    if (isNewHigh) {
+      highScore = score;
+      await saveHigh(highScore);
+    }
+    updateHud();
+    document.getElementById('overScore').textContent = 'スコア: ' + score;
+    document.getElementById('overLength').textContent = '長さ: ' + snake.length;
+    document.getElementById('overHigh').textContent = 'ハイスコア: ' + highScore + (isNewHigh ? ' (新記録!)' : '');
+    document.getElementById('overOverlay').hidden = false;
+  }
+
+  function startGame(){
+    document.getElementById('overOverlay').hidden = true;
+    stopLoop();
+    resetState();
+    gameRunning = true;
+    draw();
+    startLoop();
+  }
+
+  document.getElementById('startBtn').addEventListener('click', startGame);
+  document.getElementById('retryBtn').addEventListener('click', startGame);
+
+  document.getElementById('btnUp').addEventListener('click', function(){ tryChangeDir(0,-1); });
+  document.getElementById('btnDown').addEventListener('click', function(){ tryChangeDir(0,1); });
+  document.getElementById('btnLeft').addEventListener('click', function(){ tryChangeDir(-1,0); });
+  document.getElementById('btnRight').addEventListener('click', function(){ tryChangeDir(1,0); });
+
+  window.addEventListener('keydown', function(e){
+    if (!gameRunning) return;
+    switch(e.key){
+      case 'ArrowUp': e.preventDefault(); tryChangeDir(0,-1); break;
+      case 'ArrowDown': e.preventDefault(); tryChangeDir(0,1); break;
+      case 'ArrowLeft': e.preventDefault(); tryChangeDir(-1,0); break;
+      case 'ArrowRight': e.preventDefault(); tryChangeDir(1,0); break;
+    }
+  }, { passive:false });
+
+  // swipe gesture support
+  var touchStartX = null, touchStartY = null;
+  canvas.addEventListener('touchstart', function(e){
+    if (!e.touches || !e.touches.length) return;
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }, { passive:true });
+  canvas.addEventListener('touchend', function(e){
+    if (touchStartX === null || touchStartY === null) return;
+    var touch = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0] : null;
+    if (!touch) return;
+    var dx = touch.clientX - touchStartX;
+    var dy = touch.clientY - touchStartY;
+    touchStartX = null; touchStartY = null;
+    var absX = Math.abs(dx), absY = Math.abs(dy);
+    if (Math.max(absX, absY) < 20) return; // ignore tiny movement
+    if (absX > absY) {
+      tryChangeDir(dx > 0 ? 1 : -1, 0);
+    } else {
+      tryChangeDir(0, dy > 0 ? 1 : -1);
+    }
+  }, { passive:true });
+
+  window.addEventListener('resize', resizeCanvas);
+  window.addEventListener('beforeunload', stopLoop);
+  window.addEventListener('pagehide', stopLoop);
+
+  (async function init(){
+    highScore = await loadHigh();
+    resetState();
+    resizeCanvas();
+    updateHud();
+  })();
+</script>
+</body>
+</html>

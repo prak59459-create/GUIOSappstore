@@ -1,0 +1,375 @@
+<!--GUIOS-APP {"id":"decision-wheel","name":"ルーレット決定ツール","icon":"🎡","color":"#c62828","version":"1.0.0","author":"Claude","description":"選択肢を入力してルーレットを回し、ランダムに1つ選んでくれるツール。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ルーレット決定ツール</title>
+<style>
+  :root{
+    --accent:#ef5350;
+    --accent-dark:#c62828;
+    --bg:#160f0f;
+    --card:#211717;
+    --card2:#190f0f;
+    --text:#f5eeee;
+    --sub:#b9a6a6;
+    --line:rgba(255,255,255,0.08);
+    --danger:#e5484d;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    padding:16px; padding-bottom:48px;
+  }
+  .wrap{max-width:520px; margin:0 auto;}
+  h1{font-size:19px; margin:4px 0 16px; display:flex; align-items:center; gap:8px;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:16px; margin-bottom:14px;
+  }
+  .wheel-area{display:flex; flex-direction:column; align-items:center; gap:16px;}
+  .wheel-container{
+    position:relative; width:min(78vw, 320px); height:min(78vw, 320px);
+  }
+  .wheel-rotor{
+    width:100%; height:100%;
+    transform:rotate(0deg);
+    transition:transform 4.2s cubic-bezier(0.14, 0.72, 0.14, 1);
+  }
+  .wheel-rotor svg{ width:100%; height:100%; display:block; filter:drop-shadow(0 4px 14px rgba(0,0,0,0.5)); }
+  .pointer{
+    position:absolute; top:-4px; left:50%; transform:translateX(-50%);
+    width:0; height:0; z-index:5;
+    border-left:15px solid transparent; border-right:15px solid transparent;
+    border-top:26px solid #fff2c2;
+    filter:drop-shadow(0 2px 3px rgba(0,0,0,0.5));
+  }
+  .hub{
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    width:18%; height:18%; border-radius:50%; background:var(--card); border:3px solid var(--accent);
+    z-index:4; display:flex; align-items:center; justify-content:center; font-size:18px;
+  }
+  .result-banner{
+    min-height:52px; display:flex; align-items:center; justify-content:center; text-align:center;
+    font-size:16px; font-weight:800; color:var(--text); padding:10px 14px; border-radius:12px;
+    background:var(--card2); border:1px solid var(--line); width:100%;
+  }
+  .result-banner.win{ background:rgba(239,83,80,0.16); border-color:var(--accent); color:#ffb3b0; }
+  button{ font-family:inherit; }
+  button.primary{
+    padding:15px 20px; border-radius:14px; border:none; background:var(--accent);
+    color:#210505; font-weight:800; font-size:16px; cursor:pointer; min-height:50px; width:100%;
+  }
+  button.primary:disabled{ opacity:0.45; cursor:default; }
+  button.primary:active:not(:disabled){filter:brightness(1.08);}
+  label{display:block; font-size:12px; color:var(--sub); margin-bottom:6px;}
+  .field{margin-bottom:12px;}
+  input[type=text]{
+    width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--line);
+    background:var(--card2); color:var(--text); font-size:15px; outline:none;
+  }
+  input:focus{border-color:var(--accent);}
+  .add-row{display:flex; gap:8px;}
+  .add-row input{flex:1;}
+  .add-row button{
+    padding:0 16px; border-radius:10px; border:none; background:var(--accent); color:#210505;
+    font-weight:800; font-size:18px; cursor:pointer; min-height:46px; min-width:46px;
+  }
+  .option-list{display:flex; flex-direction:column; gap:8px; margin-top:12px;}
+  .option-item{
+    display:flex; align-items:center; gap:10px; background:var(--card2); border:1px solid var(--line);
+    border-radius:10px; padding:10px 12px;
+  }
+  .swatch{width:16px; height:16px; border-radius:4px; flex-shrink:0;}
+  .option-item span{flex:1; font-size:14px; word-break:break-word;}
+  .option-item button{
+    background:transparent; border:none; color:var(--sub); font-size:17px; cursor:pointer; min-width:32px; min-height:32px;
+  }
+  .option-item button:active{ color:var(--danger); }
+  .hint{font-size:12px; color:var(--sub); text-align:center; margin-top:2px;}
+  .empty{ text-align:center; color:var(--sub); font-size:13px; padding:16px 10px; }
+  .toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:#222; color:#fff; padding:11px 18px; border-radius:10px; font-size:13px;
+    opacity:0; transition:opacity .25s, transform .25s; pointer-events:none; z-index:999; max-width:88vw; text-align:center;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+  .toast.error{background:#5a1e1e;}
+  .toast.success{background:#1e4a2a;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🎡 ルーレット決定ツール</h1>
+
+  <div class="card wheel-area">
+    <div class="wheel-container" id="wheelContainer">
+      <div class="pointer"></div>
+      <div class="wheel-rotor" id="wheelRotor">
+        <svg viewBox="0 0 300 300" id="wheelSvg"></svg>
+      </div>
+      <div class="hub">🎯</div>
+    </div>
+    <div class="result-banner" id="resultBanner">選択肢を2つ以上追加して回してみましょう</div>
+    <button class="primary" id="spinBtn">回す</button>
+  </div>
+
+  <div class="card">
+    <h2 style="font-size:14px; margin:0 0 12px; color:var(--sub);">選択肢</h2>
+    <div class="add-row">
+      <input type="text" id="optionInput" placeholder="選択肢を入力" maxlength="30">
+      <button id="addOptionBtn">＋</button>
+    </div>
+    <div class="option-list" id="optionList"></div>
+    <div class="empty" id="emptyOptions" style="display:none;">まだ選択肢がありません。</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  var APP_ID = "decision-wheel";
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var LS_KEY = APP_ID + "::options";
+
+  var PALETTE = ["#e53935","#fb8c00","#fdd835","#43a047","#1e88e5","#5e35b1","#d81b60","#00897b","#6d4c41","#546e7a"];
+
+  var options = [];
+  var currentRotation = 0;
+  var spinning = false;
+
+  function toast(msg, type){
+    if(hasSDK && window.GUIOS.notify){
+      try{ window.GUIOS.notify(msg, {type: type||'info'}); return; }catch(e){}
+    }
+    var el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'toast show' + (type ? (' '+type) : '');
+    clearTimeout(el._t);
+    el._t = setTimeout(function(){ el.className = 'toast'; }, 2200);
+  }
+  function haptic(){
+    if(hasSDK && window.GUIOS.haptic){ try{ window.GUIOS.haptic(); }catch(e){} }
+  }
+
+  function loadOptions(){
+    if(hasSDK){
+      return window.GUIOS.storage.get('options').then(function(v){
+        return Array.isArray(v) ? v : [];
+      }).catch(function(){ return []; });
+    }
+    try{
+      var raw = localStorage.getItem(LS_KEY);
+      var v = raw ? JSON.parse(raw) : [];
+      return Promise.resolve(Array.isArray(v) ? v : []);
+    }catch(e){ return Promise.resolve([]); }
+  }
+  function saveOptions(){
+    if(hasSDK){
+      return window.GUIOS.storage.set('options', options).catch(function(){});
+    }
+    try{ localStorage.setItem(LS_KEY, JSON.stringify(options)); }catch(e){}
+    return Promise.resolve(true);
+  }
+
+  function polarToXY(thetaDeg, radius){
+    var rad = thetaDeg * Math.PI / 180;
+    return { x: 150 + radius * Math.sin(rad), y: 150 - radius * Math.cos(rad) };
+  }
+
+  function wedgePath(theta1, theta2, r){
+    var p1 = polarToXY(theta1, r);
+    var p2 = polarToXY(theta2, r);
+    var largeArc = (theta2 - theta1) > 180 ? 1 : 0;
+    return 'M150,150 L' + p1.x.toFixed(2) + ',' + p1.y.toFixed(2) +
+      ' A' + r + ',' + r + ' 0 ' + largeArc + ' 1 ' + p2.x.toFixed(2) + ',' + p2.y.toFixed(2) + ' Z';
+  }
+
+  function escapeXml(s){
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+  }
+
+  // Built as an HTML string and assigned via innerHTML on the existing
+  // inline <svg> element: the parser's foreign-content handling creates the
+  // <path>/<text> children in the correct SVG namespace automatically, with
+  // no need for createElementNS (and no XML namespace URI string in source).
+  function drawWheel(){
+    var svg = document.getElementById('wheelSvg');
+    var n = options.length;
+    if(n === 0){
+      svg.innerHTML = '<circle cx="150" cy="150" r="145" fill="#241717" stroke="rgba(255,255,255,0.1)"></circle>';
+      return;
+    }
+    var wedgeAngle = 360 / n;
+    var fontSize = Math.max(9, Math.min(15, 220 / n));
+    var markup = '';
+    for(var i = 0; i < n; i++){
+      var theta1 = i * wedgeAngle;
+      var theta2 = (i + 1) * wedgeAngle;
+      markup += '<path d="' + wedgePath(theta1, theta2, 145) + '" fill="' + PALETTE[i % PALETTE.length] +
+        '" stroke="#160f0f" stroke-width="2"></path>';
+
+      var mid = theta1 + wedgeAngle / 2;
+      var lp = polarToXY(mid, 95);
+      var label = options[i];
+      if(label.length > 10) label = label.slice(0, 9) + '…';
+      markup += '<text x="' + lp.x.toFixed(2) + '" y="' + lp.y.toFixed(2) +
+        '" text-anchor="middle" dominant-baseline="middle" fill="#ffffff" font-size="' + fontSize.toFixed(1) +
+        '" font-weight="700" style="paint-order:stroke; stroke:rgba(0,0,0,0.55); stroke-width:3px;">' +
+        escapeXml(label) + '</text>';
+    }
+    svg.innerHTML = markup;
+  }
+
+  function renderOptionList(){
+    var list = document.getElementById('optionList');
+    var empty = document.getElementById('emptyOptions');
+    list.innerHTML = '';
+    if(options.length === 0){
+      empty.style.display = 'block';
+    } else {
+      empty.style.display = 'none';
+      options.forEach(function(opt, idx){
+        var row = document.createElement('div');
+        row.className = 'option-item';
+        var sw = document.createElement('div');
+        sw.className = 'swatch';
+        sw.style.background = PALETTE[idx % PALETTE.length];
+        var span = document.createElement('span');
+        span.textContent = opt;
+        var delBtn = document.createElement('button');
+        delBtn.textContent = '✕';
+        delBtn.disabled = spinning;
+        delBtn.addEventListener('click', function(){ removeOption(idx); });
+        row.appendChild(sw);
+        row.appendChild(span);
+        row.appendChild(delBtn);
+        list.appendChild(row);
+      });
+    }
+    var spinBtn = document.getElementById('spinBtn');
+    spinBtn.disabled = spinning || options.length < 2;
+    var banner = document.getElementById('resultBanner');
+    if(!spinning){
+      if(options.length < 2){
+        banner.className = 'result-banner';
+        banner.textContent = '選択肢を2つ以上追加して回してみましょう';
+      }
+    }
+  }
+
+  function addOption(){
+    var input = document.getElementById('optionInput');
+    var val = input.value.trim();
+    if(!val){
+      toast('選択肢を入力してください', 'error');
+      input.focus();
+      return;
+    }
+    options.push(val);
+    input.value = '';
+    currentRotation = 0;
+    document.getElementById('wheelRotor').style.transition = 'none';
+    document.getElementById('wheelRotor').style.transform = 'rotate(0deg)';
+    void document.getElementById('wheelRotor').offsetWidth;
+    document.getElementById('wheelRotor').style.transition = 'transform 4.2s cubic-bezier(0.14, 0.72, 0.14, 1)';
+    drawWheel();
+    renderOptionList();
+    saveOptions();
+  }
+
+  function removeOption(idx){
+    if(spinning) return;
+    options.splice(idx, 1);
+    currentRotation = 0;
+    var rotor = document.getElementById('wheelRotor');
+    rotor.style.transition = 'none';
+    rotor.style.transform = 'rotate(0deg)';
+    void rotor.offsetWidth;
+    rotor.style.transition = 'transform 4.2s cubic-bezier(0.14, 0.72, 0.14, 1)';
+    drawWheel();
+    renderOptionList();
+    saveOptions();
+  }
+
+  var pendingWinnerIndex = -1;
+
+  function spin(){
+    if(spinning) return;
+    if(options.length < 2){
+      toast('2つ以上の選択肢が必要です', 'error');
+      return;
+    }
+    spinning = true;
+    renderOptionList();
+    var banner = document.getElementById('resultBanner');
+    banner.className = 'result-banner';
+    banner.textContent = '回転中...';
+
+    // 1) Pick the random winner FIRST, independent of any visual rotation.
+    var n = options.length;
+    var winnerIndex = Math.floor(Math.random() * n);
+    pendingWinnerIndex = winnerIndex;
+
+    // 2) Compute the rotation that will bring that winner's wedge under the
+    //    fixed pointer (which sits at the top / 0deg position of the container).
+    var wedgeAngle = 360 / n;
+    var wedgeCenter = winnerIndex * wedgeAngle + wedgeAngle / 2;
+    var targetMod = (360 - wedgeCenter) % 360;
+    var curMod = ((currentRotation % 360) + 360) % 360;
+    var delta = ((targetMod - curMod) % 360 + 360) % 360;
+    var extraSpins = 5 + Math.floor(Math.random() * 3); // 5..7 full turns for effect
+    var newRotation = currentRotation + extraSpins * 360 + delta;
+    currentRotation = newRotation;
+
+    var rotor = document.getElementById('wheelRotor');
+    rotor.style.transform = 'rotate(' + newRotation + 'deg)';
+  }
+
+  function onTransitionEnd(e){
+    if(e.target.id !== 'wheelRotor' || e.propertyName !== 'transform') return;
+    if(!spinning) return;
+    spinning = false;
+    var winner = options[pendingWinnerIndex];
+    var banner = document.getElementById('resultBanner');
+    banner.className = 'result-banner win';
+    banner.textContent = '🎉 「' + winner + '」に決定!';
+    haptic();
+    toast(winner + ' に決定しました', 'success');
+    renderOptionList();
+  }
+
+  function init(){
+    document.getElementById('addOptionBtn').addEventListener('click', addOption);
+    document.getElementById('optionInput').addEventListener('keydown', function(e){
+      if(e.key === 'Enter') addOption();
+    });
+    document.getElementById('spinBtn').addEventListener('click', spin);
+    document.getElementById('wheelRotor').addEventListener('transitionend', onTransitionEnd);
+
+    loadOptions().then(function(v){
+      options = v;
+      drawWheel();
+      renderOptionList();
+    });
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>

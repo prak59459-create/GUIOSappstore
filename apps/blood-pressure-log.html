@@ -1,0 +1,375 @@
+<!--GUIOS-APP {"id":"blood-pressure-log","name":"血圧記録","icon":"🩺","color":"#b71c1c","version":"1.0.0","author":"Claude","description":"収縮期・拡張期血圧と脈拍を記録し、履歴を確認できる健康記録アプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>血圧記録</title>
+<style>
+  :root{
+    --accent:#e05353;
+    --bg:#1a0e0e;
+    --card:#241414;
+    --card2:#2c1717;
+    --text:#f7e9e9;
+    --sub:#cba9a9;
+    --line:#3d2020;
+    --input:#150b0b;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    padding:16px; padding-bottom:48px;
+  }
+  h1{font-size:20px; margin:4px 0 4px; display:flex; align-items:center; gap:8px;}
+  .sub-tag{font-size:12px; color:var(--sub); margin:0 0 14px;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:16px; margin-bottom:16px;
+  }
+  .disclaimer{
+    background:var(--card2); border:1px solid var(--line); border-radius:12px;
+    padding:10px 12px; font-size:12px; color:var(--sub); line-height:1.6; margin-bottom:16px;
+  }
+  .field-row{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;}
+  .field{flex:1; min-width:120px;}
+  .field.full{flex-basis:100%;}
+  label{display:block; font-size:12px; color:var(--sub); margin-bottom:6px;}
+  input[type=number], input[type=datetime-local]{
+    width:100%; padding:12px 12px; border-radius:10px; border:1px solid var(--line);
+    background:var(--input); color:var(--text); font-size:16px; outline:none;
+  }
+  input:focus{border-color:var(--accent);}
+  button{
+    padding:12px 22px; border-radius:10px; border:none; background:var(--accent);
+    color:#2a0808; font-weight:700; font-size:15px; cursor:pointer; min-height:44px;
+  }
+  button.secondary{
+    background:transparent; color:var(--sub); border:1px solid var(--line); font-weight:600;
+  }
+  #addBtn{width:100%;}
+  .section-title{
+    font-size:14px; color:var(--sub); margin:0 0 10px; display:flex; justify-content:space-between; align-items:center;
+  }
+  .legend{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px;}
+  .legend-item{
+    display:flex; align-items:center; gap:6px; font-size:11px; color:var(--sub);
+    background:var(--input); border:1px solid var(--line); border-radius:999px; padding:4px 10px;
+  }
+  .dot{width:9px; height:9px; border-radius:50%; flex:none;}
+  .trend-svg{width:100%; height:90px; display:block;}
+  .entry{
+    background:var(--card2); border:1px solid var(--line); border-radius:14px;
+    padding:12px 14px; margin-bottom:10px;
+  }
+  .entry-top{display:flex; justify-content:space-between; align-items:flex-start; gap:8px;}
+  .entry-date{font-size:12px; color:var(--sub);}
+  .entry-values{font-size:22px; font-weight:800; margin-top:4px;}
+  .entry-values .unit{font-size:12px; font-weight:500; color:var(--sub); margin-left:2px;}
+  .entry-pulse{font-size:13px; color:var(--sub); margin-top:2px;}
+  .badge{
+    flex:none; padding:5px 12px; border-radius:999px; font-size:12px; font-weight:700; white-space:nowrap;
+  }
+  .del-btn{
+    flex:none; width:32px; height:32px; border-radius:8px; border:none; background:transparent;
+    color:var(--sub); font-size:16px; cursor:pointer;
+  }
+  .del-btn:hover{color:#ff8a8a;}
+  .entry-actions{display:flex; align-items:center; gap:6px;}
+  .empty{color:var(--sub); text-align:center; padding:40px 20px; font-size:14px;}
+</style>
+</head>
+<body>
+  <h1>🩺 血圧記録</h1>
+  <p class="sub-tag">日々の血圧・脈拍を記録して推移を確認できます</p>
+
+  <div class="disclaimer">
+    ⚠️ この記録・分類は一般的な目安に基づく参考情報であり、医療的な診断ではありません。健康状態の判断は必ず医師にご相談ください。
+  </div>
+
+  <div class="card">
+    <div class="field-row">
+      <div class="field">
+        <label for="sysInput">収縮期血圧(上) mmHg</label>
+        <input type="number" id="sysInput" inputmode="numeric" min="0" max="300" placeholder="例: 120">
+      </div>
+      <div class="field">
+        <label for="diaInput">拡張期血圧(下) mmHg</label>
+        <input type="number" id="diaInput" inputmode="numeric" min="0" max="200" placeholder="例: 80">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="pulseInput">脈拍(任意) bpm</label>
+        <input type="number" id="pulseInput" inputmode="numeric" min="0" max="300" placeholder="例: 70">
+      </div>
+      <div class="field">
+        <label for="dtInput">日時</label>
+        <input type="datetime-local" id="dtInput">
+      </div>
+    </div>
+    <button id="addBtn">記録する</button>
+  </div>
+
+  <div class="card" id="trendCard" style="display:none;">
+    <div class="section-title">📈 最近の推移(上:赤 / 下:青)</div>
+    <svg class="trend-svg" id="trendSvg" viewBox="0 0 300 90" preserveAspectRatio="none"></svg>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><span class="dot" style="background:#66bb6a;"></span>正常</div>
+    <div class="legend-item"><span class="dot" style="background:#d4c02a;"></span>正常高値</div>
+    <div class="legend-item"><span class="dot" style="background:#fb8c00;"></span>高血圧(I度目安)</div>
+    <div class="legend-item"><span class="dot" style="background:#e53935;"></span>高血圧(II度目安)</div>
+    <div class="legend-item"><span class="dot" style="background:#b71c1c;"></span>要注意</div>
+  </div>
+
+  <div class="section-title">履歴</div>
+  <div id="listWrap">
+    <div class="empty">まだ記録がありません</div>
+  </div>
+
+  <div id="toast" style="position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:#2c1717; color:var(--text); padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; pointer-events:none; transition:all .25s; border:1px solid var(--line);
+    max-width:90%; text-align:center; z-index:999;"></div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var STORAGE_KEY = 'entries';
+  var FALLBACK_KEY = 'guios-fallback-blood-pressure-log-entries';
+
+  var entries = [];
+
+  function showToast(msg){
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.opacity = '1';
+    t.style.transform = 'translateX(-50%) translateY(0)';
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(function(){
+      t.style.opacity = '0';
+      t.style.transform = 'translateX(-50%) translateY(20px)';
+    }, 1800);
+  }
+  function notify(msg, type){
+    if(window.GUIOS && window.GUIOS.notify){
+      GUIOS.notify(msg, {type: type || 'info'});
+    } else {
+      showToast(msg);
+    }
+  }
+
+  function pad2(n){ return ('0'+n).slice(-2); }
+  function nowLocalDatetimeStr(){
+    var d = new Date();
+    return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())+'T'+pad2(d.getHours())+':'+pad2(d.getMinutes());
+  }
+  function formatDisplayDate(dtStr){
+    // dtStr like 2026-08-30T09:15
+    var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(dtStr);
+    if(!m) return dtStr;
+    return m[1]+'/'+m[2]+'/'+m[3]+' '+m[4]+':'+m[5];
+  }
+
+  function classify(sys, dia){
+    if(sys>=180 || dia>=120) return {label:'要注意', color:'#b71c1c'};
+    if(sys>=140 || dia>=90)  return {label:'高血圧(II度目安)', color:'#e53935'};
+    if(sys>=130 || dia>=80)  return {label:'高血圧(I度目安)', color:'#fb8c00'};
+    if(sys>=120 && dia<80)   return {label:'正常高値', color:'#d4c02a'};
+    return {label:'正常', color:'#66bb6a'};
+  }
+
+  async function loadEntries(){
+    if(hasSDK){
+      var v = await GUIOS.storage.get(STORAGE_KEY);
+      return Array.isArray(v) ? v : [];
+    } else {
+      try{
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        return raw ? JSON.parse(raw) : [];
+      }catch(e){ return []; }
+    }
+  }
+  async function saveEntries(list){
+    if(hasSDK){
+      await GUIOS.storage.set(STORAGE_KEY, list);
+    } else {
+      try{ localStorage.setItem(FALLBACK_KEY, JSON.stringify(list)); }catch(e){}
+    }
+  }
+
+  function sortedEntries(){
+    return entries.slice().sort(function(a,b){
+      return b.dt.localeCompare(a.dt);
+    });
+  }
+
+  function renderTrend(){
+    var card = document.getElementById('trendCard');
+    var svg = document.getElementById('trendSvg');
+    var chrono = entries.slice().sort(function(a,b){ return a.dt.localeCompare(b.dt); });
+    var recent = chrono.slice(-14);
+    if(recent.length < 2){
+      card.style.display = 'none';
+      return;
+    }
+    card.style.display = 'block';
+
+    var W = 300, H = 90, padX = 8, padY = 10;
+    var vals = [];
+    recent.forEach(function(e){ vals.push(e.sys); vals.push(e.dia); });
+    var minV = Math.min.apply(null, vals) - 5;
+    var maxV = Math.max.apply(null, vals) + 5;
+    if(maxV - minV < 10){ maxV = minV + 10; }
+
+    function xFor(i){
+      if(recent.length === 1) return W/2;
+      return padX + (i * (W - padX*2) / (recent.length - 1));
+    }
+    function yFor(v){
+      return H - padY - ((v - minV) / (maxV - minV)) * (H - padY*2);
+    }
+
+    var sysPts = recent.map(function(e,i){ return xFor(i)+','+yFor(e.sys); }).join(' ');
+    var diaPts = recent.map(function(e,i){ return xFor(i)+','+yFor(e.dia); }).join(' ');
+
+    var svgns = 'http://www.w3.org/2000/svg';
+    while(svg.firstChild) svg.removeChild(svg.firstChild);
+
+    function addPolyline(points, color){
+      var pl = document.createElementNS(svgns, 'polyline');
+      pl.setAttribute('points', points);
+      pl.setAttribute('fill', 'none');
+      pl.setAttribute('stroke', color);
+      pl.setAttribute('stroke-width', '2');
+      pl.setAttribute('stroke-linejoin', 'round');
+      pl.setAttribute('stroke-linecap', 'round');
+      svg.appendChild(pl);
+    }
+    addPolyline(diaPts, '#5c8ee0');
+    addPolyline(sysPts, '#e05353');
+
+    recent.forEach(function(e,i){
+      [['sys','#e05353'],['dia','#5c8ee0']].forEach(function(pair){
+        var c = document.createElementNS(svgns, 'circle');
+        c.setAttribute('cx', xFor(i));
+        c.setAttribute('cy', yFor(e[pair[0]]));
+        c.setAttribute('r', '2.2');
+        c.setAttribute('fill', pair[1]);
+        svg.appendChild(c);
+      });
+    });
+  }
+
+  function render(){
+    var wrap = document.getElementById('listWrap');
+    var list = sortedEntries();
+    if(list.length === 0){
+      wrap.innerHTML = '<div class="empty">まだ記録がありません</div>';
+      renderTrend();
+      return;
+    }
+    wrap.innerHTML = '';
+    list.forEach(function(e){
+      var cls = classify(e.sys, e.dia);
+
+      var card = document.createElement('div');
+      card.className = 'entry';
+
+      var top = document.createElement('div');
+      top.className = 'entry-top';
+
+      var left = document.createElement('div');
+      var dateEl = document.createElement('div');
+      dateEl.className = 'entry-date';
+      dateEl.textContent = formatDisplayDate(e.dt);
+      var valEl = document.createElement('div');
+      valEl.className = 'entry-values';
+      valEl.innerHTML = e.sys + ' / ' + e.dia + ' <span class="unit">mmHg</span>';
+      left.appendChild(dateEl);
+      left.appendChild(valEl);
+      if(e.pulse !== null && e.pulse !== undefined && e.pulse !== ''){
+        var pulseEl = document.createElement('div');
+        pulseEl.className = 'entry-pulse';
+        pulseEl.textContent = '脈拍 ' + e.pulse + ' bpm';
+        left.appendChild(pulseEl);
+      }
+
+      var actions = document.createElement('div');
+      actions.className = 'entry-actions';
+      var badge = document.createElement('div');
+      badge.className = 'badge';
+      badge.textContent = cls.label;
+      badge.style.background = cls.color + '33';
+      badge.style.color = cls.color;
+      var del = document.createElement('button');
+      del.className = 'del-btn';
+      del.textContent = '✕';
+      del.addEventListener('click', function(){ deleteEntry(e.id); });
+
+      actions.appendChild(badge);
+      actions.appendChild(del);
+
+      top.appendChild(left);
+      top.appendChild(actions);
+      card.appendChild(top);
+      wrap.appendChild(card);
+    });
+    renderTrend();
+  }
+
+  async function addEntry(){
+    var sysV = parseInt(document.getElementById('sysInput').value, 10);
+    var diaV = parseInt(document.getElementById('diaInput').value, 10);
+    var pulseRaw = document.getElementById('pulseInput').value;
+    var pulseV = pulseRaw === '' ? null : parseInt(pulseRaw, 10);
+    var dt = document.getElementById('dtInput').value || nowLocalDatetimeStr();
+
+    if(!Number.isFinite(sysV) || !Number.isFinite(diaV) || sysV <= 0 || diaV <= 0){
+      notify('収縮期・拡張期血圧を正しく入力してください', 'error');
+      return;
+    }
+    if(pulseRaw !== '' && !Number.isFinite(pulseV)){
+      notify('脈拍の値を確認してください', 'error');
+      return;
+    }
+
+    entries.push({
+      id: 'bp-' + Date.now() + '-' + Math.floor(Math.random()*10000),
+      sys: sysV,
+      dia: diaV,
+      pulse: pulseV,
+      dt: dt
+    });
+    await saveEntries(entries);
+    document.getElementById('sysInput').value = '';
+    document.getElementById('diaInput').value = '';
+    document.getElementById('pulseInput').value = '';
+    document.getElementById('dtInput').value = nowLocalDatetimeStr();
+    render();
+    notify('記録しました', 'success');
+    if(window.GUIOS && window.GUIOS.haptic) GUIOS.haptic();
+  }
+
+  async function deleteEntry(id){
+    if(!confirm('この記録を削除しますか？')) return;
+    entries = entries.filter(function(e){ return e.id !== id; });
+    await saveEntries(entries);
+    render();
+  }
+
+  document.getElementById('addBtn').addEventListener('click', addEntry);
+  document.getElementById('dtInput').value = nowLocalDatetimeStr();
+
+  async function init(){
+    entries = await loadEntries();
+    render();
+  }
+  init();
+</script>
+</body>
+</html>

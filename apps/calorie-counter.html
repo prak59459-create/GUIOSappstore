@@ -1,0 +1,388 @@
+<!--GUIOS-APP {"id":"calorie-counter","name":"カロリー計算機","icon":"🍽️","color":"#e65100","version":"1.0.0","author":"Claude","description":"食べたものとカロリーを記録して1日の合計を確認できるアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>カロリー計算機</title>
+<style>
+  :root{
+    --accent:#e65100;
+    --bg:#1c1006;
+    --card:#271607;
+    --card2:#2f1a09;
+    --text:#fbede1;
+    --sub:#d0af96;
+    --line:#43290f;
+    --input:#170c04;
+    --ok:#4caf7d;
+    --warn:#e5484d;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    padding:16px; padding-bottom:48px;
+  }
+  .wrap{max-width:560px; margin:0 auto;}
+  h1{font-size:20px; margin:4px 0 4px; display:flex; align-items:center; gap:8px;}
+  .sub-tag{font-size:12px; color:var(--sub); margin:0 0 14px;}
+  .disclaimer{
+    background:var(--card2); border:1px solid var(--line); border-radius:12px;
+    padding:10px 12px; font-size:12px; color:var(--sub); line-height:1.6; margin-bottom:16px;
+  }
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:16px; margin-bottom:16px;
+  }
+  .field-row{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;}
+  .field{flex:1; min-width:110px;}
+  .field.full{flex-basis:100%;}
+  label{display:block; font-size:12px; color:var(--sub); margin-bottom:6px;}
+  input[type=text], input[type=number], input[type=date], select{
+    width:100%; padding:12px 12px; border-radius:10px; border:1px solid var(--line);
+    background:var(--input); color:var(--text); font-size:16px; outline:none;
+    color-scheme: dark;
+  }
+  input:focus, select:focus{border-color:var(--accent);}
+  button{
+    padding:12px 22px; border-radius:10px; border:none; background:var(--accent);
+    color:#2a1300; font-weight:700; font-size:15px; cursor:pointer; min-height:44px;
+  }
+  #addBtn{width:100%;}
+  .date-nav{
+    display:flex; align-items:center; gap:8px; margin-bottom:14px;
+  }
+  .date-nav input[type=date]{flex:1;}
+  .nav-btn{
+    flex:none; width:44px; height:44px; border-radius:10px; border:1px solid var(--line);
+    background:var(--card2); color:var(--text); font-size:16px; cursor:pointer;
+  }
+  .today-btn{
+    flex:none; padding:0 14px; height:44px; border-radius:10px; border:1px solid var(--line);
+    background:var(--card2); color:var(--sub); font-size:13px; cursor:pointer;
+  }
+  .total-card{
+    display:flex; flex-direction:column; gap:10px;
+  }
+  .total-row{display:flex; justify-content:space-between; align-items:baseline;}
+  .total-label{font-size:13px; color:var(--sub);}
+  .total-value{font-size:30px; font-weight:800; color:var(--accent);}
+  .total-value .unit{font-size:13px; color:var(--sub); font-weight:500; margin-left:4px;}
+  .goal-row{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--sub);}
+  .goal-row input{width:100px; padding:8px 10px; font-size:14px;}
+  .progress-track{
+    width:100%; height:12px; border-radius:999px; background:var(--input); overflow:hidden;
+    border:1px solid var(--line);
+  }
+  .progress-fill{height:100%; background:var(--accent); border-radius:999px; transition:width .2s;}
+  .progress-fill.over{background:var(--warn);}
+  .section-title{font-size:14px; color:var(--sub); margin:0 0 10px;}
+  .entry{
+    background:var(--card2); border:1px solid var(--line); border-radius:14px;
+    padding:12px 14px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; gap:8px;
+  }
+  .entry-left{display:flex; flex-direction:column; gap:4px; min-width:0;}
+  .entry-name{font-size:15px; font-weight:700; overflow-wrap:anywhere;}
+  .entry-meta{font-size:12px; color:var(--sub);}
+  .entry-kcal{font-size:18px; font-weight:800; color:var(--accent); flex:none;}
+  .entry-actions{display:flex; align-items:center; gap:6px; flex:none;}
+  .del-btn{
+    flex:none; width:36px; height:36px; border-radius:8px; border:none; background:transparent;
+    color:var(--sub); font-size:16px; cursor:pointer;
+  }
+  .del-btn:hover{color:#ff8a8a;}
+  .empty{color:var(--sub); text-align:center; padding:36px 20px; font-size:14px;}
+  #toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:var(--card2); color:var(--text); padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; pointer-events:none; transition:all .25s; border:1px solid var(--line);
+    max-width:90%; text-align:center; z-index:999;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🍽️ カロリー計算機</h1>
+  <p class="sub-tag">食べたものとカロリーを記録して1日の合計を確認できます</p>
+
+  <div class="disclaimer">
+    ⚠️ この記録は個人の食事管理を目的とした参考情報であり、医学的な助言ではありません。食事内容の判断は必要に応じて医師・管理栄養士にご相談ください。
+  </div>
+
+  <div class="card">
+    <div class="date-nav">
+      <button class="nav-btn" id="prevDayBtn">◀</button>
+      <input type="date" id="dateSelect">
+      <button class="nav-btn" id="nextDayBtn">▶</button>
+    </div>
+    <button class="today-btn" id="todayBtn" style="width:100%;">今日に戻る</button>
+  </div>
+
+  <div class="card total-card">
+    <div class="total-row">
+      <div class="total-label">選択日の合計</div>
+      <div class="total-value" id="totalValue">0<span class="unit">kcal</span></div>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%;"></div></div>
+    <div class="goal-row">
+      <span>目標:</span>
+      <input type="number" id="goalInput" inputmode="numeric" min="0" placeholder="例: 2000">
+      <span>kcal</span>
+      <button id="saveGoalBtn" style="min-height:36px; padding:0 14px; font-size:13px;">保存</button>
+    </div>
+    <div class="goal-row" id="goalStatus"></div>
+  </div>
+
+  <div class="card">
+    <div class="field-row">
+      <div class="field full">
+        <label for="foodName">食品名</label>
+        <input type="text" id="foodName" placeholder="例: 鶏むね肉のサラダ">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="kcalInput">カロリー (kcal)</label>
+        <input type="number" id="kcalInput" inputmode="numeric" min="0" placeholder="例: 350">
+      </div>
+      <div class="field">
+        <label for="categorySelect">区分(任意)</label>
+        <select id="categorySelect">
+          <option value="">選択なし</option>
+          <option value="朝食">朝食</option>
+          <option value="昼食">昼食</option>
+          <option value="夕食">夕食</option>
+          <option value="間食">間食</option>
+        </select>
+      </div>
+    </div>
+    <button id="addBtn">追加する</button>
+  </div>
+
+  <div class="section-title">選択日の記録</div>
+  <div id="listWrap">
+    <div class="empty">まだ記録がありません</div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var DATA_KEY = 'data';
+  var FALLBACK_KEY = 'guios-fallback-calorie-counter-data';
+
+  // data = { goal: number|null, days: { "YYYY-MM-DD": [ {id,name,kcal,category}, ... ] } }
+  var data = { goal: null, days: {} };
+  var selectedDate = '';
+
+  function showToast(msg){
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.opacity = '1';
+    t.style.transform = 'translateX(-50%) translateY(0)';
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(function(){
+      t.style.opacity = '0';
+      t.style.transform = 'translateX(-50%) translateY(20px)';
+    }, 1800);
+  }
+  function notify(msg, type){
+    if(window.GUIOS && window.GUIOS.notify){
+      GUIOS.notify(msg, {type: type || 'info'});
+    } else {
+      showToast(msg);
+    }
+  }
+
+  function pad2(n){ return ('0'+n).slice(-2); }
+  function todayLocalDateStr(){
+    var d = new Date();
+    return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
+  }
+  function dateStrFromDate(d){
+    return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
+  }
+  function shiftDateStr(dStr, deltaDays){
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dStr);
+    if(!m) return dStr;
+    var d = new Date(parseInt(m[1],10), parseInt(m[2],10)-1, parseInt(m[3],10));
+    d.setDate(d.getDate() + deltaDays);
+    return dateStrFromDate(d);
+  }
+  function formatDisplayDate(dStr){
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dStr);
+    if(!m) return dStr;
+    return m[1]+'/'+m[2]+'/'+m[3];
+  }
+
+  async function loadData(){
+    if(hasSDK){
+      var v = await GUIOS.storage.get(DATA_KEY);
+      if(v && typeof v === 'object' && v.days) return v;
+      return { goal: null, days: {} };
+    } else {
+      try{
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        var v2 = raw ? JSON.parse(raw) : null;
+        if(v2 && typeof v2 === 'object' && v2.days) return v2;
+        return { goal: null, days: {} };
+      }catch(e){ return { goal: null, days: {} }; }
+    }
+  }
+  async function saveData(){
+    if(hasSDK){
+      await GUIOS.storage.set(DATA_KEY, data);
+    } else {
+      try{ localStorage.setItem(FALLBACK_KEY, JSON.stringify(data)); }catch(e){}
+    }
+  }
+
+  function entriesForSelectedDate(){
+    return data.days[selectedDate] || [];
+  }
+
+  function render(){
+    // date input
+    document.getElementById('dateSelect').value = selectedDate;
+
+    // goal input
+    document.getElementById('goalInput').value = (data.goal !== null && data.goal !== undefined) ? data.goal : '';
+
+    var list = entriesForSelectedDate();
+    var total = list.reduce(function(sum, e){ return sum + (Number(e.kcal) || 0); }, 0);
+
+    document.getElementById('totalValue').innerHTML = total + '<span class="unit">kcal</span>';
+
+    var fill = document.getElementById('progressFill');
+    var status = document.getElementById('goalStatus');
+    if(data.goal && data.goal > 0){
+      var pct = Math.min(100, Math.round((total / data.goal) * 100));
+      fill.style.width = pct + '%';
+      fill.className = 'progress-fill' + (total > data.goal ? ' over' : '');
+      var remain = data.goal - total;
+      status.textContent = remain >= 0
+        ? ('残り ' + remain + ' kcal (' + pct + '%)')
+        : ('目標を ' + Math.abs(remain) + ' kcal 超過');
+    } else {
+      fill.style.width = '0%';
+      fill.className = 'progress-fill';
+      status.textContent = '目標を設定すると達成度が表示されます';
+    }
+
+    var wrap = document.getElementById('listWrap');
+    if(list.length === 0){
+      wrap.innerHTML = '<div class="empty">まだ記録がありません</div>';
+      return;
+    }
+    wrap.innerHTML = '';
+    list.slice().reverse().forEach(function(e){
+      var card = document.createElement('div');
+      card.className = 'entry';
+
+      var left = document.createElement('div');
+      left.className = 'entry-left';
+      var nameEl = document.createElement('div');
+      nameEl.className = 'entry-name';
+      nameEl.textContent = e.name;
+      var metaEl = document.createElement('div');
+      metaEl.className = 'entry-meta';
+      metaEl.textContent = e.category ? e.category : '区分なし';
+      left.appendChild(nameEl);
+      left.appendChild(metaEl);
+
+      var actions = document.createElement('div');
+      actions.className = 'entry-actions';
+      var kcalEl = document.createElement('div');
+      kcalEl.className = 'entry-kcal';
+      kcalEl.textContent = e.kcal + ' kcal';
+      var del = document.createElement('button');
+      del.className = 'del-btn';
+      del.textContent = '✕';
+      del.addEventListener('click', function(){ deleteEntry(e.id); });
+      actions.appendChild(kcalEl);
+      actions.appendChild(del);
+
+      card.appendChild(left);
+      card.appendChild(actions);
+      wrap.appendChild(card);
+    });
+  }
+
+  async function addEntry(){
+    var nameVal = document.getElementById('foodName').value.trim();
+    var kcalVal = parseInt(document.getElementById('kcalInput').value, 10);
+    var categoryVal = document.getElementById('categorySelect').value;
+
+    if(!nameVal){
+      notify('食品名を入力してください', 'error');
+      return;
+    }
+    if(!Number.isFinite(kcalVal) || kcalVal < 0){
+      notify('カロリーを正しく入力してください', 'error');
+      return;
+    }
+
+    if(!data.days[selectedDate]) data.days[selectedDate] = [];
+    data.days[selectedDate].push({
+      id: 'food-' + Date.now() + '-' + Math.floor(Math.random()*10000),
+      name: nameVal,
+      kcal: kcalVal,
+      category: categoryVal || ''
+    });
+    await saveData();
+    document.getElementById('foodName').value = '';
+    document.getElementById('kcalInput').value = '';
+    document.getElementById('categorySelect').value = '';
+    render();
+    notify('追加しました', 'success');
+    if(window.GUIOS && window.GUIOS.haptic) GUIOS.haptic();
+  }
+
+  async function deleteEntry(id){
+    if(!confirm('この記録を削除しますか？')) return;
+    var list = data.days[selectedDate] || [];
+    data.days[selectedDate] = list.filter(function(e){ return e.id !== id; });
+    await saveData();
+    render();
+  }
+
+  async function saveGoal(){
+    var v = parseInt(document.getElementById('goalInput').value, 10);
+    data.goal = Number.isFinite(v) && v > 0 ? v : null;
+    await saveData();
+    render();
+    notify('目標を保存しました', 'success');
+  }
+
+  document.getElementById('addBtn').addEventListener('click', addEntry);
+  document.getElementById('saveGoalBtn').addEventListener('click', saveGoal);
+  document.getElementById('dateSelect').addEventListener('change', function(){
+    selectedDate = this.value || todayLocalDateStr();
+    render();
+  });
+  document.getElementById('prevDayBtn').addEventListener('click', function(){
+    selectedDate = shiftDateStr(selectedDate, -1);
+    render();
+  });
+  document.getElementById('nextDayBtn').addEventListener('click', function(){
+    selectedDate = shiftDateStr(selectedDate, 1);
+    render();
+  });
+  document.getElementById('todayBtn').addEventListener('click', function(){
+    selectedDate = todayLocalDateStr();
+    render();
+  });
+
+  async function init(){
+    selectedDate = todayLocalDateStr();
+    data = await loadData();
+    render();
+  }
+  init();
+</script>
+</body>
+</html>

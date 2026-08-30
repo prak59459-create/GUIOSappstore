@@ -1,0 +1,246 @@
+<!--GUIOS-APP {"id":"loan-calculator","name":"ローン計算機","icon":"🏦","color":"#4e342e","version":"1.0.0","author":"Claude","description":"借入額・金利・返済期間から月々の返済額を計算するローン計算機。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ローン計算機</title>
+<style>
+  :root{
+    --accent:#4e342e;
+    --accent2:#8d6e63;
+    --bg:#17110f;
+    --card:#221a17;
+    --text:#f3e9e6;
+    --sub:#c2a89f;
+    --line:#3a2b26;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    padding:16px; padding-bottom:40px;
+  }
+  h1{font-size:20px; margin:4px 0 16px; display:flex; align-items:center; gap:8px;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:16px; margin-bottom:16px;
+  }
+  label{display:block; font-size:13px; color:var(--sub); margin-bottom:6px;}
+  .field{margin-bottom:14px;}
+  input[type=number]{
+    width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--line);
+    background:#120d0b; color:var(--text); font-size:16px; outline:none;
+  }
+  input[type=number]:focus{border-color:var(--accent2);}
+  .termRow{display:flex; gap:8px; align-items:flex-end;}
+  .termRow .field{flex:1; margin-bottom:0;}
+  select{
+    width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--line);
+    background:#120d0b; color:var(--text); font-size:15px; outline:none;
+  }
+  .results{display:flex; flex-direction:column; gap:10px; margin-top:4px;}
+  .result-row{
+    display:flex; justify-content:space-between; align-items:center;
+    background:#120d0b; border:1px solid var(--line); border-radius:10px; padding:12px 14px;
+  }
+  .result-row .rlabel{font-size:13px; color:var(--sub);}
+  .result-row .rval{font-size:18px; font-weight:800;}
+  .result-row.main{background:var(--accent); border-color:var(--accent2);}
+  .result-row.main .rlabel{color:#f3e9e6;}
+  .result-row.main .rval{color:#fff; font-size:24px;}
+  .section-title{font-size:14px; font-weight:800; margin:0 0 10px;}
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  th, td{padding:8px 6px; text-align:right; border-bottom:1px solid var(--line);}
+  th:first-child, td:first-child{text-align:left;}
+  th{color:var(--sub); font-weight:700;}
+  .tablewrap{overflow-x:auto;}
+  .note{font-size:12px; color:var(--sub); margin-top:10px; line-height:1.6;}
+</style>
+</head>
+<body>
+  <h1>🏦 ローン計算機</h1>
+
+  <div class="card">
+    <div class="field">
+      <label for="principal">借入額（円）</label>
+      <input type="number" id="principal" inputmode="numeric" min="0" step="1" placeholder="例: 1000000" value="1000000">
+    </div>
+
+    <div class="field">
+      <label for="rate">年利（%）</label>
+      <input type="number" id="rate" inputmode="decimal" min="0" step="0.01" placeholder="例: 3.0" value="3.0">
+    </div>
+
+    <div class="termRow">
+      <div class="field">
+        <label for="term">返済期間</label>
+        <input type="number" id="term" inputmode="numeric" min="1" step="1" value="10">
+      </div>
+      <div class="field" style="max-width:110px;">
+        <label for="termUnit">単位</label>
+        <select id="termUnit">
+          <option value="years" selected>年</option>
+          <option value="months">ヶ月</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="results">
+      <div class="result-row main">
+        <span class="rlabel">月々の返済額</span>
+        <span class="rval" id="rMonthly">¥0</span>
+      </div>
+      <div class="result-row">
+        <span class="rlabel">総返済額</span>
+        <span class="rval" id="rTotal">¥0</span>
+      </div>
+      <div class="result-row">
+        <span class="rlabel">総利息</span>
+        <span class="rval" id="rInterest">¥0</span>
+      </div>
+    </div>
+    <p class="note">※ 元利均等返済方式（毎月の返済額が一定になる方式）で計算しています。1円未満は四捨五入です。</p>
+  </div>
+
+  <div class="card">
+    <p class="section-title">年ごとの返済サマリー</p>
+    <div class="tablewrap">
+      <table id="yearlyTable">
+        <thead>
+          <tr><th>年</th><th>年間返済額</th><th>年間利息</th><th>年末残高</th></tr>
+        </thead>
+        <tbody id="yearlyBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var STORAGE_KEY = 'lastState';
+  var FALLBACK_KEY = 'guios-fallback-loan-calculator-lastState';
+
+  var principalEl = document.getElementById('principal');
+  var rateEl = document.getElementById('rate');
+  var termEl = document.getElementById('term');
+  var termUnitEl = document.getElementById('termUnit');
+  var yearlyBody = document.getElementById('yearlyBody');
+
+  function yen(n){
+    if(!isFinite(n)) n = 0;
+    return '¥' + Math.round(n).toLocaleString('ja-JP');
+  }
+
+  function recalc(){
+    var P = parseFloat(principalEl.value) || 0;
+    var annualRatePct = parseFloat(rateEl.value) || 0;
+    var termVal = parseFloat(termEl.value) || 0;
+    var n = termUnitEl.value === 'years' ? Math.round(termVal * 12) : Math.round(termVal);
+    if(n < 1) n = 1;
+
+    var r = (annualRatePct / 100) / 12;
+    var M;
+    if(r === 0){
+      M = P / n;
+    } else {
+      var pow = Math.pow(1 + r, n);
+      M = P * r * pow / (pow - 1);
+    }
+    if(!isFinite(M)) M = 0;
+
+    var total = M * n;
+    var interest = total - P;
+
+    document.getElementById('rMonthly').textContent = yen(M);
+    document.getElementById('rTotal').textContent = yen(total);
+    document.getElementById('rInterest').textContent = yen(interest);
+
+    buildYearlyTable(P, r, M, n);
+    save();
+  }
+
+  function buildYearlyTable(P, r, M, n){
+    yearlyBody.innerHTML = '';
+    var balance = P;
+    var years = Math.ceil(n / 12);
+    if(years > 60) years = 60; // safety cap for extreme terms
+    var monthIndex = 0;
+
+    for(var y = 1; y <= years; y++){
+      var yearlyPayment = 0;
+      var yearlyInterest = 0;
+      var monthsThisYear = 0;
+      for(var m = 0; m < 12 && monthIndex < n; m++, monthIndex++){
+        var interestPortion = balance * r;
+        var principalPortion = M - interestPortion;
+        if(monthIndex === n - 1){
+          // last payment absorbs rounding remainder
+          principalPortion = balance;
+          var lastPayment = principalPortion + interestPortion;
+          yearlyPayment += lastPayment;
+          yearlyInterest += interestPortion;
+          balance = 0;
+        } else {
+          balance = balance - principalPortion;
+          if(balance < 0) balance = 0;
+          yearlyPayment += M;
+          yearlyInterest += interestPortion;
+        }
+        monthsThisYear++;
+      }
+      if(monthsThisYear === 0) break;
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + y + '年目</td><td>' + yen(yearlyPayment) + '</td><td>' + yen(yearlyInterest) + '</td><td>' + yen(balance) + '</td>';
+      yearlyBody.appendChild(tr);
+    }
+  }
+
+  principalEl.addEventListener('input', recalc);
+  rateEl.addEventListener('input', recalc);
+  termEl.addEventListener('input', recalc);
+  termUnitEl.addEventListener('change', recalc);
+
+  var saveTimer = null;
+  function save(){
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(async function(){
+      var data = {
+        principal: principalEl.value,
+        rate: rateEl.value,
+        term: termEl.value,
+        termUnit: termUnitEl.value
+      };
+      if(hasSDK){
+        try{ await GUIOS.storage.set(STORAGE_KEY, data); }catch(e){}
+      } else {
+        try{ localStorage.setItem(FALLBACK_KEY, JSON.stringify(data)); }catch(e){}
+      }
+    }, 300);
+  }
+
+  async function restore(){
+    var data = null;
+    if(hasSDK){
+      try{ data = await GUIOS.storage.get(STORAGE_KEY); }catch(e){}
+    } else {
+      try{
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        data = raw ? JSON.parse(raw) : null;
+      }catch(e){}
+    }
+    if(data){
+      if(data.principal !== undefined && data.principal !== '') principalEl.value = data.principal;
+      if(data.rate !== undefined && data.rate !== '') rateEl.value = data.rate;
+      if(data.term !== undefined && data.term !== '') termEl.value = data.term;
+      if(data.termUnit) termUnitEl.value = data.termUnit;
+    }
+    recalc();
+  }
+
+  restore();
+</script>
+</body>
+</html>

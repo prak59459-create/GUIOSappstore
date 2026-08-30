@@ -1,0 +1,326 @@
+<!--GUIOS-APP {"id":"sleep-tracker","name":"睡眠記録","icon":"😴","color":"#3949ab","version":"1.0.0","author":"Claude","description":"就寝・起床時刻を記録して睡眠時間を確認できる睡眠記録アプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>睡眠記録</title>
+<style>
+  :root{
+    --accent:#3949ab;
+    --bg:#0f1120;
+    --card:#171a33;
+    --card2:#1e2140;
+    --text:#eceeff;
+    --sub:#a9adcf;
+    --line:#2c2f57;
+    --input:#0b0d1c;
+    --ok:#4caf7d;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    padding:16px; padding-bottom:48px;
+  }
+  .wrap{max-width:560px; margin:0 auto;}
+  h1{font-size:20px; margin:4px 0 4px; display:flex; align-items:center; gap:8px;}
+  .sub-tag{font-size:12px; color:var(--sub); margin:0 0 14px;}
+  .disclaimer{
+    background:var(--card2); border:1px solid var(--line); border-radius:12px;
+    padding:10px 12px; font-size:12px; color:var(--sub); line-height:1.6; margin-bottom:16px;
+  }
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:16px; margin-bottom:16px;
+  }
+  .field-row{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;}
+  .field{flex:1; min-width:130px;}
+  label{display:block; font-size:12px; color:var(--sub); margin-bottom:6px;}
+  input[type=date], input[type=time]{
+    width:100%; padding:12px 12px; border-radius:10px; border:1px solid var(--line);
+    background:var(--input); color:var(--text); font-size:16px; outline:none;
+    color-scheme: dark;
+  }
+  input:focus{border-color:var(--accent);}
+  button{
+    padding:12px 22px; border-radius:10px; border:none; background:var(--accent);
+    color:#eef; font-weight:700; font-size:15px; cursor:pointer; min-height:44px;
+  }
+  #addBtn{width:100%;}
+  .avg-card{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+  }
+  .avg-label{font-size:13px; color:var(--sub);}
+  .avg-value{font-size:26px; font-weight:800; color:var(--accent);}
+  .avg-value .unit{font-size:13px; color:var(--sub); font-weight:500; margin-left:4px;}
+  .section-title{
+    font-size:14px; color:var(--sub); margin:0 0 10px;
+  }
+  .entry{
+    background:var(--card2); border:1px solid var(--line); border-radius:14px;
+    padding:12px 14px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; gap:8px;
+  }
+  .entry-left{display:flex; flex-direction:column; gap:4px;}
+  .entry-date{font-size:12px; color:var(--sub);}
+  .entry-times{font-size:13px; color:var(--text);}
+  .entry-dur{font-size:20px; font-weight:800; color:var(--accent);}
+  .del-btn{
+    flex:none; width:36px; height:36px; border-radius:8px; border:none; background:transparent;
+    color:var(--sub); font-size:16px; cursor:pointer;
+  }
+  .del-btn:hover{color:#ff8a8a;}
+  .empty{color:var(--sub); text-align:center; padding:36px 20px; font-size:14px;}
+  #toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:var(--card2); color:var(--text); padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; pointer-events:none; transition:all .25s; border:1px solid var(--line);
+    max-width:90%; text-align:center; z-index:999;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>😴 睡眠記録</h1>
+  <p class="sub-tag">就寝・起床時刻から睡眠時間を記録します</p>
+
+  <div class="disclaimer">
+    ⚠️ この記録は個人の記録用であり、医学的な助言ではありません。睡眠に関するお悩みは医師にご相談ください。
+  </div>
+
+  <div class="card">
+    <div class="field-row">
+      <div class="field">
+        <label for="nightDate">就寝した日付</label>
+        <input type="date" id="nightDate">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="bedInput">就寝時刻</label>
+        <input type="time" id="bedInput">
+      </div>
+      <div class="field">
+        <label for="wakeInput">起床時刻</label>
+        <input type="time" id="wakeInput">
+      </div>
+    </div>
+    <button id="addBtn">記録する</button>
+  </div>
+
+  <div class="card avg-card">
+    <div class="avg-label">直近7件の平均睡眠時間</div>
+    <div class="avg-value" id="avgValue">--<span class="unit">時間</span></div>
+  </div>
+
+  <div class="section-title">履歴</div>
+  <div id="listWrap">
+    <div class="empty">まだ記録がありません</div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var STORAGE_KEY = 'entries';
+  var FALLBACK_KEY = 'guios-fallback-sleep-tracker-entries';
+
+  var entries = [];
+
+  function showToast(msg){
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.opacity = '1';
+    t.style.transform = 'translateX(-50%) translateY(0)';
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(function(){
+      t.style.opacity = '0';
+      t.style.transform = 'translateX(-50%) translateY(20px)';
+    }, 1800);
+  }
+  function notify(msg, type){
+    if(window.GUIOS && window.GUIOS.notify){
+      GUIOS.notify(msg, {type: type || 'info'});
+    } else {
+      showToast(msg);
+    }
+  }
+
+  function pad2(n){ return ('0'+n).slice(-2); }
+  function todayLocalDateStr(){
+    var d = new Date();
+    return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
+  }
+  function formatDisplayDate(dStr){
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dStr);
+    if(!m) return dStr;
+    return m[1]+'/'+m[2]+'/'+m[3];
+  }
+
+  // Parse "HH:MM" into minutes since midnight.
+  function timeToMinutes(t){
+    var m = /^(\d{1,2}):(\d{2})$/.exec(t);
+    if(!m) return null;
+    return parseInt(m[1],10)*60 + parseInt(m[2],10);
+  }
+
+  // Compute sleep duration in minutes, handling overnight wrap-around.
+  // If wake time is numerically earlier than (or equal to) bedtime, treat it
+  // as occurring the following day by adding 24 hours before subtracting.
+  function calcDurationMinutes(bedStr, wakeStr){
+    var b = timeToMinutes(bedStr);
+    var w = timeToMinutes(wakeStr);
+    if(b === null || w === null) return null;
+    var diff = w - b;
+    if(diff <= 0){
+      diff += 24*60;
+    }
+    return diff;
+  }
+
+  function formatDuration(mins){
+    if(mins === null || mins === undefined || isNaN(mins)) return '--';
+    var h = Math.floor(mins/60);
+    var m = mins % 60;
+    return h + '時間' + (m > 0 ? m + '分' : '');
+  }
+
+  async function loadEntries(){
+    if(hasSDK){
+      var v = await GUIOS.storage.get(STORAGE_KEY);
+      return Array.isArray(v) ? v : [];
+    } else {
+      try{
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        return raw ? JSON.parse(raw) : [];
+      }catch(e){ return []; }
+    }
+  }
+  async function saveEntries(list){
+    if(hasSDK){
+      await GUIOS.storage.set(STORAGE_KEY, list);
+    } else {
+      try{ localStorage.setItem(FALLBACK_KEY, JSON.stringify(list)); }catch(e){}
+    }
+  }
+
+  function sortedEntries(){
+    // Sort by night-of date descending, most recent first.
+    return entries.slice().sort(function(a,b){
+      if(a.date === b.date){
+        return (b.createdAt||0) - (a.createdAt||0);
+      }
+      return b.date.localeCompare(a.date);
+    });
+  }
+
+  function renderAverage(){
+    var recent = sortedEntries().slice(0, 7);
+    var el = document.getElementById('avgValue');
+    if(recent.length === 0){
+      el.innerHTML = '--<span class="unit">時間</span>';
+      return;
+    }
+    var total = 0;
+    recent.forEach(function(e){ total += e.durationMinutes; });
+    var avgMin = Math.round(total / recent.length);
+    var h = Math.floor(avgMin/60);
+    var m = avgMin % 60;
+    var decimalPart = Math.round((m/60)*10);
+    el.innerHTML = (h + (decimalPart>0 ? '.'+decimalPart : '')) + '<span class="unit">時間 (直近' + recent.length + '件)</span>';
+  }
+
+  function render(){
+    var wrap = document.getElementById('listWrap');
+    var list = sortedEntries();
+    if(list.length === 0){
+      wrap.innerHTML = '<div class="empty">まだ記録がありません</div>';
+      renderAverage();
+      return;
+    }
+    wrap.innerHTML = '';
+    list.forEach(function(e){
+      var card = document.createElement('div');
+      card.className = 'entry';
+
+      var left = document.createElement('div');
+      left.className = 'entry-left';
+      var dateEl = document.createElement('div');
+      dateEl.className = 'entry-date';
+      dateEl.textContent = formatDisplayDate(e.date) + ' の夜';
+      var timesEl = document.createElement('div');
+      timesEl.className = 'entry-times';
+      timesEl.textContent = e.bed + ' 就寝 → ' + e.wake + ' 起床';
+      var durEl = document.createElement('div');
+      durEl.className = 'entry-dur';
+      durEl.textContent = formatDuration(e.durationMinutes);
+      left.appendChild(dateEl);
+      left.appendChild(timesEl);
+      left.appendChild(durEl);
+
+      var del = document.createElement('button');
+      del.className = 'del-btn';
+      del.textContent = '✕';
+      del.addEventListener('click', function(){ deleteEntry(e.id); });
+
+      card.appendChild(left);
+      card.appendChild(del);
+      wrap.appendChild(card);
+    });
+    renderAverage();
+  }
+
+  async function addEntry(){
+    var dateVal = document.getElementById('nightDate').value;
+    var bedVal = document.getElementById('bedInput').value;
+    var wakeVal = document.getElementById('wakeInput').value;
+
+    if(!dateVal){
+      notify('就寝した日付を入力してください', 'error');
+      return;
+    }
+    if(!bedVal || !wakeVal){
+      notify('就寝時刻と起床時刻を入力してください', 'error');
+      return;
+    }
+    var dur = calcDurationMinutes(bedVal, wakeVal);
+    if(dur === null){
+      notify('時刻の形式を確認してください', 'error');
+      return;
+    }
+
+    entries.push({
+      id: 'sleep-' + Date.now() + '-' + Math.floor(Math.random()*10000),
+      date: dateVal,
+      bed: bedVal,
+      wake: wakeVal,
+      durationMinutes: dur,
+      createdAt: Date.now()
+    });
+    await saveEntries(entries);
+    render();
+    notify('記録しました (' + formatDuration(dur) + ')', 'success');
+    if(window.GUIOS && window.GUIOS.haptic) GUIOS.haptic();
+  }
+
+  async function deleteEntry(id){
+    if(!confirm('この記録を削除しますか？')) return;
+    entries = entries.filter(function(e){ return e.id !== id; });
+    await saveEntries(entries);
+    render();
+  }
+
+  document.getElementById('addBtn').addEventListener('click', addEntry);
+  document.getElementById('nightDate').value = todayLocalDateStr();
+
+  async function init(){
+    entries = await loadEntries();
+    render();
+  }
+  init();
+</script>
+</body>
+</html>

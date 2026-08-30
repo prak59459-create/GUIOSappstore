@@ -1,0 +1,249 @@
+<!--GUIOS-APP {"id":"daily-planner","name":"1日のタイムスケジュール表","icon":"🗓️","color":"#00838f","version":"1.0.0","author":"Claude","description":"1日の予定を時間軸に沿って書き込める1日単位のスケジュール表アプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>1日のタイムスケジュール表</title>
+<style>
+  :root{
+    --accent:#26c6da;
+    --accent-deep:#00838f;
+    --bg:#081316;
+    --card:#0f2226;
+    --card2:#0b1a1d;
+    --text:#e6f7f9;
+    --sub:#9dc4c9;
+    --line:rgba(255,255,255,0.08);
+    --now:#ffca28;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text); min-height:100vh; padding:16px; padding-bottom:56px;
+  }
+  h1{ font-size:19px; margin:4px 0 10px; display:flex; align-items:center; gap:8px; }
+  .wrap{ max-width:600px; margin:0 auto; display:flex; flex-direction:column; gap:14px; }
+
+  .nav-bar{
+    display:flex; align-items:center; gap:8px; background:var(--card); border:1px solid var(--line);
+    border-radius:14px; padding:10px; position:sticky; top:0; z-index:5;
+  }
+  .nav-btn{
+    background:var(--card2); color:var(--text); border:1px solid var(--line); border-radius:10px;
+    min-width:44px; min-height:44px; font-size:16px; cursor:pointer; flex-shrink:0;
+  }
+  .date-picker-wrap{ flex:1; display:flex; align-items:center; gap:8px; min-width:0; }
+  input[type="date"]{
+    flex:1; min-width:0; background:var(--card2); border:1px solid var(--line); border-radius:10px;
+    color:var(--text); font-size:14px; padding:10px; height:44px;
+  }
+  .today-btn{
+    background:var(--accent); color:#022226; border:none; border-radius:10px; font-weight:700;
+    font-size:13px; padding:0 14px; min-height:44px; cursor:pointer; flex-shrink:0;
+  }
+  .date-display{ text-align:center; font-size:13px; color:var(--sub); }
+
+  .slots{ display:flex; flex-direction:column; gap:6px; }
+  .slot-row{
+    display:flex; align-items:stretch; gap:10px; background:var(--card); border:1px solid var(--line);
+    border-radius:12px; padding:8px 10px; min-height:48px;
+  }
+  .slot-row.now{ border-color:var(--now); box-shadow:0 0 0 1px var(--now) inset; }
+  .slot-time{
+    flex:0 0 56px; display:flex; align-items:center; justify-content:flex-end; font-size:12px;
+    color:var(--sub); font-variant-numeric:tabular-nums; padding-right:6px;
+  }
+  .slot-row.now .slot-time{ color:var(--now); font-weight:700; }
+  .slot-input{
+    flex:1; background:var(--card2); border:1px solid var(--line); border-radius:8px; color:var(--text);
+    font-size:14px; padding:10px 12px; min-height:36px; font-family:inherit;
+  }
+  .slot-input:focus{ outline:none; border-color:var(--accent); }
+
+  .save-hint{ text-align:center; font-size:11px; color:var(--sub); padding:6px 0 0; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🗓️ 1日のタイムスケジュール表</h1>
+
+    <div class="nav-bar">
+      <button class="nav-btn" id="prevBtn">‹</button>
+      <div class="date-picker-wrap">
+        <input type="date" id="datePicker">
+      </div>
+      <button class="nav-btn" id="nextBtn">›</button>
+      <button class="today-btn" id="todayBtn">今日</button>
+    </div>
+    <div class="date-display" id="dateDisplay"></div>
+
+    <div class="slots" id="slots"></div>
+    <div class="save-hint">入力内容は自動的に保存されます</div>
+  </div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var APP_ID = 'daily-planner';
+  var FALLBACK_KEY = 'guios-fallback-' + APP_ID + '-schedules';
+  var DAY_NAMES = ['日','月','火','水','木','金','土'];
+
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify) {
+      try { window.GUIOS.notify(msg, { type: type || 'info' }); return; } catch(e){}
+    }
+  }
+
+  function pad2(n){ return (n < 10 ? '0' : '') + n; }
+  function localDateStr(d){ return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate()); }
+  function parseDateStr(str){
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(str);
+    if (!m) return new Date();
+    return new Date(parseInt(m[1],10), parseInt(m[2],10)-1, parseInt(m[3],10));
+  }
+
+  // half-hour slots from 06:00 to 23:30
+  var SLOTS = [];
+  (function buildSlots(){
+    for (var h = 6; h < 24; h++) {
+      SLOTS.push(pad2(h) + ':00');
+      SLOTS.push(pad2(h) + ':30');
+    }
+  })();
+
+  var schedules = {}; // { "YYYY-MM-DD": { "06:00": "text", ... } }
+  var currentDate = localDateStr(new Date());
+  var saveTimer = null;
+
+  async function loadSchedules(){
+    if (hasSDK) {
+      try {
+        var v = await window.GUIOS.storage.get('schedules');
+        return (v && typeof v === 'object') ? v : {};
+      } catch(e){ return {}; }
+    } else {
+      try {
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        return raw ? JSON.parse(raw) : {};
+      } catch(e){ return {}; }
+    }
+  }
+  function scheduleSave(){
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(function(){
+      saveTimer = null;
+      if (hasSDK) {
+        try { window.GUIOS.storage.set('schedules', schedules); } catch(e){}
+      } else {
+        try { localStorage.setItem(FALLBACK_KEY, JSON.stringify(schedules)); } catch(e){}
+      }
+    }, 350);
+  }
+  function flushSaveNow(){
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+    if (hasSDK) {
+      try { window.GUIOS.storage.set('schedules', schedules); } catch(e){}
+    } else {
+      try { localStorage.setItem(FALLBACK_KEY, JSON.stringify(schedules)); } catch(e){}
+    }
+  }
+
+  function currentNowSlot(){
+    var todayStr = localDateStr(new Date());
+    if (todayStr !== currentDate) return null;
+    var now = new Date();
+    var h = now.getHours(), m = now.getMinutes();
+    var slotMin = m < 30 ? 0 : 30;
+    return pad2(h) + ':' + pad2(slotMin);
+  }
+
+  function renderDateDisplay(){
+    var d = parseDateStr(currentDate);
+    document.getElementById('dateDisplay').textContent =
+      d.getFullYear() + '年' + (d.getMonth()+1) + '月' + d.getDate() + '日(' + DAY_NAMES[d.getDay()] + ')';
+    document.getElementById('datePicker').value = currentDate;
+  }
+
+  function renderSlots(){
+    var dayData = schedules[currentDate] || {};
+    var nowSlot = currentNowSlot();
+    var wrap = document.getElementById('slots');
+    wrap.innerHTML = SLOTS.map(function(slot){
+      var val = dayData[slot] || '';
+      var isNow = (slot === nowSlot);
+      return '' +
+        '<div class="slot-row' + (isNow ? ' now' : '') + '" data-slot="' + slot + '">' +
+          '<div class="slot-time">' + slot + '</div>' +
+          '<input type="text" class="slot-input" data-slot="' + slot + '" value="' + escapeAttr(val) + '" placeholder="予定を入力">' +
+        '</div>';
+    }).join('');
+
+    wrap.querySelectorAll('.slot-input').forEach(function(inp){
+      inp.addEventListener('input', function(){
+        if (!schedules[currentDate]) schedules[currentDate] = {};
+        var v = inp.value;
+        if (v) schedules[currentDate][inp.dataset.slot] = v;
+        else delete schedules[currentDate][inp.dataset.slot];
+        scheduleSave();
+      });
+    });
+  }
+
+  function escapeAttr(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+    });
+  }
+
+  function goToDate(dateStr){
+    flushSaveNow();
+    currentDate = dateStr;
+    renderDateDisplay();
+    renderSlots();
+  }
+
+  document.getElementById('prevBtn').addEventListener('click', function(){
+    var d = parseDateStr(currentDate);
+    d.setDate(d.getDate() - 1);
+    goToDate(localDateStr(d));
+  });
+  document.getElementById('nextBtn').addEventListener('click', function(){
+    var d = parseDateStr(currentDate);
+    d.setDate(d.getDate() + 1);
+    goToDate(localDateStr(d));
+  });
+  document.getElementById('todayBtn').addEventListener('click', function(){
+    goToDate(localDateStr(new Date()));
+  });
+  document.getElementById('datePicker').addEventListener('change', function(){
+    if (this.value) goToDate(this.value);
+  });
+
+  window.addEventListener('beforeunload', flushSaveNow);
+  window.addEventListener('pagehide', flushSaveNow);
+
+  var clockRefreshTimer = null;
+  function tickNowHighlight(){
+    // Only toggle the "now" highlight class; never rebuild inputs here so an
+    // in-progress keystroke/focus in a slot is never disturbed by the tick.
+    var nowSlot = currentNowSlot();
+    document.querySelectorAll('.slot-row').forEach(function(row){
+      row.classList.toggle('now', row.dataset.slot === nowSlot);
+    });
+  }
+
+  (async function init(){
+    schedules = await loadSchedules();
+    renderDateDisplay();
+    renderSlots();
+    clockRefreshTimer = setInterval(tickNowHighlight, 60000);
+    window.addEventListener('beforeunload', function(){
+      if (clockRefreshTimer) clearInterval(clockRefreshTimer);
+    });
+    if (window.GUIOS && window.GUIOS.setTitle) {
+      try { window.GUIOS.setTitle('1日のタイムスケジュール表'); } catch(e){}
+    }
+  })();
+</script>
+</body>
+</html>

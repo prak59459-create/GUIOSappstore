@@ -1,0 +1,449 @@
+<!--GUIOS-APP {"id":"reversi","name":"リバーシ","icon":"⚫","color":"#212121","version":"1.0.0","author":"Claude","description":"黒と白の石を挟んでひっくり返す陣取りゲーム、CPU対戦対応。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>リバーシ</title>
+<style>
+  :root{
+    --accent:#4caf50;
+    --bg:#141414;
+    --card:#1f1f1f;
+    --card2:#191919;
+    --text:#f2f2f2;
+    --sub:#9a9a9a;
+    --line:rgba(255,255,255,0.08);
+    --board:#2e7d32;
+    --board2:#256428;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text); min-height:100vh; padding:14px; padding-bottom:40px;
+  }
+  .wrap{ max-width:520px; margin:0 auto; display:flex; flex-direction:column; gap:12px; }
+  h1{ font-size:19px; margin:2px 0 0; display:flex; align-items:center; gap:8px; }
+
+  .score-row{ display:flex; gap:10px; }
+  .score-card{
+    flex:1; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:10px 12px;
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+  }
+  .score-card.turn{ border-color:var(--accent); }
+  .score-label{ font-size:12px; color:var(--sub); display:flex; align-items:center; gap:6px; }
+  .score-val{ font-size:22px; font-weight:700; font-variant-numeric:tabular-nums; }
+  .disc-icon{ width:18px; height:18px; border-radius:50%; display:inline-block; }
+  .disc-icon.black{ background:#1a1a1a; border:1px solid #555; }
+  .disc-icon.white{ background:#f2f2f2; border:1px solid #999; }
+
+  .status{ text-align:center; font-size:13px; color:var(--sub); min-height:18px; }
+
+  .board-wrap{ width:100%; aspect-ratio:1/1; background:var(--board); border-radius:12px; padding:4px; }
+  .board{
+    width:100%; height:100%; display:grid; grid-template-columns:repeat(8,1fr); grid-template-rows:repeat(8,1fr);
+    gap:2px; background:#1b5e20;
+  }
+  .cell{
+    background:var(--board); display:flex; align-items:center; justify-content:center; position:relative;
+    cursor:pointer;
+  }
+  .cell.alt{ background:var(--board); }
+  .cell .disc{
+    width:80%; height:80%; border-radius:50%; transition:transform .15s;
+  }
+  .cell .disc.black{ background:radial-gradient(circle at 35% 30%, #444, #050505); }
+  .cell .disc.white{ background:radial-gradient(circle at 35% 30%, #fff, #cfcfcf); }
+  .cell .hint{
+    width:26%; height:26%; border-radius:50%; background:rgba(255,255,255,0.35);
+  }
+
+  .record-row{ display:flex; gap:8px; }
+  .record-card{
+    flex:1; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:8px 10px;
+    text-align:center; font-size:11px; color:var(--sub);
+  }
+  .record-card b{ display:block; font-size:16px; color:var(--text); margin-top:2px; }
+
+  .btn-row{ display:flex; gap:10px; }
+  .btn{
+    flex:1; padding:14px; border-radius:12px; border:1px solid var(--line); font-size:14px; font-weight:700;
+    cursor:pointer; min-height:48px; background:var(--card2); color:var(--text);
+  }
+  .btn.primary{ background:var(--accent); color:#0a1a0a; border-color:var(--accent); }
+  .btn.danger{ color:#ff8a8a; }
+  .btn:active{ filter:brightness(1.15); }
+
+  .overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.7); display:flex; align-items:center;
+    justify-content:center; z-index:40; padding:20px;
+  }
+  .overlay[hidden]{ display:none; }
+  .modal{
+    background:var(--card); border-radius:18px; padding:26px 22px; text-align:center; max-width:340px; width:100%;
+  }
+  .modal h2{ font-size:22px; margin:0 0 8px; }
+  .modal p{ font-size:14px; color:var(--sub); margin:0 0 18px; }
+  .modal button{
+    width:100%; padding:14px; border-radius:12px; border:none; background:var(--accent); color:#0a1a0a;
+    font-size:15px; font-weight:700; cursor:pointer; min-height:48px;
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>⚫ リバーシ</h1>
+
+    <div class="score-row">
+      <div class="score-card" id="blackCard">
+        <div class="score-label"><span class="disc-icon black"></span>あなた(黒)</div>
+        <div class="score-val" id="blackScore">2</div>
+      </div>
+      <div class="score-card" id="whiteCard">
+        <div class="score-label"><span class="disc-icon white"></span>CPU(白)</div>
+        <div class="score-val" id="whiteScore">2</div>
+      </div>
+    </div>
+
+    <div class="status" id="statusMsg">あなたの番です</div>
+
+    <div class="board-wrap">
+      <div class="board" id="board"></div>
+    </div>
+
+    <div class="record-row">
+      <div class="record-card">勝ち<b id="winCount">0</b></div>
+      <div class="record-card">負け<b id="loseCount">0</b></div>
+      <div class="record-card">引分<b id="drawCount">0</b></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn primary" id="restartBtn">もう一度</button>
+      <button class="btn danger" id="resetRecordBtn">記録リセット</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="resultOverlay" hidden>
+    <div class="modal">
+      <h2 id="resultTitle">勝ち!</h2>
+      <p id="resultDesc">黒 34 - 白 30</p>
+      <button id="modalCloseBtn">閉じる</button>
+    </div>
+  </div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var APP_ID = 'reversi';
+  var FALLBACK_KEY = 'guios-fallback-' + APP_ID + '-record';
+
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify) {
+      try { window.GUIOS.notify(msg, { type: type || 'info' }); return; } catch(e){}
+    }
+    var t = document.createElement('div');
+    t.textContent = msg;
+    t.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1f1f1f;color:#f2f2f2;padding:10px 18px;border-radius:10px;font-size:13px;z-index:200;box-shadow:0 6px 18px rgba(0,0,0,.4);';
+    document.body.appendChild(t);
+    setTimeout(function(){ t.remove(); }, 2500);
+  }
+  function haptic(){
+    if (window.GUIOS && window.GUIOS.haptic) {
+      try { window.GUIOS.haptic(); } catch(e){}
+    }
+  }
+
+  async function loadRecord(){
+    var def = { win:0, lose:0, draw:0 };
+    if (hasSDK) {
+      try {
+        var v = await window.GUIOS.storage.get('record');
+        return (v && typeof v === 'object') ? Object.assign(def, v) : def;
+      } catch(e){ return def; }
+    } else {
+      try {
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        return raw ? Object.assign(def, JSON.parse(raw)) : def;
+      } catch(e){ return def; }
+    }
+  }
+  async function saveRecord(r){
+    if (hasSDK) {
+      try { await window.GUIOS.storage.set('record', r); } catch(e){}
+    } else {
+      try { localStorage.setItem(FALLBACK_KEY, JSON.stringify(r)); } catch(e){}
+    }
+  }
+
+  var SIZE = 8;
+  var EMPTY = 0, BLACK = 1, WHITE = 2;
+  var DIRS = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+
+  var board = [];
+  var currentTurn = BLACK; // human = BLACK, cpu = WHITE
+  var gameOver = false;
+  var cpuThinking = false;
+  var record = { win:0, lose:0, draw:0 };
+
+  function initBoard(){
+    board = [];
+    for (var r=0;r<SIZE;r++){
+      var row = [];
+      for (var c=0;c<SIZE;c++) row.push(EMPTY);
+      board.push(row);
+    }
+    board[3][3] = WHITE; board[3][4] = BLACK;
+    board[4][3] = BLACK; board[4][4] = WHITE;
+    currentTurn = BLACK;
+    gameOver = false;
+    cpuThinking = false;
+  }
+
+  function inBounds(r,c){ return r>=0 && r<SIZE && c>=0 && c<SIZE; }
+
+  function flipsForMove(b, r, c, player){
+    if (b[r][c] !== EMPTY) return [];
+    var opp = player === BLACK ? WHITE : BLACK;
+    var allFlips = [];
+    DIRS.forEach(function(d){
+      var rr = r + d[0], cc = c + d[1];
+      var line = [];
+      while (inBounds(rr,cc) && b[rr][cc] === opp) {
+        line.push([rr,cc]);
+        rr += d[0]; cc += d[1];
+      }
+      if (line.length && inBounds(rr,cc) && b[rr][cc] === player) {
+        allFlips = allFlips.concat(line);
+      }
+    });
+    return allFlips;
+  }
+
+  function legalMoves(b, player){
+    var moves = [];
+    for (var r=0;r<SIZE;r++){
+      for (var c=0;c<SIZE;c++){
+        var flips = flipsForMove(b, r, c, player);
+        if (flips.length) moves.push({ r:r, c:c, flips:flips });
+      }
+    }
+    return moves;
+  }
+
+  function applyMove(b, move, player){
+    b[move.r][move.c] = player;
+    move.flips.forEach(function(p){ b[p[0]][p[1]] = player; });
+  }
+
+  function countDiscs(b){
+    var black=0, white=0;
+    for (var r=0;r<SIZE;r++) for (var c=0;c<SIZE;c++){
+      if (b[r][c]===BLACK) black++;
+      else if (b[r][c]===WHITE) white++;
+    }
+    return { black:black, white:white };
+  }
+
+  var CORNERS = [[0,0],[0,7],[7,0],[7,7]];
+  var XSQUARES = [[1,1],[1,6],[6,1],[6,6]];
+  var CSQUARES = [[0,1],[1,0],[0,6],[1,7],[6,0],[7,1],[6,7],[7,6]];
+
+  function isCorner(r,c){ return CORNERS.some(function(p){ return p[0]===r && p[1]===c; }); }
+  function isXSquare(r,c){ return XSQUARES.some(function(p){ return p[0]===r && p[1]===c; }); }
+  function isCSquare(r,c){ return CSQUARES.some(function(p){ return p[0]===r && p[1]===c; }); }
+  function adjacentToEmptyCorner(b,r,c){
+    return (isXSquare(r,c) || isCSquare(r,c)) && CORNERS.some(function(p){
+      return Math.abs(p[0]-r)<=1 && Math.abs(p[1]-c)<=1 && b[p[0]][p[1]] === EMPTY;
+    });
+  }
+
+  function chooseCpuMove(b, moves){
+    // Prefer corners
+    var corner = moves.filter(function(m){ return isCorner(m.r,m.c); });
+    if (corner.length) return corner[Math.floor(Math.random()*corner.length)];
+    // Avoid squares adjacent to empty corners
+    var safe = moves.filter(function(m){ return !adjacentToEmptyCorner(b, m.r, m.c); });
+    var pool = safe.length ? safe : moves;
+    // Maximize flips among safe pool
+    var maxFlips = -1, best = [];
+    pool.forEach(function(m){
+      if (m.flips.length > maxFlips) { maxFlips = m.flips.length; best = [m]; }
+      else if (m.flips.length === maxFlips) { best.push(m); }
+    });
+    return best[Math.floor(Math.random()*best.length)];
+  }
+
+  function renderBoard(){
+    var boardEl = document.getElementById('board');
+    boardEl.innerHTML = '';
+    var humanMoves = (!gameOver && currentTurn === BLACK) ? legalMoves(board, BLACK) : [];
+    var moveMap = {};
+    humanMoves.forEach(function(m){ moveMap[m.r+'_'+m.c] = m; });
+
+    for (var r=0;r<SIZE;r++){
+      for (var c=0;c<SIZE;c++){
+        var cell = document.createElement('div');
+        cell.className = 'cell';
+        var v = board[r][c];
+        if (v === BLACK) {
+          var d = document.createElement('div'); d.className='disc black'; cell.appendChild(d);
+        } else if (v === WHITE) {
+          var d2 = document.createElement('div'); d2.className='disc white'; cell.appendChild(d2);
+        } else if (moveMap[r+'_'+c]) {
+          var h = document.createElement('div'); h.className='hint'; cell.appendChild(h);
+          cell.dataset.r = r; cell.dataset.c = c;
+          cell.addEventListener('click', onCellClick);
+        }
+        boardEl.appendChild(cell);
+      }
+    }
+
+    var counts = countDiscs(board);
+    document.getElementById('blackScore').textContent = counts.black;
+    document.getElementById('whiteScore').textContent = counts.white;
+    document.getElementById('blackCard').classList.toggle('turn', !gameOver && currentTurn===BLACK);
+    document.getElementById('whiteCard').classList.toggle('turn', !gameOver && currentTurn===WHITE);
+  }
+
+  function updateStatus(msg){
+    document.getElementById('statusMsg').textContent = msg;
+  }
+
+  function onCellClick(e){
+    if (gameOver || currentTurn !== BLACK || cpuThinking) return;
+    var r = parseInt(e.currentTarget.dataset.r,10);
+    var c = parseInt(e.currentTarget.dataset.c,10);
+    var flips = flipsForMove(board, r, c, BLACK);
+    if (!flips.length) return;
+    applyMove(board, { r:r, c:c, flips:flips }, BLACK);
+    haptic();
+    renderBoard();
+    advanceTurn();
+  }
+
+  var cpuTimer = null;
+
+  function advanceTurn(){
+    if (checkGameEnd()) return;
+    var nextPlayer = currentTurn === BLACK ? WHITE : BLACK;
+    var nextMoves = legalMoves(board, nextPlayer);
+    if (!nextMoves.length) {
+      // skip turn
+      var afterSkipMoves = legalMoves(board, currentTurn);
+      if (!afterSkipMoves.length) { finishGame(); return; }
+      updateStatus((nextPlayer===BLACK ? 'あなた' : 'CPU') + 'は打てる手がないためスキップします');
+      currentTurn = currentTurn; // stays same conceptually, but we re-run same player's move
+      renderBoard();
+      if (currentTurn === WHITE) {
+        scheduleCpuMove();
+      }
+      return;
+    }
+    currentTurn = nextPlayer;
+    renderBoard();
+    if (currentTurn === WHITE) {
+      updateStatus('CPUが考え中...');
+      scheduleCpuMove();
+    } else {
+      updateStatus('あなたの番です');
+    }
+  }
+
+  function scheduleCpuMove(){
+    cpuThinking = true;
+    if (cpuTimer !== null) { clearTimeout(cpuTimer); cpuTimer = null; }
+    cpuTimer = setTimeout(function(){
+      cpuTimer = null;
+      cpuThinking = false;
+      doCpuMove();
+    }, 550);
+  }
+
+  function doCpuMove(){
+    if (gameOver) return;
+    var moves = legalMoves(board, WHITE);
+    if (!moves.length) { advanceTurn(); return; }
+    var move = chooseCpuMove(board, moves);
+    applyMove(board, move, WHITE);
+    renderBoard();
+    advanceTurn();
+  }
+
+  function checkGameEnd(){
+    var blackMoves = legalMoves(board, BLACK);
+    var whiteMoves = legalMoves(board, WHITE);
+    if (!blackMoves.length && !whiteMoves.length) {
+      finishGame();
+      return true;
+    }
+    return false;
+  }
+
+  async function finishGame(){
+    gameOver = true;
+    if (cpuTimer !== null) { clearTimeout(cpuTimer); cpuTimer = null; }
+    cpuThinking = false;
+    renderBoard();
+    var counts = countDiscs(board);
+    var title, desc;
+    if (counts.black > counts.white) {
+      title = '🎉 勝ち!';
+      record.win++;
+    } else if (counts.black < counts.white) {
+      title = '😢 負け...';
+      record.lose++;
+    } else {
+      title = '🤝 引き分け';
+      record.draw++;
+    }
+    desc = '黒 ' + counts.black + ' - 白 ' + counts.white;
+    updateStatus('ゲーム終了: ' + desc);
+    await saveRecord(record);
+    renderRecord();
+    document.getElementById('resultTitle').textContent = title;
+    document.getElementById('resultDesc').textContent = desc;
+    document.getElementById('resultOverlay').hidden = false;
+    haptic();
+  }
+
+  function renderRecord(){
+    document.getElementById('winCount').textContent = record.win;
+    document.getElementById('loseCount').textContent = record.lose;
+    document.getElementById('drawCount').textContent = record.draw;
+  }
+
+  function startGame(){
+    if (cpuTimer !== null) { clearTimeout(cpuTimer); cpuTimer = null; }
+    cpuThinking = false;
+    initBoard();
+    document.getElementById('resultOverlay').hidden = true;
+    updateStatus('あなたの番です');
+    renderBoard();
+  }
+
+  document.getElementById('restartBtn').addEventListener('click', startGame);
+  document.getElementById('modalCloseBtn').addEventListener('click', function(){
+    document.getElementById('resultOverlay').hidden = true;
+  });
+  document.getElementById('resetRecordBtn').addEventListener('click', async function(){
+    if (!confirm('勝敗記録をリセットしますか？')) return;
+    record = { win:0, lose:0, draw:0 };
+    await saveRecord(record);
+    renderRecord();
+    notify('記録をリセットしました', 'success');
+  });
+
+  window.addEventListener('beforeunload', function(){
+    if (cpuTimer !== null) { clearTimeout(cpuTimer); cpuTimer = null; }
+  });
+  window.addEventListener('pagehide', function(){
+    if (cpuTimer !== null) { clearTimeout(cpuTimer); cpuTimer = null; }
+  });
+
+  (async function init(){
+    record = await loadRecord();
+    renderRecord();
+    startGame();
+  })();
+</script>
+</body>
+</html>

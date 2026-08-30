@@ -1,0 +1,219 @@
+<!--GUIOS-APP {"id":"text-case-converter","name":"文字種変換","icon":"🔡","color":"#00695c","version":"1.0.0","author":"Claude","description":"文字列を大文字・小文字・キャメルケースなどに変換するツール。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>文字種変換</title>
+<style>
+  :root{
+    --accent:#4db6ac;
+    --bg:#0b1615;
+    --card:#122321;
+    --card2:#0d1a18;
+    --text:#e9f5f3;
+    --sub:#a3c4bf;
+    --line:#233d39;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    padding:16px; padding-bottom:48px;
+  }
+  h1{font-size:20px; margin:4px 0 16px; display:flex; align-items:center; gap:8px;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:16px; margin-bottom:16px;
+  }
+  label{display:block; font-size:13px; color:var(--sub); margin-bottom:6px;}
+  textarea{
+    width:100%; min-height:100px; padding:12px 14px; border-radius:10px; border:1px solid var(--line);
+    background:var(--card2); color:var(--text); font-size:15px; outline:none; resize:vertical;
+    font-family:inherit; line-height:1.5;
+  }
+  textarea:focus{border-color:var(--accent);}
+  .grid{display:grid; grid-template-columns:repeat(2, 1fr); gap:10px; margin-top:14px;}
+  @media (min-width:420px){ .grid{grid-template-columns:repeat(4, 1fr);} }
+  button{
+    padding:12px 8px; border-radius:10px; border:1px solid var(--line); background:var(--card2);
+    color:var(--text); font-weight:700; font-size:13px; cursor:pointer; min-height:44px;
+  }
+  button.active{background:var(--accent); color:#04211d; border-color:var(--accent);}
+  .out-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;}
+  .out-head .tag{font-size:12px; color:var(--sub);}
+  .copybtn{
+    padding:10px 16px; border-radius:9px; border:none; background:var(--accent);
+    color:#04211d; font-weight:700; font-size:13px; cursor:pointer; min-height:40px;
+  }
+  #toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:#173330; color:var(--text); padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; pointer-events:none; transition:all .25s; border:1px solid var(--line);
+    max-width:90%; text-align:center; z-index:999;
+  }
+  #toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+  <h1>🔡 文字種変換</h1>
+
+  <div class="card">
+    <label for="inputText">変換したい文字列</label>
+    <textarea id="inputText" placeholder="例: my variable name">my variable name</textarea>
+    <div class="grid">
+      <button data-mode="upper">UPPERCASE</button>
+      <button data-mode="lower">lowercase</button>
+      <button data-mode="title">Title Case</button>
+      <button data-mode="camel">camelCase</button>
+      <button data-mode="pascal">PascalCase</button>
+      <button data-mode="snake">snake_case</button>
+      <button data-mode="kebab">kebab-case</button>
+      <button data-mode="constant">CONSTANT_CASE</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="out-head">
+      <label class="tag" id="outTag" style="margin:0;">結果</label>
+      <button class="copybtn" id="copyBtn">📋 コピー</button>
+    </div>
+    <textarea id="outputText" readonly></textarea>
+  </div>
+
+  <div id="toast"></div>
+
+<script>
+  function showToast(msg){
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(function(){ t.classList.remove('show'); }, 1800);
+  }
+  function notify(msg, type){
+    if(window.GUIOS && window.GUIOS.notify){
+      GUIOS.notify(msg, {type: type || 'info'});
+    } else {
+      showToast(msg);
+    }
+  }
+  async function copyText(text){
+    var ok = false;
+    try{
+      if(window.GUIOS && window.GUIOS.clipboard && window.GUIOS.clipboard.writeText){
+        await GUIOS.clipboard.writeText(text);
+        ok = true;
+      } else if(navigator.clipboard && navigator.clipboard.writeText){
+        await navigator.clipboard.writeText(text);
+        ok = true;
+      }
+    }catch(e){ ok = false; }
+    if(!ok){
+      try{
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        ok = true;
+      }catch(e2){ ok = false; }
+    }
+    return ok;
+  }
+
+  function splitWords(str){
+    var s = str.trim();
+    if(s === '') return [];
+    /* boundary before an uppercase letter that follows a lowercase letter or digit */
+    s = s.replace(/([a-z0-9])([A-Z])/g, '$1 $2');
+    /* boundary inside an acronym run followed by a new word, e.g. "HTMLParser" -> "HTML Parser" */
+    s = s.replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2');
+    /* boundary between letters and digits */
+    s = s.replace(/([a-zA-Z])([0-9])/g, '$1 $2');
+    s = s.replace(/([0-9])([a-zA-Z])/g, '$1 $2');
+    /* any non-alphanumeric run becomes a separator */
+    s = s.replace(/[^a-zA-Z0-9]+/g, ' ');
+    var words = s.split(/\s+/).filter(function(w){ return w.length > 0; });
+    return words;
+  }
+
+  function capitalize(w){
+    return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+  }
+
+  var LABELS = {
+    upper: 'UPPERCASE', lower: 'lowercase', title: 'Title Case',
+    camel: 'camelCase', pascal: 'PascalCase', snake: 'snake_case',
+    kebab: 'kebab-case', constant: 'CONSTANT_CASE'
+  };
+
+  function convert(mode, raw){
+    if(mode === 'upper') return raw.toUpperCase();
+    if(mode === 'lower') return raw.toLowerCase();
+    if(mode === 'title'){
+      return raw.replace(/[A-Za-z0-9]+/g, function(w){ return capitalize(w); });
+    }
+    var words = splitWords(raw);
+    if(words.length === 0) return '';
+    if(mode === 'camel'){
+      return words.map(function(w, i){
+        return i === 0 ? w.toLowerCase() : capitalize(w);
+      }).join('');
+    }
+    if(mode === 'pascal'){
+      return words.map(capitalize).join('');
+    }
+    if(mode === 'snake'){
+      return words.map(function(w){ return w.toLowerCase(); }).join('_');
+    }
+    if(mode === 'kebab'){
+      return words.map(function(w){ return w.toLowerCase(); }).join('-');
+    }
+    if(mode === 'constant'){
+      return words.map(function(w){ return w.toUpperCase(); }).join('_');
+    }
+    return raw;
+  }
+
+  var currentMode = null;
+
+  function runConvert(mode){
+    var raw = document.getElementById('inputText').value;
+    var result = convert(mode, raw);
+    document.getElementById('outputText').value = result;
+    document.getElementById('outTag').textContent = '結果 (' + LABELS[mode] + ')';
+    document.querySelectorAll('.grid button').forEach(function(b){
+      b.classList.toggle('active', b.getAttribute('data-mode') === mode);
+    });
+    currentMode = mode;
+  }
+
+  document.querySelectorAll('.grid button').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      runConvert(btn.getAttribute('data-mode'));
+    });
+  });
+
+  document.getElementById('inputText').addEventListener('input', function(){
+    if(currentMode) runConvert(currentMode);
+  });
+
+  document.getElementById('copyBtn').addEventListener('click', async function(){
+    var text = document.getElementById('outputText').value;
+    if(!text){
+      notify('先に変換してください', 'error');
+      return;
+    }
+    var ok = await copyText(text);
+    notify(ok ? '結果をコピーしました' : 'コピーに失敗しました', ok ? 'success' : 'error');
+  });
+
+  runConvert('upper');
+</script>
+</body>
+</html>

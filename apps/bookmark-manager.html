@@ -1,0 +1,286 @@
+<!--GUIOS-APP {"id":"bookmark-manager","name":"ブックマーク帳","icon":"⭐","color":"#b8860b","version":"1.0.0","author":"Claude","description":"URLをタイトル・タグ・メモ付きで整理できるブックマーク管理アプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ブックマーク帳</title>
+<style>
+  *{ box-sizing:border-box; }
+  html,body{ overflow-x:hidden; }
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:#1f1a0d; color:#f5ecd8; min-height:100vh; padding-bottom:24px;
+  }
+  header{ padding:14px 14px 8px; position:sticky; top:0; background:#1f1a0d; z-index:5; }
+  h1{ font-size:17px; margin:0 0 10px; color:#e6b93d; display:flex; align-items:center; gap:8px; }
+  .addbtn{
+    width:100%; min-height:48px; border:none; border-radius:12px; background:#b8860b; color:#2a2005;
+    font-weight:800; font-size:15px; cursor:pointer; margin-bottom:10px; -webkit-tap-highlight-color:transparent;
+  }
+  .filters{ display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
+  input#searchBox{
+    flex:2; min-width:140px; background:#2b2410; color:#f5ecd8; border:1px solid #4a3d18;
+    border-radius:10px; padding:0 12px; min-height:42px; font-size:14px;
+  }
+  select#tagFilter{
+    flex:1; min-width:110px; background:#2b2410; color:#f5ecd8; border:1px solid #4a3d18;
+    border-radius:10px; padding:0 10px; min-height:42px; font-size:14px;
+  }
+  main{ padding:0 14px; }
+  .empty{ text-align:center; color:#9a875a; padding:50px 10px; font-size:14px; }
+  .card{
+    background:#2b2410; border-radius:14px; padding:14px; margin-bottom:10px; border:1px solid #3c3113;
+  }
+  .card-title{ font-size:16px; font-weight:800; color:#f5ecd8; margin-bottom:4px; word-break:break-word; }
+  .card-url{
+    font-size:12.5px; color:#c9ab5c; word-break:break-all; font-family:ui-monospace,Menlo,Consolas,monospace;
+    margin-bottom:8px;
+  }
+  .card-memo{ font-size:13.5px; color:#d8cba0; margin-bottom:8px; line-height:1.5; white-space:pre-wrap; word-break:break-word; }
+  .tag-row{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+  .tag-chip{
+    background:#4a3d18; color:#e6c877; font-size:11.5px; padding:3px 10px; border-radius:999px; font-weight:700;
+  }
+  .card-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+  .card-actions button{
+    flex:1; min-width:90px; min-height:44px; border:none; border-radius:10px; font-weight:700;
+    font-size:13.5px; cursor:pointer; -webkit-tap-highlight-color:transparent;
+  }
+  .btn-copy{ background:#b8860b; color:#2a2005; }
+  .btn-edit{ background:#4a3d18; color:#f0e0a8; }
+  .btn-del{ background:#5c2a2a; color:#ffc4c4; }
+
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:flex-end;
+    justify-content:center; z-index:100;
+  }
+  .modal{
+    background:#241d0c; width:100%; max-width:480px; border-radius:18px 18px 0 0; padding:18px;
+    max-height:88vh; overflow-y:auto;
+  }
+  .modal h2{ font-size:16px; margin:0 0 12px; color:#e6b93d; }
+  .field{ margin-bottom:12px; }
+  .field label{ display:block; font-size:12.5px; color:#c9ab5c; margin-bottom:5px; font-weight:700; }
+  .field input, .field textarea{
+    width:100%; background:#0e0c04; color:#f5ecd8; border:1px solid #4a3d18; border-radius:10px;
+    padding:10px 12px; font-size:14px; font-family:inherit;
+  }
+  .field textarea{ min-height:70px; resize:vertical; }
+  .modal-actions{ display:flex; gap:10px; margin-top:6px; }
+  .modal-actions button{
+    flex:1; min-height:48px; border:none; border-radius:12px; font-weight:800; font-size:15px;
+    cursor:pointer; -webkit-tap-highlight-color:transparent;
+  }
+  .btn-save{ background:#b8860b; color:#2a2005; }
+  .btn-cancel{ background:#3c3113; color:#e6c877; }
+  .toast{
+    position:fixed; left:50%; bottom:20px; transform:translateX(-50%) translateY(20px);
+    background:#3c3113; color:#f5ecd8; padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; transition:all .25s; pointer-events:none; max-width:90%; text-align:center;
+    z-index:999; border:1px solid #4a3d18;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+  <header>
+    <h1>⭐ ブックマーク帳</h1>
+    <button class="addbtn" id="addBtn">＋ ブックマークを追加</button>
+    <div class="filters">
+      <input id="searchBox" placeholder="タイトル・URL・メモを検索">
+      <select id="tagFilter"><option value="">すべてのタグ</option></select>
+    </div>
+  </header>
+
+  <main id="list"></main>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var STORAGE_KEY = 'bookmarks';
+  var FALLBACK_KEY = 'guios-fallback-bookmark-manager-bookmarks';
+
+  var bookmarks = []; // [{id,title,url,tags:[],memo}]
+  var editingId = null;
+
+  var listEl = document.getElementById('list');
+  var searchBox = document.getElementById('searchBox');
+  var tagFilter = document.getElementById('tagFilter');
+  var toastEl = document.getElementById('toast');
+
+  function showToast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(function(){ toastEl.classList.remove('show'); }, 1600);
+  }
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify) {
+      try { window.GUIOS.notify(msg, { type: type || 'info' }); return; } catch(e){}
+    }
+    showToast(msg);
+  }
+  function copyText(text){
+    if (window.GUIOS && window.GUIOS.clipboard && window.GUIOS.clipboard.writeText) {
+      try { window.GUIOS.clipboard.writeText(text); return true; } catch(e){}
+    }
+    try { navigator.clipboard.writeText(text); return true; } catch(e){}
+    return false;
+  }
+
+  async function loadBookmarks(){
+    if (hasSDK) {
+      try {
+        var v = await GUIOS.storage.get(STORAGE_KEY);
+        if (Array.isArray(v)) return v;
+      } catch(e){}
+      return [];
+    } else {
+      try {
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch(e){ return []; }
+    }
+  }
+  async function saveBookmarks(){
+    if (hasSDK) {
+      try { await GUIOS.storage.set(STORAGE_KEY, bookmarks); } catch(e){}
+    } else {
+      try { localStorage.setItem(FALLBACK_KEY, JSON.stringify(bookmarks)); } catch(e){}
+    }
+  }
+
+  function escapeHtml(s){
+    return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function uid(){ return 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+  function allTags(){
+    var set = {};
+    bookmarks.forEach(function(b){ (b.tags||[]).forEach(function(t){ set[t] = true; }); });
+    return Object.keys(set).sort(function(a,b){ return a.localeCompare(b, 'ja'); });
+  }
+
+  function refreshTagFilter(){
+    var current = tagFilter.value;
+    var tags = allTags();
+    tagFilter.innerHTML = '<option value="">すべてのタグ</option>';
+    tags.forEach(function(t){
+      var opt = document.createElement('option');
+      opt.value = t; opt.textContent = t;
+      if (t === current) opt.selected = true;
+      tagFilter.appendChild(opt);
+    });
+  }
+
+  function matchesFilter(b){
+    var q = searchBox.value.trim().toLowerCase();
+    var tag = tagFilter.value;
+    if (tag && (b.tags||[]).indexOf(tag) === -1) return false;
+    if (!q) return true;
+    var hay = (b.title + ' ' + b.url + ' ' + (b.memo||'') + ' ' + (b.tags||[]).join(' ')).toLowerCase();
+    return hay.indexOf(q) !== -1;
+  }
+
+  function render(){
+    var filtered = bookmarks.filter(matchesFilter);
+    if (!bookmarks.length) {
+      listEl.innerHTML = '<div class="empty">まだブックマークがありません。<br>「＋ ブックマークを追加」から登録しましょう。</div>';
+      return;
+    }
+    if (!filtered.length) {
+      listEl.innerHTML = '<div class="empty">条件に一致するブックマークがありません。</div>';
+      return;
+    }
+    listEl.innerHTML = filtered.map(function(b){
+      var tagsHtml = (b.tags||[]).map(function(t){ return '<span class="tag-chip">' + escapeHtml(t) + '</span>'; }).join('');
+      return '<div class="card" data-id="' + b.id + '">' +
+        '<div class="card-title">' + escapeHtml(b.title || '(無題)') + '</div>' +
+        '<div class="card-url">' + escapeHtml(b.url) + '</div>' +
+        (b.memo ? '<div class="card-memo">' + escapeHtml(b.memo) + '</div>' : '') +
+        (tagsHtml ? '<div class="tag-row">' + tagsHtml + '</div>' : '') +
+        '<div class="card-actions">' +
+          '<button class="btn-copy" data-act="copy">URLをコピー</button>' +
+          '<button class="btn-edit" data-act="edit">編集</button>' +
+          '<button class="btn-del" data-act="del">削除</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    listEl.querySelectorAll('.card').forEach(function(card){
+      var id = card.getAttribute('data-id');
+      card.querySelector('[data-act="copy"]').addEventListener('click', function(){
+        var b = bookmarks.find(function(x){ return x.id === id; });
+        if (b) { copyText(b.url); notify('URLをコピーしました', 'success'); }
+      });
+      card.querySelector('[data-act="edit"]').addEventListener('click', function(){ openModal(id); });
+      card.querySelector('[data-act="del"]').addEventListener('click', function(){ deleteBookmark(id); });
+    });
+  }
+
+  function deleteBookmark(id){
+    var ok = window.confirm ? window.confirm('このブックマークを削除しますか?') : true;
+    if (!ok) return;
+    bookmarks = bookmarks.filter(function(b){ return b.id !== id; });
+    saveBookmarks();
+    refreshTagFilter();
+    render();
+    notify('削除しました', 'info');
+  }
+
+  function openModal(id){
+    editingId = id || null;
+    var b = editingId ? bookmarks.find(function(x){ return x.id === editingId; }) : null;
+    var overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML =
+      '<div class="modal">' +
+        '<h2>' + (b ? '✎ ブックマークを編集' : '＋ ブックマークを追加') + '</h2>' +
+        '<div class="field"><label>タイトル</label><input id="mTitle" value="' + escapeHtml(b ? b.title : '') + '" placeholder="例: 公式ドキュメント"></div>' +
+        '<div class="field"><label>URL</label><input id="mUrl" value="' + escapeHtml(b ? b.url : '') + '" placeholder="例: example.com/page (URLやメモとして自由に入力)"></div>' +
+        '<div class="field"><label>タグ(カンマ区切り)</label><input id="mTags" value="' + escapeHtml(b ? (b.tags||[]).join(', ') : '') + '" placeholder="例: 仕事, 資料"></div>' +
+        '<div class="field"><label>メモ</label><textarea id="mMemo" placeholder="メモ(任意)">' + escapeHtml(b ? b.memo : '') + '</textarea></div>' +
+        '<div class="modal-actions">' +
+          '<button class="btn-cancel" id="mCancel">キャンセル</button>' +
+          '<button class="btn-save" id="mSave">保存</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener('click', function(e){ if (e.target === overlay) overlay.remove(); });
+    overlay.querySelector('#mCancel').addEventListener('click', function(){ overlay.remove(); });
+    overlay.querySelector('#mSave').addEventListener('click', function(){
+      var title = overlay.querySelector('#mTitle').value.trim();
+      var url = overlay.querySelector('#mUrl').value.trim();
+      var tagsRaw = overlay.querySelector('#mTags').value.trim();
+      var memo = overlay.querySelector('#mMemo').value.trim();
+      if (!url) { notify('URLを入力してください', 'error'); return; }
+      var tags = tagsRaw ? tagsRaw.split(',').map(function(t){ return t.trim(); }).filter(Boolean) : [];
+      if (editingId) {
+        var existing = bookmarks.find(function(x){ return x.id === editingId; });
+        existing.title = title; existing.url = url; existing.tags = tags; existing.memo = memo;
+      } else {
+        bookmarks.unshift({ id: uid(), title: title, url: url, tags: tags, memo: memo });
+      }
+      saveBookmarks();
+      refreshTagFilter();
+      render();
+      overlay.remove();
+      notify('保存しました', 'success');
+    });
+  }
+
+  document.getElementById('addBtn').addEventListener('click', function(){ openModal(null); });
+  searchBox.addEventListener('input', render);
+  tagFilter.addEventListener('change', render);
+
+  (async function init(){
+    bookmarks = await loadBookmarks();
+    refreshTagFilter();
+    render();
+  })();
+</script>
+</body>
+</html>

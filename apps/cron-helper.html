@@ -1,0 +1,526 @@
+<!--GUIOS-APP {"id":"cron-helper","name":"Cron式ヘルパー","icon":"⏲️","color":"#6d4c41","version":"1.0.0","author":"Claude","description":"Cron式を組み立てたり、その意味を日本語で説明してくれるツール。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Cron式ヘルパー</title>
+<style>
+  :root{
+    --accent:#a1887f;
+    --bg:#181310;
+    --card:#231b16;
+    --card2:#1b1512;
+    --text:#f3ece6;
+    --sub:#c4b3a6;
+    --line:#3c2f26;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    padding:16px; padding-bottom:48px;
+  }
+  h1{font-size:20px; margin:4px 0 16px; display:flex; align-items:center; gap:8px;}
+  .tabs{display:flex; gap:8px; margin-bottom:16px;}
+  .tab{
+    flex:1; padding:12px 8px; border-radius:10px; border:1px solid var(--line);
+    background:var(--card2); color:var(--sub); font-weight:700; font-size:13px;
+    text-align:center; cursor:pointer; min-height:44px;
+  }
+  .tab.active{background:var(--accent); color:#241a14; border-color:var(--accent);}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:16px; margin-bottom:16px;
+  }
+  .panel{display:none;}
+  .panel.active{display:block;}
+  .field-block{
+    background:var(--card2); border:1px solid var(--line); border-radius:12px;
+    padding:12px; margin-bottom:12px;
+  }
+  .field-block h3{margin:0 0 10px; font-size:13px; color:var(--sub);}
+  select, input[type=text], input[type=number]{
+    width:100%; padding:11px 12px; border-radius:9px; border:1px solid var(--line);
+    background:#120d0a; color:var(--text); font-size:15px; outline:none; margin-bottom:8px;
+  }
+  select:focus, input:focus{border-color:var(--accent);}
+  .row2{display:flex; gap:8px;}
+  .row2 > *{flex:1;}
+  .hint{font-size:11px; color:var(--sub); margin:-2px 0 8px; line-height:1.5;}
+  .sub{display:none;}
+  .sub.show{display:block;}
+  .csscode{
+    background:#0f0b08; border:1px solid var(--line); border-radius:10px; padding:12px 14px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:15px;
+    color:#f0dcc8; word-break:break-all; margin-bottom:10px; text-align:center;
+  }
+  .desc-box{
+    background:#0f0b08; border:1px solid var(--line); border-radius:10px; padding:14px;
+    font-size:14px; line-height:1.7; margin-bottom:12px; color:var(--text);
+  }
+  .desc-box.error{color:#ffb4a8;}
+  button{
+    padding:12px 18px; border-radius:10px; border:none; background:var(--accent);
+    color:#241a14; font-weight:700; font-size:14px; cursor:pointer; min-height:44px;
+  }
+  button.secondary{background:transparent; color:var(--sub); border:1px solid var(--line);}
+  .btnrow{display:flex; gap:10px; flex-wrap:wrap;}
+  .btnrow button{flex:1;}
+  label.top{display:block; font-size:13px; color:var(--sub); margin-bottom:6px;}
+  #toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:#2a201a; color:var(--text); padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; pointer-events:none; transition:all .25s; border:1px solid var(--line);
+    max-width:90%; text-align:center; z-index:999;
+  }
+  #toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+  <h1>⏲️ Cron式ヘルパー</h1>
+
+  <div class="tabs">
+    <div class="tab active" id="tabBuild">組み立てモード</div>
+    <div class="tab" id="tabExplain">説明モード</div>
+  </div>
+
+  <div class="panel active" id="panelBuild">
+    <div class="card">
+      <div class="csscode" id="builtCron">* * * * *</div>
+      <div class="desc-box" id="builtDesc">毎分実行</div>
+      <div class="btnrow">
+        <button id="copyBuild">📋 コピー</button>
+      </div>
+    </div>
+    <div id="fieldBlocks"></div>
+  </div>
+
+  <div class="panel" id="panelExplain">
+    <div class="card">
+      <label class="top" for="explainInput">Cron式を入力（5フィールド）</label>
+      <input type="text" id="explainInput" placeholder="例: 0 9 * * 1" value="0 9 * * 1">
+      <div class="btnrow" style="margin-bottom:12px;">
+        <button id="explainBtn">説明を生成</button>
+        <button class="secondary" id="copyExplain">📋 コピー</button>
+      </div>
+      <div class="desc-box" id="explainResult">分:0 時:9 日:* 月:* 曜日:1 → 毎週月曜日の9時に実行</div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+<script>
+  function showToast(msg){
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(function(){ t.classList.remove('show'); }, 1800);
+  }
+  function notify(msg, type){
+    if(window.GUIOS && window.GUIOS.notify){
+      GUIOS.notify(msg, {type: type || 'info'});
+    } else {
+      showToast(msg);
+    }
+  }
+  async function copyText(text){
+    var ok = false;
+    try{
+      if(window.GUIOS && window.GUIOS.clipboard && window.GUIOS.clipboard.writeText){
+        await GUIOS.clipboard.writeText(text);
+        ok = true;
+      } else if(navigator.clipboard && navigator.clipboard.writeText){
+        await navigator.clipboard.writeText(text);
+        ok = true;
+      }
+    }catch(e){ ok = false; }
+    if(!ok){
+      try{
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        ok = true;
+      }catch(e2){ ok = false; }
+    }
+    return ok;
+  }
+
+  /* ---------- tabs ---------- */
+  document.getElementById('tabBuild').addEventListener('click', function(){
+    document.getElementById('tabBuild').classList.add('active');
+    document.getElementById('tabExplain').classList.remove('active');
+    document.getElementById('panelBuild').classList.add('active');
+    document.getElementById('panelExplain').classList.remove('active');
+  });
+  document.getElementById('tabExplain').addEventListener('click', function(){
+    document.getElementById('tabExplain').classList.add('active');
+    document.getElementById('tabBuild').classList.remove('active');
+    document.getElementById('panelExplain').classList.add('active');
+    document.getElementById('panelBuild').classList.remove('active');
+  });
+
+  /* ---------- cron field analysis ---------- */
+  function analyzeField(raw, min, max){
+    raw = (raw || '').trim();
+    if(raw === '') return {kind:'unknown', raw:raw};
+    if(raw === '*') return {kind:'all', raw:raw};
+    if(raw.indexOf(',') === -1){
+      var stepMatch = raw.match(/^(\*|\d+-\d+)\/(\d+)$/);
+      if(stepMatch){
+        var base = stepMatch[1];
+        var step = parseInt(stepMatch[2], 10);
+        if(!step || step <= 0) return {kind:'unknown', raw:raw};
+        var start = min, end = max;
+        if(base !== '*'){
+          var rp = base.split('-');
+          start = parseInt(rp[0], 10); end = parseInt(rp[1], 10);
+        }
+        if(start > end || start < min || end > max) return {kind:'unknown', raw:raw};
+        var vals = [];
+        for(var v = start; v <= end; v += step) vals.push(v);
+        return {kind:'step', step:step, start:start, end:end, wholeRange:(base === '*'), values:vals, raw:raw};
+      }
+      var rangeMatch = raw.match(/^(\d+)-(\d+)$/);
+      if(rangeMatch){
+        var a = parseInt(rangeMatch[1], 10), b = parseInt(rangeMatch[2], 10);
+        if(a > b || a < min || b > max) return {kind:'unknown', raw:raw};
+        var vals2 = [];
+        for(var v2 = a; v2 <= b; v2++) vals2.push(v2);
+        return {kind:'range', start:a, end:b, values:vals2, raw:raw};
+      }
+      if(/^\d+$/.test(raw)){
+        var n = parseInt(raw, 10);
+        if(n < min || n > max) return {kind:'unknown', raw:raw};
+        return {kind:'single', values:[n], raw:raw};
+      }
+      return {kind:'unknown', raw:raw};
+    } else {
+      var tokens = raw.split(',');
+      var allVals = [];
+      var simple = true;
+      for(var i = 0; i < tokens.length; i++){
+        var t = tokens[i].trim();
+        if(t === '') return {kind:'unknown', raw:raw};
+        if(/^\d+$/.test(t)){
+          var nn = parseInt(t, 10);
+          if(nn < min || nn > max) return {kind:'unknown', raw:raw};
+          allVals.push(nn);
+        } else if(/^\d+-\d+$/.test(t)){
+          var rp2 = t.split('-'); var s = parseInt(rp2[0], 10), e = parseInt(rp2[1], 10);
+          if(s > e || s < min || e > max) return {kind:'unknown', raw:raw};
+          for(var v3 = s; v3 <= e; v3++) allVals.push(v3);
+          simple = false;
+        } else if(/^(\*|\d+-\d+)\/(\d+)$/.test(t)){
+          var sm = t.match(/^(\*|\d+-\d+)\/(\d+)$/);
+          var base2 = sm[1], step2 = parseInt(sm[2], 10);
+          var st = min, en = max;
+          if(base2 !== '*'){
+            var rp3 = base2.split('-'); st = parseInt(rp3[0], 10); en = parseInt(rp3[1], 10);
+          }
+          if(!step2 || st > en || st < min || en > max) return {kind:'unknown', raw:raw};
+          for(var v4 = st; v4 <= en; v4 += step2) allVals.push(v4);
+          simple = false;
+        } else {
+          return {kind:'unknown', raw:raw};
+        }
+      }
+      allVals = Array.from(new Set(allVals)).sort(function(x, y){ return x - y; });
+      return {kind: simple ? 'list' : 'listMixed', values: allVals, raw: raw};
+    }
+  }
+
+  function formatList(vals, unit){
+    if(vals.length === 0) return '';
+    if(vals.length === 1) return vals[0] + unit;
+    if(vals.length === 2) return vals[0] + unit + 'と' + vals[1] + unit;
+    var head = vals.slice(0, -1).map(function(v){ return v + unit; }).join('、');
+    return head + 'と' + vals[vals.length - 1] + unit;
+  }
+  function formatNameList(names){
+    if(names.length === 1) return names[0];
+    if(names.length === 2) return names[0] + 'と' + names[1];
+    return names.slice(0, -1).join('、') + 'と' + names[names.length - 1];
+  }
+
+  var WEEKDAY_NAMES = ['日曜日','月曜日','火曜日','水曜日','木曜日','金曜日','土曜日'];
+
+  function phraseFor(f, unit){
+    if(f.kind === 'all') return null;
+    if(f.kind === 'range') return f.start + unit + 'から' + f.end + unit;
+    if(f.kind === 'step'){
+      if(f.wholeRange) return f.step + unit + 'ごと';
+      return f.start + unit + 'から' + f.end + unit + 'の' + f.step + unit + 'おき';
+    }
+    return formatList(f.values, unit);
+  }
+
+  function dowPhraseFor(f){
+    if(f.kind === 'all') return null;
+    if(f.kind === 'range'){
+      var s = f.start % 7, e = f.end % 7;
+      return WEEKDAY_NAMES[s] + 'から' + WEEKDAY_NAMES[e];
+    }
+    var names = f.values.map(function(v){ return WEEKDAY_NAMES[v % 7]; });
+    names = Array.from(new Set(names));
+    return formatNameList(names);
+  }
+
+  function fallbackDesc(mRaw, hRaw, doRaw, moRaw, dwRaw){
+    return '分:' + mRaw + ' 時:' + hRaw + ' 日:' + doRaw + ' 月:' + moRaw + ' 曜日:' + dwRaw + ' の条件で実行';
+  }
+
+  function describeCron(mRaw, hRaw, doRaw, moRaw, dwRaw){
+    var mF = analyzeField(mRaw, 0, 59);
+    var hF = analyzeField(hRaw, 0, 23);
+    var doF = analyzeField(doRaw, 1, 31);
+    var moF = analyzeField(moRaw, 1, 12);
+    var dwF = analyzeField(dwRaw, 0, 7);
+
+    if(mF.kind === 'unknown' || hF.kind === 'unknown' || doF.kind === 'unknown' ||
+       moF.kind === 'unknown' || dwF.kind === 'unknown'){
+      return fallbackDesc(mRaw, hRaw, doRaw, moRaw, dwRaw);
+    }
+
+    var minutePhrase = phraseFor(mF, '分');
+    var hourPhrase = phraseFor(hF, '時');
+    var domPhrase = phraseFor(doF, '日');
+    var monthPhrase = phraseFor(moF, '月');
+    var dowPhrase = dowPhraseFor(dwF);
+
+    var minuteIsZero = (mF.kind === 'single' && mF.values[0] === 0);
+
+    /* Case A: no day-of-month, month, or day-of-week restriction */
+    if(domPhrase === null && monthPhrase === null && dowPhrase === null){
+      if(minutePhrase === null && hourPhrase === null){
+        return '毎分実行';
+      }
+      if(hourPhrase === null){
+        if(mF.kind === 'step' && mF.wholeRange){
+          return mF.step + '分ごとに実行';
+        }
+        return '毎時' + minutePhrase + 'に実行';
+      }
+      if(hF.kind === 'step' && hF.wholeRange && minuteIsZero){
+        return hF.step + '時間ごとに実行';
+      }
+      var timePart = hourPhrase;
+      if(!minuteIsZero && minutePhrase !== null){
+        timePart += minutePhrase;
+      }
+      return '毎日' + timePart + 'に実行';
+    }
+
+    /* Case B: day-of-week restricted, day-of-month not restricted */
+    if(dowPhrase !== null && domPhrase === null){
+      var timePart2 = '';
+      if(hourPhrase !== null){
+        timePart2 = hourPhrase;
+        if(!minuteIsZero && minutePhrase !== null) timePart2 += minutePhrase;
+      } else if(minutePhrase !== null){
+        timePart2 = '毎時' + minutePhrase;
+      } else {
+        timePart2 = '0時';
+      }
+      var prefixB = (monthPhrase !== null) ? monthPhrase + 'の' : '';
+      return prefixB + '毎週' + dowPhrase + 'の' + timePart2 + 'に実行';
+    }
+
+    /* Case C: day-of-month restricted, day-of-week not restricted */
+    if(domPhrase !== null && dowPhrase === null){
+      var timePart3 = '';
+      if(hourPhrase !== null){
+        timePart3 = hourPhrase;
+        if(!minuteIsZero && minutePhrase !== null) timePart3 += minutePhrase;
+      } else if(minutePhrase !== null){
+        timePart3 = '毎時' + minutePhrase;
+      } else {
+        timePart3 = '0時';
+      }
+      var prefixC = (monthPhrase !== null) ? monthPhrase : '毎月';
+      return prefixC + domPhrase + 'の' + timePart3 + 'に実行';
+    }
+
+    /* Case D: both day-of-month and day-of-week restricted (OR semantics) -> fallback */
+    return fallbackDesc(mRaw, hRaw, doRaw, moRaw, dwRaw);
+  }
+
+  /* ---------- builder mode ---------- */
+  var FIELD_DEFS = [
+    {key:'minute', label:'分', min:0, max:59, placeholder:'例: 0,15,30'},
+    {key:'hour', label:'時', min:0, max:23, placeholder:'例: 9'},
+    {key:'dom', label:'日', min:1, max:31, placeholder:'例: 1'},
+    {key:'month', label:'月', min:1, max:12, placeholder:'例: 6'},
+    {key:'dow', label:'曜日 (0=日 1=月 2=火 3=水 4=木 5=金 6=土)', min:0, max:6, placeholder:'例: 1'}
+  ];
+
+  var builderState = {};
+  FIELD_DEFS.forEach(function(fd){
+    builderState[fd.key] = {mode:'all', value:'', rangeStart:'', rangeEnd:'', step:''};
+  });
+
+  function buildFieldWrap(fd){
+    var div = document.createElement('div');
+    div.className = 'field-block';
+    div.innerHTML =
+      '<h3>' + fd.label + ' (' + fd.min + '〜' + fd.max + ')</h3>' +
+      '<select data-field="' + fd.key + '" data-role="mode">' +
+        '<option value="all">すべて (*)</option>' +
+        '<option value="value">値を指定（カンマ区切り可）</option>' +
+        '<option value="range">範囲（開始〜終了）</option>' +
+        '<option value="step">間隔（*/N）</option>' +
+      '</select>' +
+      '<div class="sub" data-field="' + fd.key + '" data-sub="value">' +
+        '<input type="text" data-field="' + fd.key + '" data-role="value" placeholder="' + fd.placeholder + '">' +
+      '</div>' +
+      '<div class="sub" data-field="' + fd.key + '" data-sub="range">' +
+        '<div class="row2">' +
+          '<input type="number" data-field="' + fd.key + '" data-role="rangeStart" placeholder="開始" min="' + fd.min + '" max="' + fd.max + '">' +
+          '<input type="number" data-field="' + fd.key + '" data-role="rangeEnd" placeholder="終了" min="' + fd.min + '" max="' + fd.max + '">' +
+        '</div>' +
+      '</div>' +
+      '<div class="sub" data-field="' + fd.key + '" data-sub="step">' +
+        '<input type="number" data-field="' + fd.key + '" data-role="step" placeholder="例: 15" min="1" max="' + fd.max + '">' +
+      '</div>';
+    return div;
+  }
+
+  function renderFieldBlocks(){
+    var wrap = document.getElementById('fieldBlocks');
+    wrap.innerHTML = '';
+    FIELD_DEFS.forEach(function(fd){
+      wrap.appendChild(buildFieldWrap(fd));
+    });
+
+    wrap.querySelectorAll('select[data-role="mode"]').forEach(function(sel){
+      sel.addEventListener('change', function(){
+        var key = sel.getAttribute('data-field');
+        builderState[key].mode = sel.value;
+        updateSubVisibility(key);
+        recomputeBuilder();
+      });
+    });
+    wrap.querySelectorAll('input[data-role="value"]').forEach(function(inp){
+      inp.addEventListener('input', function(){
+        builderState[inp.getAttribute('data-field')].value = inp.value;
+        recomputeBuilder();
+      });
+    });
+    wrap.querySelectorAll('input[data-role="rangeStart"]').forEach(function(inp){
+      inp.addEventListener('input', function(){
+        builderState[inp.getAttribute('data-field')].rangeStart = inp.value;
+        recomputeBuilder();
+      });
+    });
+    wrap.querySelectorAll('input[data-role="rangeEnd"]').forEach(function(inp){
+      inp.addEventListener('input', function(){
+        builderState[inp.getAttribute('data-field')].rangeEnd = inp.value;
+        recomputeBuilder();
+      });
+    });
+    wrap.querySelectorAll('input[data-role="step"]').forEach(function(inp){
+      inp.addEventListener('input', function(){
+        builderState[inp.getAttribute('data-field')].step = inp.value;
+        recomputeBuilder();
+      });
+    });
+
+    FIELD_DEFS.forEach(function(fd){ updateSubVisibility(fd.key); });
+  }
+
+  function updateSubVisibility(key){
+    var mode = builderState[key].mode;
+    document.querySelectorAll('.sub[data-field="' + key + '"]').forEach(function(el){
+      var sub = el.getAttribute('data-sub');
+      if(sub === mode){ el.classList.add('show'); } else { el.classList.remove('show'); }
+    });
+  }
+
+  function fieldStringFor(key){
+    var st = builderState[key];
+    if(st.mode === 'all') return '*';
+    if(st.mode === 'value'){
+      var v = (st.value || '').trim();
+      if(v === '') return '*';
+      if(!/^[0-9]+(,[0-9]+)*$/.test(v)) return null;
+      return v;
+    }
+    if(st.mode === 'range'){
+      if(st.rangeStart === '' || st.rangeEnd === '') return '*';
+      var a = parseInt(st.rangeStart, 10), b = parseInt(st.rangeEnd, 10);
+      if(isNaN(a) || isNaN(b) || a > b) return null;
+      return a + '-' + b;
+    }
+    if(st.mode === 'step'){
+      if(st.step === '') return '*';
+      var n = parseInt(st.step, 10);
+      if(isNaN(n) || n <= 0) return null;
+      return '*/' + n;
+    }
+    return '*';
+  }
+
+  function recomputeBuilder(){
+    var parts = [];
+    var invalid = false;
+    FIELD_DEFS.forEach(function(fd){
+      var s = fieldStringFor(fd.key);
+      if(s === null) invalid = true;
+      parts.push(s || '*');
+    });
+    var cronStr = parts.join(' ');
+    document.getElementById('builtCron').textContent = cronStr;
+    var descEl = document.getElementById('builtDesc');
+    if(invalid){
+      descEl.textContent = '入力値を確認してください（数値・カンマのみ、開始≦終了）';
+      descEl.classList.add('error');
+    } else {
+      descEl.classList.remove('error');
+      descEl.textContent = describeCron(parts[0], parts[1], parts[2], parts[3], parts[4]);
+    }
+  }
+
+  document.getElementById('copyBuild').addEventListener('click', async function(){
+    var text = document.getElementById('builtCron').textContent;
+    var ok = await copyText(text);
+    notify(ok ? 'Cron式をコピーしました' : 'コピーに失敗しました', ok ? 'success' : 'error');
+  });
+
+  /* ---------- explain mode ---------- */
+  function runExplain(){
+    var raw = document.getElementById('explainInput').value.trim();
+    var resEl = document.getElementById('explainResult');
+    var tokens = raw.split(/\s+/).filter(function(t){ return t !== ''; });
+    if(tokens.length !== 5){
+      resEl.classList.add('error');
+      resEl.textContent = 'Cron式は5つのフィールド（分 時 日 月 曜日）で入力してください。例: 0 9 * * 1';
+      return;
+    }
+    resEl.classList.remove('error');
+    var desc = describeCron(tokens[0], tokens[1], tokens[2], tokens[3], tokens[4]);
+    resEl.textContent = raw + '\n→ ' + desc;
+  }
+
+  document.getElementById('explainBtn').addEventListener('click', runExplain);
+  document.getElementById('explainInput').addEventListener('keydown', function(e){
+    if(e.key === 'Enter') runExplain();
+  });
+  document.getElementById('copyExplain').addEventListener('click', async function(){
+    var text = document.getElementById('explainInput').value.trim();
+    var ok = await copyText(text);
+    notify(ok ? 'Cron式をコピーしました' : 'コピーに失敗しました', ok ? 'success' : 'error');
+  });
+
+  renderFieldBlocks();
+  recomputeBuilder();
+  runExplain();
+</script>
+</body>
+</html>

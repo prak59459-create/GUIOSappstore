@@ -1,0 +1,246 @@
+<!--GUIOS-APP {"id":"color-palette-generator","name":"配色パレット生成","icon":"🎨","color":"#c2185b","version":"1.0.0","author":"Claude","description":"基準となる色から調和の取れた配色パレットを生成するツール。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>配色パレット生成</title>
+<style>
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:#1a1015; color:#f3e6ec; min-height:100vh; padding:16px 12px 60px;
+  }
+  h1{ font-size:18px; margin:0 0 14px; color:#f194bb; }
+  .card{
+    background:#231620; border:1px solid #3a2531; border-radius:14px; padding:14px; margin-bottom:16px;
+  }
+  .base-row{ display:flex; gap:10px; align-items:center; }
+  input[type="color"]{
+    width:56px; height:56px; border-radius:12px; border:2px solid #3a2531; background:none; padding:0; cursor:pointer;
+    flex-shrink:0;
+  }
+  input[type="text"]{
+    flex:1; padding:14px 12px; border-radius:12px; border:1px solid #3a2531; background:#14090f;
+    color:#f3e6ec; font-size:16px; font-family:ui-monospace,Menlo,Consolas,monospace;
+  }
+  .section-title{
+    font-size:13px; font-weight:700; color:#e3a8c4; margin:0 0 10px; letter-spacing:.3px;
+  }
+  .swatch-row{
+    display:flex; gap:8px; flex-wrap:wrap;
+  }
+  .swatch{
+    flex:1; min-width:64px; border-radius:12px; overflow:hidden; cursor:pointer; border:1px solid #3a2531;
+  }
+  .swatch .fill{ height:56px; width:100%; }
+  .swatch .code{
+    font-size:10.5px; text-align:center; padding:6px 2px; background:#14090f; color:#d8bcca;
+    font-family:ui-monospace,Menlo,Consolas,monospace; word-break:break-all;
+  }
+  .toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:#2b1c25; color:#f3e6ec; padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; transition:opacity .25s, transform .25s; pointer-events:none;
+    max-width:90%; text-align:center; box-shadow:0 6px 18px rgba(0,0,0,.35); z-index:100;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+  <h1>🎨 配色パレット生成</h1>
+
+  <div class="card">
+    <div class="base-row">
+      <input type="color" id="colorPicker" value="#c2185b">
+      <input type="text" id="hexInput" value="#C2185B" maxlength="7" spellcheck="false" autocapitalize="off">
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">補色 (Complementary)</div>
+    <div class="swatch-row" id="paletteComplementary"></div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">類似色 (Analogous)</div>
+    <div class="swatch-row" id="paletteAnalogous"></div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">三角配色 (Triadic)</div>
+    <div class="swatch-row" id="paletteTriadic"></div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">モノクロ (Monochromatic)</div>
+    <div class="swatch-row" id="paletteMono"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+  var colorPicker = document.getElementById('colorPicker');
+  var hexInput = document.getElementById('hexInput');
+  var toastEl = document.getElementById('toast');
+  var toastTimer = null;
+
+  function showToast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ toastEl.classList.remove('show'); }, 1800);
+  }
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify) {
+      try { window.GUIOS.notify(msg, { type: type || 'info' }); return; } catch(e){}
+    }
+    showToast(msg);
+  }
+  function copyText(text){
+    if (window.GUIOS && window.GUIOS.clipboard && window.GUIOS.clipboard.writeText) {
+      try { window.GUIOS.clipboard.writeText(text); return; } catch(e){}
+    }
+    try { navigator.clipboard.writeText(text); } catch(e){}
+  }
+
+  // ---- color conversion helpers ----
+  function hexToRgb(hex){
+    hex = hex.replace('#', '');
+    if (hex.length === 3) {
+      hex = hex.split('').map(function(c){ return c + c; }).join('');
+    }
+    var num = parseInt(hex, 16);
+    return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
+  }
+  function rgbToHex(r, g, b){
+    function h(v){ v = Math.max(0, Math.min(255, Math.round(v))); var s = v.toString(16); return s.length === 1 ? '0' + s : s; }
+    return '#' + h(r) + h(g) + h(b);
+  }
+  function rgbToHsl(r, g, b){
+    r /= 255; g /= 255; b /= 255;
+    var max = Math.max(r, g, b), min = Math.min(r, g, b);
+    var h, s, l = (max + min) / 2;
+    if (max === min) {
+      h = s = 0;
+    } else {
+      var d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      switch (max) {
+        case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+        case g: h = (b - r) / d + 2; break;
+        default: h = (r - g) / d + 4; break;
+      }
+      h /= 6;
+    }
+    return { h: h * 360, s: s * 100, l: l * 100 };
+  }
+  function hue2rgb(p, q, t){
+    if (t < 0) t += 1;
+    if (t > 1) t -= 1;
+    if (t < 1/6) return p + (q - p) * 6 * t;
+    if (t < 1/2) return q;
+    if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+    return p;
+  }
+  function hslToRgb(h, s, l){
+    h = ((h % 360) + 360) % 360 / 360;
+    s /= 100; l /= 100;
+    var r, g, b;
+    if (s === 0) {
+      r = g = b = l;
+    } else {
+      var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+      var p = 2 * l - q;
+      r = hue2rgb(p, q, h + 1/3);
+      g = hue2rgb(p, q, h);
+      b = hue2rgb(p, q, h - 1/3);
+    }
+    return { r: r * 255, g: g * 255, b: b * 255 };
+  }
+  function hslToHex(h, s, l){
+    var rgb = hslToRgb(h, s, l);
+    return rgbToHex(rgb.r, rgb.g, rgb.b);
+  }
+  function isValidHex(v){ return /^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/.test(v); }
+
+  function renderSwatches(containerId, hexList){
+    var container = document.getElementById(containerId);
+    container.innerHTML = '';
+    hexList.forEach(function(hex){
+      var sw = document.createElement('div');
+      sw.className = 'swatch';
+      var fill = document.createElement('div');
+      fill.className = 'fill';
+      fill.style.background = hex;
+      var code = document.createElement('div');
+      code.className = 'code';
+      code.textContent = hex.toUpperCase();
+      sw.appendChild(fill);
+      sw.appendChild(code);
+      sw.addEventListener('click', function(){
+        copyText(hex.toUpperCase());
+        notify(hex.toUpperCase() + ' をコピーしました', 'success');
+      });
+      container.appendChild(sw);
+    });
+  }
+
+  function updatePalettes(hex){
+    var rgb = hexToRgb(hex);
+    var hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+    var h = hsl.h, s = hsl.s, l = hsl.l;
+    if (s < 8) s = 40; // avoid degenerate greys for hue-based palettes
+
+    // Complementary
+    renderSwatches('paletteComplementary', [
+      hslToHex(h, s, l),
+      hslToHex(h + 180, s, l)
+    ]);
+
+    // Analogous
+    renderSwatches('paletteAnalogous', [
+      hslToHex(h - 30, s, l),
+      hslToHex(h, s, l),
+      hslToHex(h + 30, s, l)
+    ]);
+
+    // Triadic
+    renderSwatches('paletteTriadic', [
+      hslToHex(h, s, l),
+      hslToHex(h + 120, s, l),
+      hslToHex(h + 240, s, l)
+    ]);
+
+    // Monochromatic (shade -> tint ramp using original lightness/hue/sat)
+    var mono = [];
+    var steps = [15, 30, 45, 60, 75, 90];
+    steps.forEach(function(lv){
+      mono.push(hslToHex(hsl.h, hsl.s, lv));
+    });
+    renderSwatches('paletteMono', mono);
+  }
+
+  function setFromHex(hex, updatePicker){
+    if (!isValidHex(hex)) return;
+    var normalized = hex.length === 4
+      ? '#' + hex.slice(1).split('').map(function(c){ return c + c; }).join('')
+      : hex;
+    if (updatePicker) colorPicker.value = normalized;
+    hexInput.value = normalized.toUpperCase();
+    updatePalettes(normalized);
+  }
+
+  colorPicker.addEventListener('input', function(){
+    setFromHex(colorPicker.value, false);
+  });
+  hexInput.addEventListener('input', function(){
+    var v = hexInput.value.trim();
+    if (!v.startsWith('#')) v = '#' + v;
+    if (isValidHex(v)) setFromHex(v, true);
+  });
+
+  setFromHex('#c2185b', true);
+</script>
+</body>
+</html>

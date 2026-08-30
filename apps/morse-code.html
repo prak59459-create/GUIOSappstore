@@ -1,0 +1,346 @@
+<!--GUIOS-APP {"id":"morse-code","name":"モールス信号変換","icon":"📡","color":"#263238","version":"1.0.0","author":"Claude","description":"テキストとモールス信号を相互に変換し、音でも再生できるアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>モールス信号変換</title>
+<style>
+  :root{
+    --accent:#4fc3f7;
+    --bg:#10161a;
+    --card:#1c262c;
+    --card2:#141c20;
+    --text:#e7f1f5;
+    --sub:#8fa3ac;
+    --line:rgba(255,255,255,0.08);
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text); min-height:100vh; padding:16px; padding-bottom:40px;
+  }
+  .wrap{ max-width:560px; margin:0 auto; display:flex; flex-direction:column; gap:14px; }
+  h1{ font-size:19px; margin:4px 0 0; display:flex; align-items:center; gap:8px; }
+  .sub{ font-size:12px; color:var(--sub); margin:0 0 4px; }
+
+  .toggle-row{ display:flex; background:var(--card2); border-radius:14px; padding:4px; gap:4px; }
+  .toggle-btn{
+    flex:1; text-align:center; padding:12px 6px; border-radius:11px; border:none; background:transparent;
+    color:var(--sub); font-size:13px; font-weight:600; cursor:pointer; min-height:44px;
+  }
+  .toggle-btn.active{ background:var(--accent); color:#04222c; }
+
+  label.field-label{ font-size:12px; color:var(--sub); margin-bottom:6px; display:block; }
+  textarea{
+    width:100%; background:var(--card); border:1px solid var(--line); border-radius:14px;
+    color:var(--text); font-size:16px; padding:14px; min-height:100px; resize:vertical;
+    font-family:inherit; line-height:1.5;
+  }
+  #morseInput{ font-family:"SF Mono",Consolas,monospace; letter-spacing:1px; }
+  .out-box{
+    width:100%; background:var(--card2); border:1px solid var(--line); border-radius:14px;
+    color:var(--text); font-size:16px; padding:14px; min-height:100px; line-height:1.6;
+    white-space:pre-wrap; word-break:break-word; font-family:"SF Mono",Consolas,monospace; letter-spacing:1px;
+  }
+  .btn-row{ display:flex; gap:10px; flex-wrap:wrap; }
+  .btn{
+    flex:1; min-width:100px; padding:14px; border-radius:12px; border:none; font-size:14px; font-weight:700;
+    cursor:pointer; min-height:48px; background:var(--card2); color:var(--text); border:1px solid var(--line);
+  }
+  .btn.primary{ background:var(--accent); color:#04222c; border-color:var(--accent); }
+  .btn:disabled{ opacity:0.5; cursor:default; }
+  .btn:active:not(:disabled){ filter:brightness(1.1); }
+
+  .ref-toggle{ font-size:12px; color:var(--accent); text-align:center; cursor:pointer; padding:6px; user-select:none; }
+  .ref-table{
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(64px,1fr)); gap:6px;
+    background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px;
+    font-size:12px;
+  }
+  .ref-table[hidden]{ display:none; }
+  .ref-cell{ display:flex; flex-direction:column; align-items:center; gap:2px; color:var(--sub); }
+  .ref-cell b{ color:var(--text); font-size:14px; }
+  .ref-cell span{ font-family:"SF Mono",Consolas,monospace; letter-spacing:1px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>📡 モールス信号変換</h1>
+    <div class="sub">テキストとモールス信号を相互に変換できます</div>
+
+    <div class="toggle-row">
+      <button class="toggle-btn active" id="modeTextToMorse">テキスト→モールス</button>
+      <button class="toggle-btn" id="modeMorseToText">モールス→テキスト</button>
+    </div>
+
+    <div id="inputSection">
+      <label class="field-label" id="inputLabel">テキストを入力(英数字・基本記号)</label>
+      <textarea id="textInput" placeholder="例: HELLO WORLD" maxlength="500" autocomplete="off" autocorrect="off" spellcheck="false"></textarea>
+      <textarea id="morseInput" placeholder="例: .... . .-.. .-.. ---" maxlength="1000" hidden autocomplete="off" autocorrect="off" spellcheck="false"></textarea>
+    </div>
+
+    <div>
+      <label class="field-label">変換結果</label>
+      <div class="out-box" id="outBox">&nbsp;</div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn primary" id="playBtn">▶ 再生</button>
+      <button class="btn" id="copyBtn">📋 コピー</button>
+      <button class="btn" id="clearBtn">クリア</button>
+    </div>
+
+    <div class="ref-toggle" id="refToggle">▼ モールス信号表を表示</div>
+    <div class="ref-table" id="refTable" hidden></div>
+  </div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify) {
+      try { window.GUIOS.notify(msg, { type: type || 'info' }); return; } catch(e){}
+    }
+    var t = document.createElement('div');
+    t.textContent = msg;
+    t.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1c262c;color:#e7f1f5;padding:10px 18px;border-radius:10px;font-size:13px;z-index:200;box-shadow:0 6px 18px rgba(0,0,0,.4);';
+    document.body.appendChild(t);
+    setTimeout(function(){ t.remove(); }, 2500);
+  }
+  function haptic(){
+    if (window.GUIOS && window.GUIOS.haptic) {
+      try { window.GUIOS.haptic(); } catch(e){}
+    }
+  }
+  function copyText(text){
+    if (window.GUIOS && window.GUIOS.clipboard && window.GUIOS.clipboard.writeText) {
+      try { window.GUIOS.clipboard.writeText(text); notify('コピーしました', 'success'); return; } catch(e){}
+    }
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      notify('コピーしました', 'success');
+    } catch(e) {
+      notify('コピーに失敗しました', 'error');
+    }
+  }
+
+  var MORSE_MAP = {
+    'A':'.-','B':'-...','C':'-.-.','D':'-..','E':'.','F':'..-.','G':'--.','H':'....',
+    'I':'..','J':'.---','K':'-.-','L':'.-..','M':'--','N':'-.','O':'---','P':'.--.',
+    'Q':'--.-','R':'.-.','S':'...','T':'-','U':'..-','V':'...-','W':'.--','X':'-..-',
+    'Y':'-.--','Z':'--..',
+    '0':'-----','1':'.----','2':'..---','3':'...--','4':'....-','5':'.....',
+    '6':'-....','7':'--...','8':'---..','9':'----.',
+    '.':'.-.-.-',',':'--..--','?':'..--..',"'":'.----.','!':'-.-.--','/':'-..-.',
+    '(':'-.--.',')':'-.--.-','&':'.-...',':':'---...',';':'-.-.-.','=':'-...-',
+    '+':'.-.-.','-':'-....-','_':'..--.-','"':'.-..-.','$':'...-..-','@':'.--.-.'
+  };
+  var REV_MORSE = {};
+  Object.keys(MORSE_MAP).forEach(function(k){ REV_MORSE[MORSE_MAP[k]] = k; });
+
+  var currentMode = 'textToMorse'; // or 'morseToText'
+
+  function textToMorse(text){
+    var words = text.toUpperCase().split(/\s+/).filter(function(w){ return w.length; });
+    return words.map(function(word){
+      var chars = word.split('');
+      return chars.map(function(c){
+        return MORSE_MAP.hasOwnProperty(c) ? MORSE_MAP[c] : '';
+      }).filter(function(x){ return x.length; }).join(' ');
+    }).join(' / ');
+  }
+
+  function morseToText(morse){
+    var words = morse.trim().split(/\s*\/\s*/).filter(function(w){ return w.length; });
+    return words.map(function(word){
+      var letters = word.trim().split(/\s+/).filter(function(l){ return l.length; });
+      return letters.map(function(code){
+        return REV_MORSE.hasOwnProperty(code) ? REV_MORSE[code] : '';
+      }).join('');
+    }).join(' ');
+  }
+
+  var textInput = document.getElementById('textInput');
+  var morseInput = document.getElementById('morseInput');
+  var outBox = document.getElementById('outBox');
+  var inputLabel = document.getElementById('inputLabel');
+
+  function updateOutput(){
+    var out = '';
+    if (currentMode === 'textToMorse') {
+      out = textToMorse(textInput.value);
+    } else {
+      out = morseToText(morseInput.value);
+    }
+    outBox.textContent = out || ' ';
+  }
+
+  function setMode(mode){
+    currentMode = mode;
+    document.getElementById('modeTextToMorse').classList.toggle('active', mode === 'textToMorse');
+    document.getElementById('modeMorseToText').classList.toggle('active', mode === 'morseToText');
+    if (mode === 'textToMorse') {
+      inputLabel.textContent = 'テキストを入力(英数字・基本記号)';
+      textInput.hidden = false;
+      morseInput.hidden = true;
+    } else {
+      inputLabel.textContent = 'モールス信号を入力( . と - を空白区切り、単語区切りは / )';
+      textInput.hidden = true;
+      morseInput.hidden = false;
+    }
+    updateOutput();
+  }
+
+  document.getElementById('modeTextToMorse').addEventListener('click', function(){ setMode('textToMorse'); });
+  document.getElementById('modeMorseToText').addEventListener('click', function(){ setMode('morseToText'); });
+
+  textInput.addEventListener('input', updateOutput);
+  morseInput.addEventListener('input', updateOutput);
+
+  document.getElementById('clearBtn').addEventListener('click', function(){
+    textInput.value = '';
+    morseInput.value = '';
+    stopPlayback();
+    updateOutput();
+  });
+
+  document.getElementById('copyBtn').addEventListener('click', function(){
+    var text = outBox.textContent;
+    if (!text || text === ' ') { notify('コピーする内容がありません', 'error'); return; }
+    copyText(text);
+  });
+
+  // --- Reference table ---
+  var refTable = document.getElementById('refTable');
+  var refToggle = document.getElementById('refToggle');
+  var refOrder = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','0','1','2','3','4','5','6','7','8','9'];
+  refTable.innerHTML = refOrder.map(function(k){
+    return '<div class="ref-cell"><b>' + k + '</b><span>' + MORSE_MAP[k] + '</span></div>';
+  }).join('');
+  var refOpen = false;
+  refToggle.addEventListener('click', function(){
+    refOpen = !refOpen;
+    refTable.hidden = !refOpen;
+    refToggle.textContent = (refOpen ? '▲ モールス信号表を隠す' : '▼ モールス信号表を表示');
+  });
+
+  // --- WebAudio playback ---
+  var DOT_MS = 100; // dot duration
+  var FREQ = 700;
+  var audioCtx = null;
+  var isPlaying = false;
+  var playTimeoutId = null;
+  var activeOsc = null;
+
+  function getAudioCtx(){
+    if (!audioCtx) {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      audioCtx = new AC();
+    }
+    return audioCtx;
+  }
+
+  function stopPlayback(){
+    isPlaying = false;
+    if (playTimeoutId !== null) { clearTimeout(playTimeoutId); playTimeoutId = null; }
+    if (activeOsc) {
+      try { activeOsc.stop(); } catch(e){}
+      try { activeOsc.disconnect(); } catch(e){}
+      activeOsc = null;
+    }
+    var btn = document.getElementById('playBtn');
+    btn.textContent = '▶ 再生';
+    btn.disabled = false;
+  }
+
+  function playTone(ctx, durationMs, onDone){
+    var osc = ctx.createOscillator();
+    var gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = FREQ;
+    gain.gain.value = 0.0001;
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    var now = ctx.currentTime;
+    var dur = durationMs / 1000;
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.35, now + 0.005);
+    gain.gain.setValueAtTime(0.35, now + Math.max(dur - 0.01, 0.006));
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+    activeOsc = osc;
+    osc.start(now);
+    osc.stop(now + dur);
+    osc.onended = function(){
+      try { osc.disconnect(); } catch(e){}
+      try { gain.disconnect(); } catch(e){}
+      if (activeOsc === osc) activeOsc = null;
+      if (isPlaying) {
+        playTimeoutId = setTimeout(onDone, 0);
+      }
+    };
+  }
+
+  function buildSequence(morseText){
+    // returns array of {type:'tone'|'silence', ms:number}
+    var seq = [];
+    var words = morseText.trim().split(/\s*\/\s*/).filter(function(w){ return w.length; });
+    words.forEach(function(word, wi){
+      var letters = word.trim().split(/\s+/).filter(function(l){ return l.length; });
+      letters.forEach(function(letter, li){
+        var symbols = letter.split('');
+        symbols.forEach(function(sym, si){
+          if (sym === '.') seq.push({ type:'tone', ms: DOT_MS });
+          else if (sym === '-') seq.push({ type:'tone', ms: DOT_MS * 3 });
+          if (si < symbols.length - 1) seq.push({ type:'silence', ms: DOT_MS });
+        });
+        if (li < letters.length - 1) seq.push({ type:'silence', ms: DOT_MS * 3 });
+      });
+      if (wi < words.length - 1) seq.push({ type:'silence', ms: DOT_MS * 7 });
+    });
+    return seq;
+  }
+
+  function runSequence(ctx, seq, idx){
+    if (!isPlaying) return;
+    if (idx >= seq.length) { stopPlayback(); return; }
+    var step = seq[idx];
+    if (step.type === 'silence') {
+      playTimeoutId = setTimeout(function(){ runSequence(ctx, seq, idx + 1); }, step.ms);
+    } else {
+      playTone(ctx, step.ms, function(){ runSequence(ctx, seq, idx + 1); });
+    }
+  }
+
+  document.getElementById('playBtn').addEventListener('click', function(){
+    if (isPlaying) return; // disabled until done, guard anyway
+    var morseText = (currentMode === 'textToMorse') ? outBox.textContent : morseInput.value;
+    if (!morseText || morseText === ' ' || !/[.\-]/.test(morseText)) {
+      notify('再生するモールス信号がありません', 'error');
+      return;
+    }
+    var ctx = getAudioCtx();
+    if (!ctx) { notify('このブラウザは音声再生に対応していません', 'error'); return; }
+    if (ctx.state === 'suspended') { ctx.resume(); }
+    var seq = buildSequence(morseText);
+    if (!seq.length) { notify('再生するモールス信号がありません', 'error'); return; }
+    isPlaying = true;
+    var btn = document.getElementById('playBtn');
+    btn.textContent = '■ 再生中...';
+    btn.disabled = true;
+    haptic();
+    runSequence(ctx, seq, 0);
+  });
+
+  updateOutput();
+</script>
+</body>
+</html>

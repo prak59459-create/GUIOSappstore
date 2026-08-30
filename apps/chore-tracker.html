@@ -1,0 +1,393 @@
+<!--GUIOS-APP {"id":"chore-tracker","name":"家事分担表","icon":"🧹","color":"#33691e","version":"1.0.0","author":"Claude","description":"家事タスクを担当者・頻度付きで管理できる家事分担表アプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>家事分担表</title>
+<style>
+  :root{
+    --accent:#7cb342;
+    --accent-dark:#33691e;
+    --bg:#0f130d;
+    --card:#1a2015;
+    --card2:#141810;
+    --text:#eef3e8;
+    --sub:#a9b79c;
+    --line:rgba(255,255,255,0.08);
+    --danger:#e5484d;
+    --warn:#ffb300;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    padding:16px; padding-bottom:48px;
+  }
+  .wrap{max-width:640px; margin:0 auto;}
+  h1{font-size:19px; margin:4px 0 16px; display:flex; align-items:center; gap:8px;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:16px; margin-bottom:14px;
+  }
+  .card h2{font-size:14px; margin:0 0 12px; color:var(--sub); font-weight:600;}
+  label{display:block; font-size:12px; color:var(--sub); margin-bottom:6px;}
+  .field{margin-bottom:12px;}
+  input[type=text], input[type=number]{
+    width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--line);
+    background:var(--card2); color:var(--text); font-size:15px; outline:none;
+  }
+  input:focus{border-color:var(--accent);}
+  .freq-presets{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;}
+  .preset-btn{
+    padding:9px 12px; border-radius:20px; border:1px solid var(--line); background:var(--card2);
+    color:var(--text); font-size:13px; cursor:pointer; min-height:38px;
+  }
+  .preset-btn.active{background:var(--accent-dark); border-color:var(--accent); color:#fff; font-weight:700;}
+  .row2{display:flex; gap:10px;}
+  .row2 > *{flex:1;}
+  button.primary{
+    padding:13px 20px; border-radius:12px; border:none; background:var(--accent);
+    color:#0c1408; font-weight:800; font-size:15px; cursor:pointer; min-height:46px; width:100%;
+  }
+  button.primary:active{filter:brightness(1.08);}
+  .task-list{display:flex; flex-direction:column; gap:12px;}
+  .task-card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px 16px;
+    display:flex; flex-direction:column; gap:8px; position:relative; border-left:4px solid var(--line);
+  }
+  .task-card.overdue{border-left-color:var(--danger);}
+  .task-card.today{border-left-color:var(--warn);}
+  .task-top{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
+  .task-name{font-size:16px; font-weight:700; word-break:break-word;}
+  .task-meta{font-size:12px; color:var(--sub); display:flex; flex-wrap:wrap; gap:8px; align-items:center;}
+  .badge{
+    display:inline-flex; align-items:center; padding:4px 10px; border-radius:20px; font-size:11px;
+    font-weight:700; white-space:nowrap;
+  }
+  .badge.overdue{background:rgba(229,72,77,0.18); color:#ff8a8d;}
+  .badge.today{background:rgba(255,179,0,0.18); color:#ffca50;}
+  .badge.ok{background:rgba(124,179,66,0.16); color:#9ccc65;}
+  .assignee-tag{
+    background:var(--card2); border:1px solid var(--line); padding:4px 10px; border-radius:20px; font-size:11px;
+  }
+  .history{font-size:11px; color:var(--sub);}
+  .task-actions{display:flex; gap:8px; margin-top:4px;}
+  .btn-sm{
+    flex:1; padding:10px 8px; border-radius:10px; border:1px solid var(--line); background:var(--card2);
+    color:var(--text); font-size:13px; font-weight:700; cursor:pointer; min-height:42px;
+  }
+  .btn-sm.done{background:var(--accent-dark); border-color:var(--accent); color:#fff;}
+  .btn-sm.del{color:var(--danger);}
+  .empty{
+    text-align:center; color:var(--sub); font-size:13px; padding:30px 10px;
+  }
+  .toggle-add{
+    display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer;
+  }
+  #addPanel{display:none;}
+  #addPanel.show{display:block;}
+  .toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:#222; color:#fff; padding:11px 18px; border-radius:10px; font-size:13px;
+    opacity:0; transition:opacity .25s, transform .25s; pointer-events:none; z-index:999; max-width:88vw; text-align:center;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+  .toast.error{background:#5a1e1e;}
+  .toast.success{background:#1e4a2a;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🧹 家事分担表</h1>
+
+  <div class="card toggle-add" id="toggleAddBtn">
+    <h2 style="margin:0;">＋ 新しい家事を追加</h2>
+  </div>
+
+  <div class="card" id="addPanel">
+    <h2>新しい家事</h2>
+    <div class="field">
+      <label>家事の名前</label>
+      <input type="text" id="taskName" placeholder="例: お風呂掃除" maxlength="60">
+    </div>
+    <div class="field">
+      <label>担当者(任意)</label>
+      <input type="text" id="taskAssignee" placeholder="例: お母さん" maxlength="30">
+    </div>
+    <div class="field">
+      <label>頻度</label>
+      <div class="freq-presets" id="freqPresets">
+        <button type="button" class="preset-btn" data-days="1">毎日</button>
+        <button type="button" class="preset-btn" data-days="4">週2回</button>
+        <button type="button" class="preset-btn active" data-days="7">週1回</button>
+        <button type="button" class="preset-btn" data-days="30">月1回</button>
+        <button type="button" class="preset-btn" data-days="custom">カスタム</button>
+      </div>
+      <div class="field" id="customDaysField" style="display:none;">
+        <label>何日ごと?</label>
+        <input type="number" id="customDays" min="1" max="365" value="7">
+      </div>
+    </div>
+    <div class="row2">
+      <button class="primary" id="addTaskBtn">追加する</button>
+    </div>
+  </div>
+
+  <div class="task-list" id="taskList"></div>
+  <div class="empty" id="emptyMsg" style="display:none;">まだ家事が登録されていません。<br>上の「＋ 新しい家事を追加」から登録しましょう。</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  var APP_ID = "chore-tracker";
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var LS_KEY = APP_ID + "::tasks";
+
+  var tasks = [];
+  var selectedDays = 7;
+
+  function toast(msg, type){
+    if(hasSDK && window.GUIOS.notify){
+      try{ window.GUIOS.notify(msg, {type: type||'info'}); return; }catch(e){}
+    }
+    var el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'toast show' + (type ? (' '+type) : '');
+    clearTimeout(el._t);
+    el._t = setTimeout(function(){ el.className = 'toast'; }, 2200);
+  }
+
+  function haptic(){
+    if(hasSDK && window.GUIOS.haptic){ try{ window.GUIOS.haptic(); }catch(e){} }
+  }
+
+  function pad(n){ return n<10 ? ('0'+n) : (''+n); }
+  function todayKey(){
+    var d = new Date();
+    return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+  }
+  function daysBetweenKeys(fromKey, toKeyStr){
+    var a = fromKey.split('-').map(Number);
+    var b = toKeyStr.split('-').map(Number);
+    var da = Date.UTC(a[0], a[1]-1, a[2]);
+    var db = Date.UTC(b[0], b[1]-1, b[2]);
+    return Math.round((db - da) / 86400000);
+  }
+  function formatDateKey(key){
+    if(!key) return "未実施";
+    var p = key.split('-');
+    return p[0]+"/"+p[1]+"/"+p[2];
+  }
+
+  function loadTasks(){
+    if(hasSDK){
+      return window.GUIOS.storage.get('tasks').then(function(v){
+        return Array.isArray(v) ? v : [];
+      }).catch(function(){ return []; });
+    }
+    try{
+      var raw = localStorage.getItem(LS_KEY);
+      var v = raw ? JSON.parse(raw) : [];
+      return Promise.resolve(Array.isArray(v) ? v : []);
+    }catch(e){ return Promise.resolve([]); }
+  }
+  function saveTasks(){
+    if(hasSDK){
+      return window.GUIOS.storage.set('tasks', tasks).catch(function(){});
+    }
+    try{ localStorage.setItem(LS_KEY, JSON.stringify(tasks)); }catch(e){}
+    return Promise.resolve(true);
+  }
+
+  function uid(){ return 't' + Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+  function getStatus(task){
+    var tKey = todayKey();
+    if(!task.lastDone){
+      return {state:'overdue', diff:null, label:'未実施'};
+    }
+    var diff = daysBetweenKeys(task.lastDone, tKey); // days since last done
+    var remain = task.freqDays - diff;
+    if(remain < 0) return {state:'overdue', diff:diff, label:(-remain)+'日超過'};
+    if(remain === 0) return {state:'today', diff:diff, label:'本日実施日'};
+    return {state:'ok', diff:diff, label:'あと'+remain+'日'};
+  }
+
+  function sortTasks(){
+    var rank = {overdue:0, today:1, ok:2};
+    tasks.sort(function(a,b){
+      var sa = getStatus(a), sb = getStatus(b);
+      if(rank[sa.state] !== rank[sb.state]) return rank[sa.state]-rank[sb.state];
+      // within same rank, more overdue / sooner due first
+      var da = sa.diff===null ? 99999 : (a.freqDays - sa.diff);
+      var db = sb.diff===null ? 99999 : (b.freqDays - sb.diff);
+      return da - db;
+    });
+  }
+
+  function render(){
+    sortTasks();
+    var list = document.getElementById('taskList');
+    var emptyMsg = document.getElementById('emptyMsg');
+    list.innerHTML = '';
+    if(tasks.length === 0){
+      emptyMsg.style.display = 'block';
+      return;
+    }
+    emptyMsg.style.display = 'none';
+    tasks.forEach(function(task){
+      var st = getStatus(task);
+      var card = document.createElement('div');
+      card.className = 'task-card ' + (st.state === 'overdue' ? 'overdue' : (st.state === 'today' ? 'today' : ''));
+
+      var top = document.createElement('div');
+      top.className = 'task-top';
+      var nameEl = document.createElement('div');
+      nameEl.className = 'task-name';
+      nameEl.textContent = task.name;
+      var badge = document.createElement('span');
+      badge.className = 'badge ' + (st.state === 'overdue' ? 'overdue' : (st.state === 'today' ? 'today' : 'ok'));
+      badge.textContent = st.label;
+      top.appendChild(nameEl);
+      top.appendChild(badge);
+      card.appendChild(top);
+
+      var meta = document.createElement('div');
+      meta.className = 'task-meta';
+      var freqSpan = document.createElement('span');
+      freqSpan.textContent = task.freqDays + '日ごと';
+      meta.appendChild(freqSpan);
+      if(task.assignee){
+        var atag = document.createElement('span');
+        atag.className = 'assignee-tag';
+        atag.textContent = '👤 ' + task.assignee;
+        meta.appendChild(atag);
+      }
+      var lastSpan = document.createElement('span');
+      lastSpan.textContent = '前回: ' + formatDateKey(task.lastDone);
+      meta.appendChild(lastSpan);
+      card.appendChild(meta);
+
+      if(task.history && task.history.length){
+        var hist = document.createElement('div');
+        hist.className = 'history';
+        hist.textContent = '履歴: ' + task.history.slice(0,5).map(formatDateKey).join(' / ');
+        card.appendChild(hist);
+      }
+
+      var actions = document.createElement('div');
+      actions.className = 'task-actions';
+      var doneBtn = document.createElement('button');
+      doneBtn.className = 'btn-sm done';
+      doneBtn.textContent = '✓ 完了';
+      doneBtn.addEventListener('click', function(){ markDone(task.id); });
+      var delBtn = document.createElement('button');
+      delBtn.className = 'btn-sm del';
+      delBtn.textContent = '削除';
+      delBtn.addEventListener('click', function(){ deleteTask(task.id); });
+      actions.appendChild(doneBtn);
+      actions.appendChild(delBtn);
+      card.appendChild(actions);
+
+      list.appendChild(card);
+    });
+  }
+
+  function markDone(id){
+    var task = tasks.filter(function(t){ return t.id === id; })[0];
+    if(!task) return;
+    var tKey = todayKey();
+    task.lastDone = tKey;
+    task.history = task.history || [];
+    task.history.unshift(tKey);
+    task.history = task.history.slice(0, 5);
+    haptic();
+    toast(task.name + ' を完了にしました', 'success');
+    saveTasks().then(render);
+  }
+
+  function deleteTask(id){
+    tasks = tasks.filter(function(t){ return t.id !== id; });
+    saveTasks().then(render);
+    toast('削除しました', 'info');
+  }
+
+  function addTask(){
+    var nameInput = document.getElementById('taskName');
+    var assigneeInput = document.getElementById('taskAssignee');
+    var name = nameInput.value.trim();
+    if(!name){
+      toast('家事の名前を入力してください', 'error');
+      nameInput.focus();
+      return;
+    }
+    var days = selectedDays;
+    if(days === 'custom'){
+      days = parseInt(document.getElementById('customDays').value, 10);
+    }
+    if(!days || isNaN(days) || days < 1) days = 1;
+    days = Math.min(365, Math.max(1, Math.round(days)));
+
+    var task = {
+      id: uid(),
+      name: name,
+      assignee: assigneeInput.value.trim(),
+      freqDays: days,
+      lastDone: null,
+      history: []
+    };
+    tasks.push(task);
+    saveTasks().then(render);
+    toast('追加しました', 'success');
+
+    nameInput.value = '';
+    assigneeInput.value = '';
+    document.getElementById('addPanel').classList.remove('show');
+  }
+
+  function setupPresets(){
+    var wrap = document.getElementById('freqPresets');
+    var customField = document.getElementById('customDaysField');
+    wrap.addEventListener('click', function(e){
+      var btn = e.target.closest ? e.target.closest('.preset-btn') : null;
+      if(!btn) return;
+      var buttons = wrap.querySelectorAll('.preset-btn');
+      for(var i=0;i<buttons.length;i++) buttons[i].classList.remove('active');
+      btn.classList.add('active');
+      var d = btn.getAttribute('data-days');
+      if(d === 'custom'){
+        selectedDays = 'custom';
+        customField.style.display = 'block';
+      } else {
+        selectedDays = parseInt(d, 10);
+        customField.style.display = 'none';
+      }
+    });
+  }
+
+  function init(){
+    setupPresets();
+    document.getElementById('addTaskBtn').addEventListener('click', addTask);
+    document.getElementById('toggleAddBtn').addEventListener('click', function(){
+      document.getElementById('addPanel').classList.toggle('show');
+    });
+    loadTasks().then(function(v){
+      tasks = v;
+      render();
+    });
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>

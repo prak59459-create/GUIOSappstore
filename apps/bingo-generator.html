@@ -1,0 +1,439 @@
+<!--GUIOS-APP {"id":"bingo-generator","name":"ビンゴカード生成","icon":"🎱","color":"#00838f","version":"1.0.0","author":"Claude","description":"ビンゴカードを生成し、番号を呼び出しながら進行を管理できるアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ビンゴカード生成</title>
+<style>
+  :root{
+    --bg:#0d1a1c;
+    --panel:#12262a;
+    --panel2:#173237;
+    --border:#1f4b52;
+    --text:#eef6f7;
+    --sub:#8fb5ba;
+    --accent:#00838f;
+    --accent2:#26c6da;
+    --free:#f0a83c;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;height:100%;overflow-x:hidden;}
+  #app{max-width:560px;margin:0 auto;padding:14px 14px 28px;min-height:100%;}
+  h1{font-size:18px;margin:0 0 12px;text-align:center;}
+  #tabs{display:flex;gap:8px;margin-bottom:16px;}
+  .tab-btn{
+    flex:1;
+    min-height:44px;
+    border:1px solid var(--border);
+    background:var(--panel);
+    color:var(--sub);
+    border-radius:8px;
+    font-size:14px;
+    font-weight:700;
+    cursor:pointer;
+  }
+  .tab-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .tab-content{display:none;}
+  .tab-content.active{display:block;}
+
+  /* card generator */
+  #cardControls{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;margin-bottom:14px;}
+  select, button.ctrl{
+    min-height:44px;
+    border-radius:8px;
+    border:1px solid var(--border);
+    background:var(--panel2);
+    color:var(--text);
+    font-size:14px;
+    padding:0 12px;
+  }
+  button.ctrl{
+    background:var(--accent);
+    color:#fff;
+    font-weight:700;
+    border:none;
+    cursor:pointer;
+    padding:0 16px;
+  }
+  button.ctrl:active{filter:brightness(1.15);}
+  button.ctrl.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--border);}
+  #cardsWrap{display:flex;flex-direction:column;gap:20px;}
+  .bingo-card{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:10px;
+  }
+  .bingo-card-title{font-size:13px;color:var(--sub);text-align:center;margin-bottom:8px;font-weight:700;}
+  .bingo-grid{
+    display:grid;
+    grid-template-columns:repeat(5,1fr);
+    gap:5px;
+  }
+  .bingo-header{
+    text-align:center;
+    font-weight:800;
+    font-size:16px;
+    color:var(--accent2);
+    padding:4px 0;
+  }
+  .bingo-cell{
+    aspect-ratio:1/1;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--panel2);
+    border-radius:6px;
+    font-size:clamp(14px,4vw,18px);
+    font-weight:700;
+    cursor:pointer;
+    user-select:none;
+    border:1px solid transparent;
+  }
+  .bingo-cell.free{background:var(--free);color:#2a1b03;}
+  .bingo-cell.marked{background:var(--accent);color:#fff;border-color:var(--accent2);}
+  .bingo-cell.free.marked{background:var(--free);border-color:#fff;}
+
+  /* caller mode */
+  #callerPanel{text-align:center;}
+  #currentCall{
+    font-size:clamp(40px,14vw,64px);
+    font-weight:900;
+    color:var(--accent2);
+    margin:10px 0 6px;
+    min-height:70px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  #callCount{font-size:12px;color:var(--sub);margin-bottom:14px;}
+  #callBtnRow{display:flex;gap:10px;justify-content:center;margin-bottom:18px;}
+  #calledGrid{
+    display:grid;
+    grid-template-columns:repeat(5, 1fr);
+    gap:6px;
+    max-width:480px;
+    margin:0 auto;
+  }
+  .col-group{display:flex;flex-direction:column;gap:6px;}
+  .col-label{text-align:center;font-weight:800;color:var(--accent2);font-size:13px;}
+  .num-cell{
+    min-height:30px;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--panel2);
+    border-radius:5px;
+    font-size:12px;
+    color:var(--sub);
+  }
+  .num-cell.called{background:var(--accent);color:#fff;font-weight:700;}
+  #toast{
+    position:fixed;left:50%;top:16px;transform:translateX(-50%) translateY(-30px);
+    background:#2b2b2d;color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;
+    opacity:0;transition:all .25s ease;pointer-events:none;z-index:999;max-width:90%;text-align:center;
+    border:1px solid var(--border);
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>🎱 ビンゴカード生成</h1>
+  <div id="tabs">
+    <button class="tab-btn active" data-tab="cards">カード生成</button>
+    <button class="tab-btn" data-tab="caller">番号呼び出し</button>
+  </div>
+
+  <div class="tab-content active" id="tab-cards">
+    <div id="cardControls">
+      <select id="cardCountSelect">
+        <option value="1">1枚</option>
+        <option value="2">2枚</option>
+        <option value="3">3枚</option>
+        <option value="4">4枚</option>
+      </select>
+      <button class="ctrl" id="generateBtn">カードを生成</button>
+    </div>
+    <div id="cardsWrap"></div>
+  </div>
+
+  <div class="tab-content" id="tab-caller">
+    <div id="callerPanel">
+      <div id="currentCall">-</div>
+      <div id="callCount">呼び出し済み: 0 / 75</div>
+      <div id="callBtnRow">
+        <button class="ctrl" id="drawBtn">次の番号を呼ぶ</button>
+        <button class="ctrl secondary" id="resetCallerBtn">リセット</button>
+      </div>
+      <div id="calledGrid"></div>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  var APP_ID = "bingo-generator";
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+
+  var LETTERS = ["B","I","N","G","O"];
+  var RANGES = [[1,15],[16,30],[31,45],[46,60],[61,75]];
+
+  var cards = []; // array of {numbers: [[...],[...],[...],[...],[...]], marked: Set-like obj "r-c"->bool}
+  var calledNumbers = []; // ordered list of called numbers
+  var calledSet = {};
+
+  var toastEl = document.getElementById("toast");
+  function toast(msg, type){
+    if (window.GUIOS && window.GUIOS.notify){
+      GUIOS.notify(msg, {type: type || "info"});
+      return;
+    }
+    toastEl.textContent = msg;
+    toastEl.className = "show";
+    setTimeout(function(){ toastEl.className = ""; }, 1800);
+  }
+  function haptic(){
+    if (window.GUIOS && window.GUIOS.haptic){ try{ GUIOS.haptic(); }catch(e){} }
+  }
+
+  // ---------- tabs ----------
+  var tabBtns = document.querySelectorAll(".tab-btn");
+  tabBtns.forEach(function(btn){
+    btn.addEventListener("click", function(){
+      tabBtns.forEach(function(b){ b.classList.remove("active"); });
+      btn.classList.add("active");
+      document.querySelectorAll(".tab-content").forEach(function(tc){ tc.classList.remove("active"); });
+      document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
+    });
+  });
+
+  // ---------- card generation ----------
+  function shuffle(arr){
+    for (var i = arr.length - 1; i > 0; i--){
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+    }
+    return arr;
+  }
+
+  function randRange(min, max, count){
+    var pool = [];
+    for (var n = min; n <= max; n++) pool.push(n);
+    shuffle(pool);
+    return pool.slice(0, count);
+  }
+
+  function generateCard(){
+    // columns[col][row] ; col 0=B,1=I,2=N,3=G,4=O
+    var columns = [];
+    for (var c = 0; c < 5; c++){
+      var range = RANGES[c];
+      columns.push(randRange(range[0], range[1], 5));
+    }
+    // N column center (row 2) is FREE
+    columns[2][2] = "FREE";
+    var marked = {};
+    marked["2-2"] = true; // free space pre-marked
+    return { columns: columns, marked: marked };
+  }
+
+  function generateCards(){
+    var count = parseInt(document.getElementById("cardCountSelect").value, 10) || 1;
+    cards = [];
+    for (var i = 0; i < count; i++){
+      cards.push(generateCard());
+    }
+    renderCards();
+    saveCards();
+    toast(count + "枚のカードを生成しました", "success");
+  }
+
+  function renderCards(){
+    var wrap = document.getElementById("cardsWrap");
+    wrap.innerHTML = "";
+    cards.forEach(function(card, cardIdx){
+      var cardEl = document.createElement("div");
+      cardEl.className = "bingo-card";
+
+      var title = document.createElement("div");
+      title.className = "bingo-card-title";
+      title.textContent = "カード " + (cardIdx + 1);
+      cardEl.appendChild(title);
+
+      var grid = document.createElement("div");
+      grid.className = "bingo-grid";
+
+      LETTERS.forEach(function(letter){
+        var h = document.createElement("div");
+        h.className = "bingo-header";
+        h.textContent = letter;
+        grid.appendChild(h);
+      });
+
+      for (var row = 0; row < 5; row++){
+        for (var col = 0; col < 5; col++){
+          var val = card.columns[col][row];
+          var cell = document.createElement("div");
+          cell.className = "bingo-cell";
+          var key = row + "-" + col;
+          if (val === "FREE"){
+            cell.classList.add("free");
+            cell.textContent = "FREE";
+          } else {
+            cell.textContent = val;
+          }
+          if (card.marked[key]) cell.classList.add("marked");
+          cell.dataset.cardIdx = cardIdx;
+          cell.dataset.key = key;
+          cell.addEventListener("click", function(){
+            var ci = parseInt(this.dataset.cardIdx, 10);
+            var k = this.dataset.key;
+            if (k === "2-2") return; // free space stays marked
+            var c = cards[ci];
+            if (c.marked[k]) delete c.marked[k]; else c.marked[k] = true;
+            this.classList.toggle("marked");
+            haptic();
+            saveCards();
+          });
+          grid.appendChild(cell);
+        }
+      }
+      cardEl.appendChild(grid);
+      wrap.appendChild(cardEl);
+    });
+  }
+
+  // ---------- caller mode ----------
+  var currentCallEl = document.getElementById("currentCall");
+  var callCountEl = document.getElementById("callCount");
+  var calledGridEl = document.getElementById("calledGrid");
+
+  function buildCalledGrid(){
+    calledGridEl.innerHTML = "";
+    for (var c = 0; c < 5; c++){
+      var range = RANGES[c];
+      var group = document.createElement("div");
+      group.className = "col-group";
+      var label = document.createElement("div");
+      label.className = "col-label";
+      label.textContent = LETTERS[c];
+      group.appendChild(label);
+      for (var n = range[0]; n <= range[1]; n++){
+        var cell = document.createElement("div");
+        cell.className = "num-cell";
+        cell.textContent = n;
+        cell.id = "num-" + n;
+        if (calledSet[n]) cell.classList.add("called");
+        group.appendChild(cell);
+      }
+      calledGridEl.appendChild(group);
+    }
+  }
+
+  function letterForNumber(n){
+    for (var i = 0; i < RANGES.length; i++){
+      if (n >= RANGES[i][0] && n <= RANGES[i][1]) return LETTERS[i];
+    }
+    return "";
+  }
+
+  function drawNumber(){
+    if (calledNumbers.length >= 75){
+      toast("すべての番号を呼び終えました", "info");
+      return;
+    }
+    var remaining = [];
+    for (var n = 1; n <= 75; n++){
+      if (!calledSet[n]) remaining.push(n);
+    }
+    var pick = remaining[Math.floor(Math.random() * remaining.length)];
+    calledSet[pick] = true;
+    calledNumbers.push(pick);
+    currentCallEl.textContent = letterForNumber(pick) + "-" + pick;
+    callCountEl.textContent = "呼び出し済み: " + calledNumbers.length + " / 75";
+    var cell = document.getElementById("num-" + pick);
+    if (cell) cell.classList.add("called");
+    haptic();
+    saveCaller();
+  }
+
+  function resetCaller(){
+    calledNumbers = [];
+    calledSet = {};
+    currentCallEl.textContent = "-";
+    callCountEl.textContent = "呼び出し済み: 0 / 75";
+    buildCalledGrid();
+    saveCaller();
+    toast("呼び出しをリセットしました", "info");
+  }
+
+  // ---------- storage ----------
+  async function saveCards(){
+    var data = { cardCount: document.getElementById("cardCountSelect").value, cards: cards };
+    if (hasSDK){
+      try{ await GUIOS.storage.set("cards", data); }catch(e){}
+    } else {
+      try{ localStorage.setItem(APP_ID + "_cards", JSON.stringify(data)); }catch(e){}
+    }
+  }
+  async function loadCards(){
+    var data = null;
+    if (hasSDK){
+      try{ data = await GUIOS.storage.get("cards"); }catch(e){}
+    } else {
+      try{
+        var raw = localStorage.getItem(APP_ID + "_cards");
+        if (raw) data = JSON.parse(raw);
+      }catch(e){}
+    }
+    if (data && data.cards && data.cards.length){
+      cards = data.cards;
+      if (data.cardCount){
+        document.getElementById("cardCountSelect").value = data.cardCount;
+      }
+      renderCards();
+    }
+  }
+
+  async function saveCaller(){
+    var data = { calledNumbers: calledNumbers };
+    if (hasSDK){
+      try{ await GUIOS.storage.set("caller", data); }catch(e){}
+    } else {
+      try{ localStorage.setItem(APP_ID + "_caller", JSON.stringify(data)); }catch(e){}
+    }
+  }
+  async function loadCaller(){
+    var data = null;
+    if (hasSDK){
+      try{ data = await GUIOS.storage.get("caller"); }catch(e){}
+    } else {
+      try{
+        var raw = localStorage.getItem(APP_ID + "_caller");
+        if (raw) data = JSON.parse(raw);
+      }catch(e){}
+    }
+    if (data && Array.isArray(data.calledNumbers)){
+      calledNumbers = data.calledNumbers;
+      calledSet = {};
+      calledNumbers.forEach(function(n){ calledSet[n] = true; });
+      if (calledNumbers.length){
+        var last = calledNumbers[calledNumbers.length - 1];
+        currentCallEl.textContent = letterForNumber(last) + "-" + last;
+      }
+      callCountEl.textContent = "呼び出し済み: " + calledNumbers.length + " / 75";
+    }
+    buildCalledGrid();
+  }
+
+  document.getElementById("generateBtn").addEventListener("click", generateCards);
+  document.getElementById("drawBtn").addEventListener("click", drawNumber);
+  document.getElementById("resetCallerBtn").addEventListener("click", resetCaller);
+
+  Promise.all([loadCards(), loadCaller()]).then(function(){
+    if (!cards.length){
+      // no-op: user generates cards manually
+    }
+  });
+})();
+</script>
+</body>
+</html>

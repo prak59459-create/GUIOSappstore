@@ -1,0 +1,306 @@
+<!--GUIOS-APP {"id":"regex-tester","name":"正規表現テスター","icon":"🧪","color":"#7a3b69","version":"1.0.0","author":"Claude","description":"正規表現とテスト文字列をその場で試せる正規表現テストツール。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>正規表現テスター</title>
+<style>
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ overflow-x:hidden; }
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:#180f16; color:#f2e6ef; min-height:100vh; padding:16px; padding-bottom:32px;
+  }
+  h1{ font-size:18px; margin:0 0 14px; color:#d992c0; }
+  label{ display:block; font-size:13px; color:#c9a6bf; margin-bottom:6px; }
+  .pattern-row{ display:flex; align-items:center; gap:8px; background:#241725; border:1px solid #422a3e;
+    border-radius:12px; padding:10px 12px; margin-bottom:12px; }
+  .pattern-row .slash{ color:#8c6684; font-size:16px; font-family:ui-monospace,Menlo,Consolas,monospace; }
+  .pattern-row input[type="text"]{
+    flex:1; background:transparent; border:none; outline:none; color:#f2e6ef; font-size:15px;
+    font-family:ui-monospace,Menlo,Consolas,monospace; min-width:0;
+  }
+  .flags{ display:flex; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
+  .flag-chip{ display:flex; align-items:center; gap:6px; font-size:13px; color:#d3b8cb;
+    background:#241725; border:1px solid #422a3e; border-radius:20px; padding:8px 12px; min-height:36px; }
+  .flag-chip input{ width:16px; height:16px; accent-color:#7a3b69; }
+  textarea{
+    width:100%; min-height:16vh; padding:12px; border-radius:14px; border:1px solid #422a3e;
+    background:#100a0f; color:#f2e6ef; font-size:14px; line-height:1.5; resize:vertical;
+    font-family:ui-monospace,Menlo,Consolas,monospace; margin-bottom:14px;
+  }
+  .error{
+    background:#3a1f2c; color:#ffabc9; padding:12px 14px; border-radius:10px; font-size:13px;
+    margin-bottom:14px; word-break:break-word; display:none; white-space:pre-wrap;
+  }
+  .section-title{ font-size:13px; color:#c9a6bf; margin:14px 0 8px; }
+  .result-box{
+    background:#100a0f; border:1px solid #422a3e; border-radius:14px; padding:12px;
+    font-family:ui-monospace,Menlo,Consolas,monospace; font-size:14px; line-height:1.7;
+    white-space:pre-wrap; overflow-wrap:anywhere; min-height:60px; margin-bottom:14px;
+  }
+  .result-box mark{ background:#7a3b69; color:#fff0fa; border-radius:3px; padding:0 1px; }
+  .count-badge{ font-size:13px; color:#d992c0; margin-bottom:10px; }
+  .match-list{ display:flex; flex-direction:column; gap:8px; margin-bottom:14px; }
+  .match-item{ background:#241725; border:1px solid #422a3e; border-radius:10px; padding:10px 12px; font-size:13px; }
+  .match-item .idx{ color:#8c6684; margin-right:6px; }
+  .match-item .txt{ color:#ffd9ef; font-family:ui-monospace,Menlo,Consolas,monospace; word-break:break-all; }
+  .match-item .groups{ margin-top:6px; color:#c9a6bf; font-size:12px; }
+  .match-item .groups div{ padding-left:8px; }
+  .empty-msg{ color:#8c6684; font-size:13px; padding:8px 2px; }
+  .mode-tabs{ display:flex; gap:8px; margin-bottom:14px; }
+  .mode-tab{
+    flex:1; padding:12px; border-radius:10px; border:none; background:#241725; color:#c9a6bf;
+    font-weight:700; font-size:14px; cursor:pointer; min-height:44px;
+  }
+  .mode-tab.active{ background:#7a3b69; color:#fff0fa; }
+  .replace-panel{ display:none; }
+  .replace-panel.show{ display:block; }
+  .toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:#241725; color:#f2e6ef; padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; transition:opacity .25s, transform .25s; pointer-events:none;
+    max-width:90%; text-align:center; box-shadow:0 6px 18px rgba(0,0,0,.35); z-index:100;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+  <h1>🧪 正規表現テスター</h1>
+
+  <label for="patternInput">正規表現</label>
+  <div class="pattern-row">
+    <span class="slash">/</span>
+    <input type="text" id="patternInput" placeholder="例: [a-z]+" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <span class="slash" id="flagsDisplay">/</span>
+  </div>
+
+  <div class="flags" id="flagsRow">
+    <label class="flag-chip"><input type="checkbox" data-flag="g" checked> g (すべて)</label>
+    <label class="flag-chip"><input type="checkbox" data-flag="i"> i (大小無視)</label>
+    <label class="flag-chip"><input type="checkbox" data-flag="m"> m (複数行)</label>
+    <label class="flag-chip"><input type="checkbox" data-flag="s"> s (改行含む.)</label>
+    <label class="flag-chip"><input type="checkbox" data-flag="u"> u (Unicode)</label>
+  </div>
+
+  <div class="mode-tabs">
+    <button class="mode-tab active" id="tabMatch">🔎 マッチ</button>
+    <button class="mode-tab" id="tabReplace">🔁 置換</button>
+  </div>
+
+  <label for="testInput">テスト文字列</label>
+  <textarea id="testInput" placeholder="ここにテスト対象の文字列を入力してください"></textarea>
+
+  <div class="error" id="errorBox"></div>
+
+  <div id="matchPanel">
+    <div class="section-title">ハイライト結果</div>
+    <div class="result-box" id="highlightBox"><span class="empty-msg">結果がここに表示されます</span></div>
+
+    <div class="count-badge" id="countBadge"></div>
+    <div class="match-list" id="matchList"></div>
+  </div>
+
+  <div id="replacePanel" class="replace-panel">
+    <label for="replaceInput">置換後の文字列 (例: $1, $&amp; が使えます)</label>
+    <textarea id="replaceInput" placeholder="置換後の文字列を入力"></textarea>
+    <div class="section-title">置換結果</div>
+    <div class="result-box" id="replaceResultBox"><span class="empty-msg">結果がここに表示されます</span></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  var patternInput = document.getElementById('patternInput');
+  var flagsRow = document.getElementById('flagsRow');
+  var flagsDisplay = document.getElementById('flagsDisplay');
+  var testInput = document.getElementById('testInput');
+  var errorBox = document.getElementById('errorBox');
+  var highlightBox = document.getElementById('highlightBox');
+  var countBadge = document.getElementById('countBadge');
+  var matchList = document.getElementById('matchList');
+  var replaceInput = document.getElementById('replaceInput');
+  var replaceResultBox = document.getElementById('replaceResultBox');
+  var matchPanel = document.getElementById('matchPanel');
+  var replacePanel = document.getElementById('replacePanel');
+  var tabMatch = document.getElementById('tabMatch');
+  var tabReplace = document.getElementById('tabReplace');
+  var toastEl = document.getElementById('toast');
+  var toastTimer = null;
+  var debounceTimer = null;
+  var mode = 'match';
+
+  function showToastFallback(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ toastEl.classList.remove('show'); }, 1800);
+  }
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify) {
+      try { window.GUIOS.notify(msg, { type: type || 'info' }); return; } catch(e){}
+    }
+    showToastFallback(msg);
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
+  function getFlags(){
+    var boxes = flagsRow.querySelectorAll('input[type="checkbox"]');
+    var f = '';
+    for (var i=0;i<boxes.length;i++){
+      if (boxes[i].checked) f += boxes[i].getAttribute('data-flag');
+    }
+    return f;
+  }
+
+  function showError(msg){
+    errorBox.textContent = msg;
+    errorBox.style.display = 'block';
+  }
+  function hideError(){
+    errorBox.style.display = 'none';
+    errorBox.textContent = '';
+  }
+
+  function runMatch(pattern, flags, text){
+    // Force a global copy for safe, complete highlighting/enumeration regardless of the g checkbox.
+    var globalFlags = flags.indexOf('g') === -1 ? flags + 'g' : flags;
+    var re;
+    try {
+      re = new RegExp(pattern, globalFlags);
+    } catch(e) {
+      throw e;
+    }
+
+    var html = '';
+    var lastIndex = 0;
+    var matches = [];
+    var guardCount = 0;
+    var m;
+    re.lastIndex = 0;
+    while ((m = re.exec(text)) !== null) {
+      var start = m.index;
+      var matched = m[0];
+      var end = start + matched.length;
+      html += escapeHtml(text.slice(lastIndex, start));
+      if (matched.length === 0) {
+        // zero-length match: mark position, then step forward to avoid an infinite loop
+        html += '<mark>&#8203;</mark>';
+        lastIndex = start;
+        re.lastIndex = re.lastIndex + 1;
+      } else {
+        html += '<mark>' + escapeHtml(matched) + '</mark>';
+        lastIndex = end;
+      }
+      matches.push(m);
+      guardCount++;
+      if (guardCount > 5000) break; // safety guard against pathological patterns
+    }
+    html += escapeHtml(text.slice(lastIndex));
+    return { html: html, matches: matches };
+  }
+
+  function renderMatchList(matches){
+    if (matches.length === 0) {
+      matchList.innerHTML = '<div class="empty-msg">マッチはありません</div>';
+      return;
+    }
+    var html = '';
+    for (var i=0;i<matches.length;i++){
+      var m = matches[i];
+      html += '<div class="match-item"><span class="idx">#' + (i+1) + '</span>' +
+              '<span class="txt">' + escapeHtml(m[0]) + '</span>' +
+              '<span class="idx" style="margin-left:8px;">index: ' + m.index + '</span>';
+      if (m.length > 1) {
+        html += '<div class="groups">';
+        for (var g=1; g<m.length; g++){
+          var gv = m[g] === undefined ? '(未マッチ)' : escapeHtml(m[g]);
+          html += '<div>グループ' + g + ': ' + gv + '</div>';
+        }
+        html += '</div>';
+      }
+      html += '</div>';
+    }
+    matchList.innerHTML = html;
+  }
+
+  function update(){
+    var pattern = patternInput.value;
+    var flags = getFlags();
+    flagsDisplay.textContent = '/' + flags;
+    var text = testInput.value;
+
+    if (!pattern) {
+      hideError();
+      highlightBox.innerHTML = '<span class="empty-msg">正規表現を入力してください</span>';
+      countBadge.textContent = '';
+      matchList.innerHTML = '';
+      replaceResultBox.innerHTML = '<span class="empty-msg">正規表現を入力してください</span>';
+      return;
+    }
+
+    var result;
+    try {
+      result = runMatch(pattern, flags, text);
+      hideError();
+    } catch(e) {
+      showError('正規表現が無効です: ' + e.message);
+      highlightBox.innerHTML = '<span class="empty-msg">エラーのため表示できません</span>';
+      countBadge.textContent = '';
+      matchList.innerHTML = '';
+      replaceResultBox.innerHTML = '<span class="empty-msg">エラーのため表示できません</span>';
+      return;
+    }
+
+    highlightBox.innerHTML = text ? result.html : '<span class="empty-msg">テスト文字列を入力してください</span>';
+    countBadge.textContent = result.matches.length + ' 件マッチしました';
+    renderMatchList(result.matches);
+
+    // replace mode
+    try {
+      var re2 = new RegExp(pattern, flags);
+      var replaced = text.replace(re2, replaceInput.value);
+      replaceResultBox.textContent = text ? replaced : '';
+      if (!text) replaceResultBox.innerHTML = '<span class="empty-msg">テスト文字列を入力してください</span>';
+    } catch(e) {
+      replaceResultBox.innerHTML = '<span class="empty-msg">エラーのため表示できません</span>';
+    }
+  }
+
+  function scheduleUpdate(){
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(update, 200);
+  }
+
+  patternInput.addEventListener('input', scheduleUpdate);
+  testInput.addEventListener('input', scheduleUpdate);
+  replaceInput.addEventListener('input', scheduleUpdate);
+  flagsRow.addEventListener('change', scheduleUpdate);
+
+  tabMatch.addEventListener('click', function(){
+    mode = 'match';
+    tabMatch.classList.add('active');
+    tabReplace.classList.remove('active');
+    matchPanel.style.display = 'block';
+    replacePanel.classList.remove('show');
+  });
+  tabReplace.addEventListener('click', function(){
+    mode = 'replace';
+    tabReplace.classList.add('active');
+    tabMatch.classList.remove('active');
+    matchPanel.style.display = 'none';
+    replacePanel.classList.add('show');
+    scheduleUpdate();
+  });
+
+  // initial render
+  update();
+})();
+</script>
+</body>
+</html>

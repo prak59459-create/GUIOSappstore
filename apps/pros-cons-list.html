@@ -1,0 +1,429 @@
+<!--GUIOS-APP {"id":"pros-cons-list","name":"メリット・デメリット比較","icon":"⚖️","color":"#6a1b9a","version":"1.0.0","author":"Claude","description":"選択肢のメリット・デメリットを書き出して比較検討できるツール。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>メリット・デメリット比較</title>
+<style>
+  :root{
+    --accent:#ab47bc;
+    --accent-dark:#6a1b9a;
+    --bg:#130f16;
+    --card:#1e1822;
+    --card2:#170f1a;
+    --text:#f1eaf4;
+    --sub:#b3a3bb;
+    --line:rgba(255,255,255,0.08);
+    --danger:#e5484d;
+    --pro:#66bb6a;
+    --con:#ef5350;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    padding:16px; padding-bottom:48px;
+  }
+  .wrap{max-width:680px; margin:0 auto;}
+  h1{font-size:19px; margin:4px 0 16px; display:flex; align-items:center; gap:8px;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:16px; margin-bottom:14px;
+  }
+  .card h2{font-size:14px; margin:0 0 12px; color:var(--sub); font-weight:600;}
+  label{display:block; font-size:12px; color:var(--sub); margin-bottom:6px;}
+  .field{margin-bottom:12px;}
+  input[type=text]{
+    width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--line);
+    background:var(--card2); color:var(--text); font-size:15px; outline:none;
+  }
+  input:focus{border-color:var(--accent);}
+  button{ font-family:inherit; }
+  button.primary{
+    padding:13px 20px; border-radius:12px; border:none; background:var(--accent);
+    color:#1a0d1f; font-weight:800; font-size:15px; cursor:pointer; min-height:46px; width:100%;
+  }
+  button.primary:active{filter:brightness(1.08);}
+  button.ghost{
+    padding:11px 16px; border-radius:12px; border:1px solid var(--line); background:transparent;
+    color:var(--text); font-size:14px; cursor:pointer; min-height:44px;
+  }
+  .topic-list{display:flex; flex-direction:column; gap:12px;}
+  .topic-card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px 16px;
+    display:flex; flex-direction:column; gap:8px; cursor:pointer;
+  }
+  .topic-top{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
+  .topic-name{font-size:16px; font-weight:700; word-break:break-word;}
+  .tally{display:flex; gap:10px; font-size:13px;}
+  .tally .pro-count{color:var(--pro); font-weight:700;}
+  .tally .con-count{color:var(--con); font-weight:700;}
+  .tally-bar{height:8px; border-radius:4px; overflow:hidden; display:flex; background:var(--card2);}
+  .tally-bar .p{background:var(--pro);}
+  .tally-bar .c{background:var(--con);}
+  .empty{ text-align:center; color:var(--sub); font-size:13px; padding:30px 10px; }
+  .topbar{display:flex; align-items:center; gap:10px; margin-bottom:14px;}
+  .topbar h1{margin:0; flex:1;}
+  .del-topic{ background:transparent; border:none; color:var(--sub); font-size:20px; cursor:pointer; padding:4px 8px; min-height:36px; }
+  .del-topic:active{ color:var(--danger); }
+  .columns{display:flex; gap:12px;}
+  .col{flex:1; min-width:0; background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px;}
+  .col h3{font-size:14px; margin:0 0 10px; display:flex; align-items:center; gap:6px;}
+  .col.pros h3{color:var(--pro);}
+  .col.cons h3{color:var(--con);}
+  .item-list{display:flex; flex-direction:column; gap:8px; margin-bottom:10px;}
+  .item{
+    background:var(--card2); border:1px solid var(--line); border-radius:10px; padding:10px 12px;
+    display:flex; align-items:flex-start; gap:8px; font-size:14px; word-break:break-word;
+  }
+  .item span{flex:1;}
+  .item button{
+    background:transparent; border:none; color:var(--sub); font-size:16px; cursor:pointer; padding:0 2px;
+    line-height:1; min-width:28px; min-height:28px;
+  }
+  .item button:active{ color:var(--danger); }
+  .add-row{display:flex; gap:8px;}
+  .add-row input{flex:1;}
+  .add-row button{
+    padding:0 14px; border-radius:10px; border:none; font-weight:800; cursor:pointer; min-height:44px; min-width:44px;
+    font-size:18px;
+  }
+  .col.pros .add-row button{background:var(--pro); color:#0c1e0d;}
+  .col.cons .add-row button{background:var(--con); color:#2a0908;}
+  .col-empty{color:var(--sub); font-size:12px; text-align:center; padding:10px 0;}
+  #newTopicPanel{display:none;}
+  #newTopicPanel.show{display:block;}
+  .toggle-add{display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer;}
+  .toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:#222; color:#fff; padding:11px 18px; border-radius:10px; font-size:13px;
+    opacity:0; transition:opacity .25s, transform .25s; pointer-events:none; z-index:999; max-width:88vw; text-align:center;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+  .toast.error{background:#5a1e1e;}
+  .toast.success{background:#1e4a2a;}
+  @media(max-width:420px){ .columns{gap:8px;} .col{padding:10px;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div id="listView">
+    <h1>⚖️ メリット・デメリット比較</h1>
+
+    <div class="card toggle-add" id="toggleAddBtn">
+      <h2 style="margin:0;">＋ 新しい検討事項を追加</h2>
+    </div>
+    <div class="card" id="newTopicPanel">
+      <h2>新しい検討事項</h2>
+      <div class="field">
+        <label>検討事項の名前</label>
+        <input type="text" id="newTopicName" placeholder="例: 転職するかどうか" maxlength="60">
+      </div>
+      <button class="primary" id="createTopicBtn">作成する</button>
+    </div>
+
+    <div class="topic-list" id="topicList"></div>
+    <div class="empty" id="emptyMsg" style="display:none;">まだ検討事項がありません。<br>上の「＋ 新しい検討事項を追加」から作成しましょう。</div>
+  </div>
+
+  <div id="detailView" style="display:none;">
+    <div class="topbar">
+      <button class="ghost" id="backBtn">← 戻る</button>
+      <h1 id="detailTitle" style="font-size:16px;"></h1>
+      <button class="del-topic" id="delTopicBtn" title="削除">🗑</button>
+    </div>
+
+    <div class="card">
+      <div class="tally" id="tallyText"></div>
+      <div class="tally-bar" style="margin-top:8px;"><div class="p" id="tallyBarP"></div><div class="c" id="tallyBarC"></div></div>
+    </div>
+
+    <div class="columns">
+      <div class="col pros">
+        <h3>👍 メリット</h3>
+        <div class="item-list" id="prosList"></div>
+        <div class="add-row">
+          <input type="text" id="prosInput" placeholder="メリットを入力" maxlength="120">
+          <button id="addProsBtn">＋</button>
+        </div>
+      </div>
+      <div class="col cons">
+        <h3>👎 デメリット</h3>
+        <div class="item-list" id="consList"></div>
+        <div class="add-row">
+          <input type="text" id="consInput" placeholder="デメリットを入力" maxlength="120">
+          <button id="addConsBtn">＋</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  var APP_ID = "pros-cons-list";
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var LS_KEY = APP_ID + "::topics";
+
+  var topics = [];
+  var currentTopicId = null;
+
+  function toast(msg, type){
+    if(hasSDK && window.GUIOS.notify){
+      try{ window.GUIOS.notify(msg, {type: type||'info'}); return; }catch(e){}
+    }
+    var el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'toast show' + (type ? (' '+type) : '');
+    clearTimeout(el._t);
+    el._t = setTimeout(function(){ el.className = 'toast'; }, 2200);
+  }
+
+  function haptic(){
+    if(hasSDK && window.GUIOS.haptic){ try{ window.GUIOS.haptic(); }catch(e){} }
+  }
+
+  function uid(){ return 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+  function loadTopics(){
+    if(hasSDK){
+      return window.GUIOS.storage.get('topics').then(function(v){
+        return Array.isArray(v) ? v : [];
+      }).catch(function(){ return []; });
+    }
+    try{
+      var raw = localStorage.getItem(LS_KEY);
+      var v = raw ? JSON.parse(raw) : [];
+      return Promise.resolve(Array.isArray(v) ? v : []);
+    }catch(e){ return Promise.resolve([]); }
+  }
+  function saveTopics(){
+    if(hasSDK){
+      return window.GUIOS.storage.set('topics', topics).catch(function(){});
+    }
+    try{ localStorage.setItem(LS_KEY, JSON.stringify(topics)); }catch(e){}
+    return Promise.resolve(true);
+  }
+
+  function getTopic(id){
+    for(var i=0;i<topics.length;i++){ if(topics[i].id === id) return topics[i]; }
+    return null;
+  }
+
+  function renderList(){
+    var list = document.getElementById('topicList');
+    var emptyMsg = document.getElementById('emptyMsg');
+    list.innerHTML = '';
+    if(topics.length === 0){
+      emptyMsg.style.display = 'block';
+      return;
+    }
+    emptyMsg.style.display = 'none';
+    topics.forEach(function(t){
+      var pros = t.pros.length, cons = t.cons.length;
+      var total = pros + cons;
+      var card = document.createElement('div');
+      card.className = 'topic-card';
+      card.addEventListener('click', function(){ openTopic(t.id); });
+
+      var top = document.createElement('div');
+      top.className = 'topic-top';
+      var nameEl = document.createElement('div');
+      nameEl.className = 'topic-name';
+      nameEl.textContent = t.name;
+      top.appendChild(nameEl);
+      card.appendChild(top);
+
+      var tally = document.createElement('div');
+      tally.className = 'tally';
+      var pSpan = document.createElement('span');
+      pSpan.className = 'pro-count';
+      pSpan.textContent = '👍 ' + pros;
+      var cSpan = document.createElement('span');
+      cSpan.className = 'con-count';
+      cSpan.textContent = '👎 ' + cons;
+      tally.appendChild(pSpan);
+      tally.appendChild(cSpan);
+      card.appendChild(tally);
+
+      var bar = document.createElement('div');
+      bar.className = 'tally-bar';
+      var pDiv = document.createElement('div');
+      pDiv.className = 'p';
+      var cDiv = document.createElement('div');
+      cDiv.className = 'c';
+      if(total > 0){
+        pDiv.style.width = (pros/total*100) + '%';
+        cDiv.style.width = (cons/total*100) + '%';
+      }
+      bar.appendChild(pDiv);
+      bar.appendChild(cDiv);
+      card.appendChild(bar);
+
+      list.appendChild(card);
+    });
+  }
+
+  function renderDetail(){
+    var t = getTopic(currentTopicId);
+    if(!t) return;
+    document.getElementById('detailTitle').textContent = t.name;
+
+    var pros = t.pros.length, cons = t.cons.length;
+    var tallyText = document.getElementById('tallyText');
+    tallyText.innerHTML = '';
+    var pSpan = document.createElement('span');
+    pSpan.className = 'pro-count';
+    pSpan.textContent = '👍 メリット ' + pros;
+    var cSpan = document.createElement('span');
+    cSpan.className = 'con-count';
+    cSpan.textContent = '👎 デメリット ' + cons;
+    tallyText.appendChild(pSpan);
+    tallyText.appendChild(cSpan);
+    var verdict = document.createElement('span');
+    verdict.style.color = 'var(--sub)';
+    verdict.style.marginLeft = 'auto';
+    if(pros > cons) verdict.textContent = 'メリットが優勢';
+    else if(cons > pros) verdict.textContent = 'デメリットが優勢';
+    else if(pros > 0 || cons > 0) verdict.textContent = '拮抗';
+    tallyText.appendChild(verdict);
+
+    var total = pros + cons;
+    document.getElementById('tallyBarP').style.width = total ? (pros/total*100)+'%' : '0%';
+    document.getElementById('tallyBarC').style.width = total ? (cons/total*100)+'%' : '0%';
+
+    renderItems('prosList', t.pros, 'pros');
+    renderItems('consList', t.cons, 'cons');
+  }
+
+  function renderItems(containerId, items, kind){
+    var container = document.getElementById(containerId);
+    container.innerHTML = '';
+    if(items.length === 0){
+      var e = document.createElement('div');
+      e.className = 'col-empty';
+      e.textContent = '項目なし';
+      container.appendChild(e);
+      return;
+    }
+    items.forEach(function(item, idx){
+      var row = document.createElement('div');
+      row.className = 'item';
+      var span = document.createElement('span');
+      span.textContent = item;
+      var delBtn = document.createElement('button');
+      delBtn.textContent = '✕';
+      delBtn.addEventListener('click', function(){ removeItem(kind, idx); });
+      row.appendChild(span);
+      row.appendChild(delBtn);
+      container.appendChild(row);
+    });
+  }
+
+  function removeItem(kind, idx){
+    var t = getTopic(currentTopicId);
+    if(!t) return;
+    t[kind].splice(idx, 1);
+    saveTopics().then(renderDetail);
+  }
+
+  function addItem(kind){
+    var t = getTopic(currentTopicId);
+    if(!t) return;
+    var inputId = kind === 'pros' ? 'prosInput' : 'consInput';
+    var input = document.getElementById(inputId);
+    var val = input.value.trim();
+    if(!val){
+      toast('内容を入力してください', 'error');
+      input.focus();
+      return;
+    }
+    t[kind].push(val);
+    input.value = '';
+    haptic();
+    saveTopics().then(renderDetail);
+  }
+
+  function openTopic(id){
+    currentTopicId = id;
+    document.getElementById('listView').style.display = 'none';
+    document.getElementById('detailView').style.display = 'block';
+    renderDetail();
+  }
+
+  function backToList(){
+    currentTopicId = null;
+    document.getElementById('detailView').style.display = 'none';
+    document.getElementById('listView').style.display = 'block';
+    renderList();
+  }
+
+  function createTopic(){
+    var input = document.getElementById('newTopicName');
+    var name = input.value.trim();
+    if(!name){
+      toast('検討事項の名前を入力してください', 'error');
+      input.focus();
+      return;
+    }
+    var t = { id: uid(), name: name, pros: [], cons: [] };
+    topics.unshift(t);
+    input.value = '';
+    document.getElementById('newTopicPanel').classList.remove('show');
+    saveTopics().then(function(){
+      renderList();
+      toast('作成しました', 'success');
+    });
+  }
+
+  function deleteCurrentTopic(){
+    var t = getTopic(currentTopicId);
+    if(!t) return;
+    topics = topics.filter(function(x){ return x.id !== currentTopicId; });
+    saveTopics().then(function(){
+      backToList();
+      toast('削除しました', 'info');
+    });
+  }
+
+  function init(){
+    document.getElementById('toggleAddBtn').addEventListener('click', function(){
+      document.getElementById('newTopicPanel').classList.toggle('show');
+    });
+    document.getElementById('createTopicBtn').addEventListener('click', createTopic);
+    document.getElementById('newTopicName').addEventListener('keydown', function(e){
+      if(e.key === 'Enter') createTopic();
+    });
+    document.getElementById('backBtn').addEventListener('click', backToList);
+    document.getElementById('delTopicBtn').addEventListener('click', deleteCurrentTopic);
+    document.getElementById('addProsBtn').addEventListener('click', function(){ addItem('pros'); });
+    document.getElementById('addConsBtn').addEventListener('click', function(){ addItem('cons'); });
+    document.getElementById('prosInput').addEventListener('keydown', function(e){
+      if(e.key === 'Enter') addItem('pros');
+    });
+    document.getElementById('consInput').addEventListener('keydown', function(e){
+      if(e.key === 'Enter') addItem('cons');
+    });
+
+    loadTopics().then(function(v){
+      topics = v;
+      renderList();
+    });
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>

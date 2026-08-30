@@ -1,0 +1,360 @@
+<!--GUIOS-APP {"id":"markdown-editor","name":"Markdownエディタ","icon":"📄","color":"#455a64","version":"1.0.0","author":"Claude","description":"Markdownを書きながらリアルタイムでプレビューできるエディタアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Markdownエディタ</title>
+<style>
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ overflow-x:hidden; }
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:#101418; color:#e6ecf0; min-height:100vh; padding:16px; padding-bottom:32px;
+    display:flex; flex-direction:column;
+  }
+  h1{ font-size:18px; margin:0 0 14px; color:#8fb4c9; }
+  .toolbar{ display:flex; gap:10px; margin-bottom:12px; }
+  .btn{
+    flex:1; padding:12px; border-radius:10px; border:none; background:#263038;
+    color:#dbe6ec; font-weight:700; font-size:14px; cursor:pointer; min-height:44px;
+  }
+  .btn.primary{ background:#455a64; color:#f3f8fb; }
+  .tabs{ display:flex; gap:8px; margin-bottom:12px; }
+  .tab-btn{
+    flex:1; padding:12px; border-radius:10px; border:none; background:#1a2126; color:#a9bac4;
+    font-weight:700; font-size:14px; cursor:pointer; min-height:44px;
+  }
+  .tab-btn.active{ background:#455a64; color:#fff; }
+  .editor-layout{ display:flex; flex-direction:column; gap:14px; flex:1; }
+  .pane{ display:none; flex-direction:column; min-width:0; }
+  .pane.active{ display:flex; }
+  .pane-label{ font-size:12px; color:#8fa3ae; margin-bottom:6px; }
+  #source{
+    width:100%; flex:1; min-height:40vh; padding:14px; border-radius:14px; border:1px solid #263038;
+    background:#0b0f12; color:#e6ecf0; font-size:14px; line-height:1.6; resize:vertical;
+    font-family:ui-monospace,Menlo,Consolas,monospace;
+  }
+  .preview{
+    width:100%; flex:1; min-height:40vh; padding:16px; border-radius:14px; border:1px solid #263038;
+    background:#0b0f12; color:#e6ecf0; overflow:auto; overflow-wrap:anywhere;
+  }
+  .preview h1,.preview h2,.preview h3,.preview h4,.preview h5,.preview h6{
+    color:#9fc4d9; margin:0.6em 0 0.35em; line-height:1.3;
+  }
+  .preview h1{ font-size:1.6em; border-bottom:1px solid #263038; padding-bottom:0.2em; }
+  .preview h2{ font-size:1.35em; }
+  .preview h3{ font-size:1.15em; }
+  .preview p{ margin:0.6em 0; line-height:1.7; }
+  .preview ul,.preview ol{ margin:0.5em 0; padding-left:1.4em; line-height:1.7; }
+  .preview blockquote{
+    margin:0.6em 0; padding:6px 14px; border-left:3px solid #455a64; color:#b7c6cd; background:#151b20;
+    border-radius:4px;
+  }
+  .preview code{
+    background:#1c252b; color:#ffcf87; padding:1px 6px; border-radius:4px;
+    font-family:ui-monospace,Menlo,Consolas,monospace; font-size:0.9em;
+  }
+  .preview pre.md-code{
+    background:#0e1519; border:1px solid #263038; border-radius:10px; padding:12px; overflow-x:auto; margin:0.6em 0;
+  }
+  .preview pre.md-code code{ background:none; padding:0; color:#cfe8f5; }
+  .preview hr{ border:none; border-top:1px solid #263038; margin:1em 0; }
+  .preview a.md-link{ color:#7fcbf5; text-decoration:underline; }
+  .preview .empty-msg{ color:#5f7681; font-size:13px; }
+  @media (min-width: 760px){
+    .editor-layout{ flex-direction:row; }
+    .pane{ display:flex !important; flex:1; }
+    .tabs{ display:none; }
+  }
+  .toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:#1c252b; color:#e6ecf0; padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; transition:opacity .25s, transform .25s; pointer-events:none;
+    max-width:90%; text-align:center; box-shadow:0 6px 18px rgba(0,0,0,.35); z-index:100;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+  <h1>📄 Markdownエディタ</h1>
+
+  <div class="toolbar">
+    <button class="btn" id="copyHtmlBtn">📋 コピー(HTML)</button>
+    <button class="btn primary" id="clearBtn">🗑️ クリア</button>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" id="tabSource">✏️ 編集</button>
+    <button class="tab-btn" id="tabPreview">👁️ プレビュー</button>
+  </div>
+
+  <div class="editor-layout">
+    <div class="pane active" id="paneSource">
+      <div class="pane-label">Markdown ソース</div>
+      <textarea id="source" placeholder="# 見出し&#10;&#10;ここに Markdown を入力してください。&#10;&#10;- リスト項目1&#10;- リスト項目2&#10;&#10;**太字** と *斜体* 、`インラインコード` が使えます。"></textarea>
+    </div>
+    <div class="pane" id="panePreview">
+      <div class="pane-label">プレビュー</div>
+      <div class="preview" id="preview"><span class="empty-msg">ここにプレビューが表示されます</span></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  var APP_ID = 'markdown-editor';
+  var STORAGE_KEY = 'doc';
+  var FALLBACK_KEY = 'guios_' + APP_ID + '_' + STORAGE_KEY;
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+
+  var source = document.getElementById('source');
+  var preview = document.getElementById('preview');
+  var toastEl = document.getElementById('toast');
+  var toastTimer = null;
+  var saveTimer = null;
+
+  function showToastFallback(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ toastEl.classList.remove('show'); }, 1800);
+  }
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify) {
+      try { window.GUIOS.notify(msg, { type: type || 'info' }); return; } catch(e){}
+    }
+    showToastFallback(msg);
+  }
+  function copyText(text){
+    if (window.GUIOS && window.GUIOS.clipboard && window.GUIOS.clipboard.writeText) {
+      try { window.GUIOS.clipboard.writeText(text); return; } catch(e){}
+    }
+    try { navigator.clipboard.writeText(text); } catch(e){}
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
+  function isSafeUrl(url){
+    var t = url.replace(/[\s\u0000-\u001f]/g, '').toLowerCase();
+    if (t.indexOf('javascript:') === 0 || t.indexOf('vbscript:') === 0 || t.indexOf('data:text/html') === 0) return false;
+    return true;
+  }
+
+  // Inline-level transforms. Input `text` is assumed to already be HTML-escaped.
+  function inlineMd(text){
+    var codeStore = [];
+    text = text.replace(/`([^`]+)`/g, function(m, p1){
+      codeStore.push(p1);
+      return '\u0000CODE' + (codeStore.length - 1) + '\u0000';
+    });
+
+    text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    text = text.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+    text = text.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+    text = text.replace(/_([^_]+)_/g, '<em>$1</em>');
+
+    text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, function(m, t, u){
+      var href = isSafeUrl(u) ? u : '#';
+      return '<a href="' + href + '" class="md-link">' + t + '</a>';
+    });
+
+    text = text.replace(/\u0000CODE(\d+)\u0000/g, function(m, idx){
+      return '<code>' + codeStore[Number(idx)] + '</code>';
+    });
+
+    return text;
+  }
+
+  // Block-level parser. `lines` is assumed to already be HTML-escaped.
+  function renderBlocks(lines){
+    var html = '';
+    var i = 0;
+    var n = lines.length;
+
+    while (i < n) {
+      var line = lines[i];
+
+      // fenced code block
+      if (/^```/.test(line)) {
+        var codeLines = [];
+        i++;
+        while (i < n && !/^```\s*$/.test(lines[i])) {
+          codeLines.push(lines[i]);
+          i++;
+        }
+        if (i < n) i++; // skip closing fence
+        html += '<pre class="md-code"><code>' + codeLines.join('\n') + '</code></pre>\n';
+        continue;
+      }
+
+      // horizontal rule
+      if (/^\s*([-*_])\s*(\1\s*){2,}$/.test(line)) {
+        html += '<hr>\n';
+        i++;
+        continue;
+      }
+
+      // header
+      var headerMatch = line.match(/^(#{1,6})\s+(.*)$/);
+      if (headerMatch) {
+        var level = headerMatch[1].length;
+        html += '<h' + level + '>' + inlineMd(headerMatch[2]) + '</h' + level + '>\n';
+        i++;
+        continue;
+      }
+
+      // blockquote
+      if (/^\s*&gt;\s?/.test(line)) {
+        var quoteLines = [];
+        while (i < n && /^\s*&gt;\s?/.test(lines[i])) {
+          quoteLines.push(lines[i].replace(/^\s*&gt;\s?/, ''));
+          i++;
+        }
+        html += '<blockquote>' + renderBlocks(quoteLines) + '</blockquote>\n';
+        continue;
+      }
+
+      // unordered list
+      if (/^\s*[-*+]\s+/.test(line)) {
+        var uitems = [];
+        while (i < n && /^\s*[-*+]\s+/.test(lines[i])) {
+          uitems.push(lines[i].replace(/^\s*[-*+]\s+/, ''));
+          i++;
+        }
+        html += '<ul>' + uitems.map(function(it){ return '<li>' + inlineMd(it) + '</li>'; }).join('') + '</ul>\n';
+        continue;
+      }
+
+      // ordered list
+      if (/^\s*\d+\.\s+/.test(line)) {
+        var oitems = [];
+        while (i < n && /^\s*\d+\.\s+/.test(lines[i])) {
+          oitems.push(lines[i].replace(/^\s*\d+\.\s+/, ''));
+          i++;
+        }
+        html += '<ol>' + oitems.map(function(it){ return '<li>' + inlineMd(it) + '</li>'; }).join('') + '</ol>\n';
+        continue;
+      }
+
+      // blank line
+      if (/^\s*$/.test(line)) {
+        i++;
+        continue;
+      }
+
+      // paragraph
+      var stopRe = /^(```|#{1,6}\s+|\s*&gt;\s?|\s*[-*+]\s+|\s*\d+\.\s+)/;
+      var hrRe = /^\s*([-*_])\s*(\1\s*){2,}$/;
+      var paraLines = [];
+      while (i < n && !/^\s*$/.test(lines[i]) && !stopRe.test(lines[i]) && !hrRe.test(lines[i])) {
+        paraLines.push(lines[i]);
+        i++;
+      }
+      html += '<p>' + inlineMd(paraLines.join('<br>')) + '</p>\n';
+    }
+
+    return html;
+  }
+
+  function renderMarkdown(raw){
+    if (!raw) return '';
+    var escaped = escapeHtml(raw);
+    var lines = escaped.split('\n');
+    return renderBlocks(lines);
+  }
+
+  function updatePreview(){
+    var raw = source.value;
+    if (!raw.trim()) {
+      preview.innerHTML = '<span class="empty-msg">ここにプレビューが表示されます</span>';
+      return;
+    }
+    preview.innerHTML = renderMarkdown(raw);
+  }
+
+  async function loadDoc(){
+    var text = '';
+    if (hasSDK) {
+      try {
+        var v = await GUIOS.storage.get(STORAGE_KEY);
+        if (typeof v === 'string') text = v;
+      } catch(e){}
+    } else {
+      try {
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        if (raw !== null) text = JSON.parse(raw);
+      } catch(e){}
+    }
+    if (text) {
+      source.value = text;
+    }
+    updatePreview();
+  }
+
+  async function saveDoc(){
+    var text = source.value;
+    if (hasSDK) {
+      try { await GUIOS.storage.set(STORAGE_KEY, text); } catch(e){}
+    } else {
+      try { localStorage.setItem(FALLBACK_KEY, JSON.stringify(text)); } catch(e){}
+    }
+  }
+
+  function scheduleSave(){
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveDoc, 600);
+  }
+
+  source.addEventListener('input', function(){
+    updatePreview();
+    scheduleSave();
+  });
+
+  document.getElementById('copyHtmlBtn').addEventListener('click', function(){
+    var html = renderMarkdown(source.value);
+    if (!html) {
+      notify('コピーする内容がありません', 'error');
+      return;
+    }
+    copyText(html);
+    notify('HTMLをコピーしました', 'success');
+  });
+
+  document.getElementById('clearBtn').addEventListener('click', function(){
+    if (!source.value) return;
+    if (!confirm('内容をすべて消去しますか？')) return;
+    source.value = '';
+    updatePreview();
+    saveDoc();
+    notify('クリアしました', 'info');
+  });
+
+  // Tabs for narrow screens
+  var tabSource = document.getElementById('tabSource');
+  var tabPreview = document.getElementById('tabPreview');
+  var paneSource = document.getElementById('paneSource');
+  var panePreview = document.getElementById('panePreview');
+
+  tabSource.addEventListener('click', function(){
+    tabSource.classList.add('active');
+    tabPreview.classList.remove('active');
+    paneSource.classList.add('active');
+    panePreview.classList.remove('active');
+  });
+  tabPreview.addEventListener('click', function(){
+    tabPreview.classList.add('active');
+    tabSource.classList.remove('active');
+    panePreview.classList.add('active');
+    paneSource.classList.remove('active');
+    updatePreview();
+  });
+
+  loadDoc();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,248 @@
+<!--GUIOS-APP {"id":"coloring-book","name":"ぬりえ","icon":"🖍","color":"#ec407a","version":"1.0.0","author":"Claude","description":"線画を選んで色を塗って楽しめるデジタルぬりえアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ぬりえ</title>
+<style>
+  :root{
+    --accent:#ec407a;
+    --bg:#1a1216;
+    --card:#251a1f;
+    --card2:#1e1418;
+    --text:#f9e9ee;
+    --sub:#c79aab;
+    --line:rgba(255,255,255,0.08);
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text); min-height:100vh; padding:14px; padding-bottom:40px;
+  }
+  .wrap{ max-width:560px; margin:0 auto; display:flex; flex-direction:column; gap:12px; }
+  h1{ font-size:19px; margin:2px 0 0; display:flex; align-items:center; gap:8px; }
+
+  .tabs{ display:flex; gap:6px; overflow-x:auto; padding-bottom:2px; }
+  .tab-btn{
+    flex-shrink:0; padding:10px 16px; border-radius:12px; border:1px solid var(--line);
+    background:var(--card2); color:var(--sub); font-size:13px; font-weight:600; cursor:pointer;
+    min-height:44px; display:flex; align-items:center; gap:6px;
+  }
+  .tab-btn.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
+
+  .canvas-wrap{
+    background:#ffffff; border-radius:16px; padding:10px; display:flex; align-items:center;
+    justify-content:center; aspect-ratio:1/1; width:100%;
+  }
+  .canvas-wrap svg{ width:100%; height:100%; touch-action:manipulation; }
+  .canvas-wrap svg [data-fillable]{ cursor:pointer; }
+
+  .palette{
+    display:grid; grid-template-columns:repeat(8,1fr); gap:8px;
+    background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px;
+  }
+  .swatch{
+    width:100%; aspect-ratio:1/1; border-radius:50%; border:2px solid rgba(255,255,255,0.15);
+    cursor:pointer; position:relative;
+  }
+  .swatch.selected{ border-color:#fff; box-shadow:0 0 0 2px var(--accent); }
+  .swatch.eraser{ background:repeating-conic-gradient(#ddd 0% 25%, #fff 0% 50%) 0/10px 10px; }
+
+  .custom-row{ display:flex; align-items:center; gap:10px; }
+  .custom-row label{ font-size:12px; color:var(--sub); }
+  input[type="color"]{
+    width:52px; height:44px; border:none; border-radius:10px; background:var(--card2); padding:2px; cursor:pointer;
+  }
+
+  .btn-row{ display:flex; gap:10px; }
+  .btn{
+    flex:1; padding:14px; border-radius:12px; border:1px solid var(--line); font-size:14px; font-weight:700;
+    cursor:pointer; min-height:48px; background:var(--card2); color:var(--text);
+  }
+  .btn:active{ filter:brightness(1.15); }
+  .btn.danger{ color:#ff8a9e; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🖍 ぬりえ</h1>
+
+    <div class="tabs" id="tabs">
+      <button class="tab-btn active" data-t="flower">🌸 花</button>
+      <button class="tab-btn" data-t="house">🏠 いえ</button>
+      <button class="tab-btn" data-t="fish">🐟 さかな</button>
+      <button class="tab-btn" data-t="star">⭐ ほし</button>
+    </div>
+
+    <div class="canvas-wrap" id="canvasWrap"></div>
+
+    <div class="palette" id="palette"></div>
+
+    <div class="custom-row">
+      <label>カスタム色</label>
+      <input type="color" id="customColor" value="#ff5252">
+    </div>
+
+    <div class="btn-row">
+      <button class="btn danger" id="resetBtn">リセット</button>
+    </div>
+  </div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var APP_ID = 'coloring-book';
+  var FALLBACK_KEY = 'guios-fallback-' + APP_ID;
+
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify) {
+      try { window.GUIOS.notify(msg, { type: type || 'info' }); return; } catch(e){}
+    }
+    var t = document.createElement('div');
+    t.textContent = msg;
+    t.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#251a1f;color:#f9e9ee;padding:10px 18px;border-radius:10px;font-size:13px;z-index:200;box-shadow:0 6px 18px rgba(0,0,0,.4);';
+    document.body.appendChild(t);
+    setTimeout(function(){ t.remove(); }, 2500);
+  }
+  function haptic(){
+    if (window.GUIOS && window.GUIOS.haptic) {
+      try { window.GUIOS.haptic(); } catch(e){}
+    }
+  }
+
+  async function loadAllFills(){
+    if (hasSDK) {
+      try {
+        var v = await window.GUIOS.storage.get('fills');
+        return (v && typeof v === 'object') ? v : {};
+      } catch(e){ return {}; }
+    } else {
+      try {
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        return raw ? JSON.parse(raw) : {};
+      } catch(e){ return {}; }
+    }
+  }
+  async function saveAllFills(all){
+    if (hasSDK) {
+      try { await window.GUIOS.storage.set('fills', all); } catch(e){}
+    } else {
+      try { localStorage.setItem(FALLBACK_KEY, JSON.stringify(all)); } catch(e){}
+    }
+  }
+
+  var TEMPLATES = {
+    flower: '<svg viewBox="0 0 200 200">' +
+      '<circle data-fillable id="petal1" cx="100" cy="55" r="32" fill="#ffffff" stroke="#111" stroke-width="3"/>' +
+      '<circle data-fillable id="petal2" cx="145" cy="100" r="32" fill="#ffffff" stroke="#111" stroke-width="3"/>' +
+      '<circle data-fillable id="petal3" cx="100" cy="145" r="32" fill="#ffffff" stroke="#111" stroke-width="3"/>' +
+      '<circle data-fillable id="petal4" cx="55" cy="100" r="32" fill="#ffffff" stroke="#111" stroke-width="3"/>' +
+      '<circle data-fillable id="center" cx="100" cy="100" r="26" fill="#ffffff" stroke="#111" stroke-width="3"/>' +
+      '<rect data-fillable id="stem" x="93" y="150" width="14" height="42" fill="#ffffff" stroke="#111" stroke-width="3"/>' +
+      '<path data-fillable id="leaf" d="M93 175 C60 175 55 195 55 195 C85 200 93 190 93 175 Z" fill="#ffffff" stroke="#111" stroke-width="3"/>' +
+      '</svg>',
+    house: '<svg viewBox="0 0 200 200">' +
+      '<path data-fillable id="roof" d="M20 95 L100 30 L180 95 Z" fill="#ffffff" stroke="#111" stroke-width="3" stroke-linejoin="round"/>' +
+      '<rect data-fillable id="wall" x="35" y="95" width="130" height="85" fill="#ffffff" stroke="#111" stroke-width="3"/>' +
+      '<rect data-fillable id="door" x="90" y="135" width="30" height="45" fill="#ffffff" stroke="#111" stroke-width="3"/>' +
+      '<rect data-fillable id="window1" x="50" y="115" width="24" height="24" fill="#ffffff" stroke="#111" stroke-width="3"/>' +
+      '<rect data-fillable id="window2" x="126" y="115" width="24" height="24" fill="#ffffff" stroke="#111" stroke-width="3"/>' +
+      '<rect data-fillable id="chimney" x="140" y="45" width="16" height="35" fill="#ffffff" stroke="#111" stroke-width="3"/>' +
+      '</svg>',
+    fish: '<svg viewBox="0 0 200 200">' +
+      '<path data-fillable id="body" d="M40 100 C40 60 100 45 140 60 C165 70 175 100 175 100 C175 100 165 130 140 140 C100 155 40 140 40 100 Z" fill="#ffffff" stroke="#111" stroke-width="3" stroke-linejoin="round"/>' +
+      '<path data-fillable id="tail" d="M40 100 L10 75 L15 100 L10 125 Z" fill="#ffffff" stroke="#111" stroke-width="3" stroke-linejoin="round"/>' +
+      '<path data-fillable id="fin" d="M95 130 L115 165 L135 130 Z" fill="#ffffff" stroke="#111" stroke-width="3" stroke-linejoin="round"/>' +
+      '<circle data-fillable id="eye" cx="150" cy="85" r="8" fill="#ffffff" stroke="#111" stroke-width="3"/>' +
+      '</svg>',
+    star: '<svg viewBox="0 0 200 200">' +
+      '<path data-fillable id="star1" d="M100 15 L118 72 L178 72 L130 108 L148 168 L100 130 L52 168 L70 108 L22 72 L82 72 Z" fill="#ffffff" stroke="#111" stroke-width="3" stroke-linejoin="round"/>' +
+      '<circle data-fillable id="dot1" cx="35" cy="30" r="8" fill="#ffffff" stroke="#111" stroke-width="3"/>' +
+      '<circle data-fillable id="dot2" cx="165" cy="30" r="6" fill="#ffffff" stroke="#111" stroke-width="3"/>' +
+      '<circle data-fillable id="dot3" cx="175" cy="160" r="7" fill="#ffffff" stroke="#111" stroke-width="3"/>' +
+      '</svg>'
+  };
+
+  var PALETTE_COLORS = [
+    '#ffffff','#000000','#ff5252','#ff9800','#ffeb3b','#8bc34a','#4caf50','#00bcd4',
+    '#2196f3','#3f51b5','#9c27b0','#e91e63','#795548','#9e9e9e','#ffc0cb','#a1887f'
+  ];
+
+  var currentTemplate = 'flower';
+  var selectedColor = '#ff5252';
+  var allFills = {};
+
+  function renderPalette(){
+    var pal = document.getElementById('palette');
+    pal.innerHTML = PALETTE_COLORS.map(function(c){
+      return '<div class="swatch' + (c === selectedColor ? ' selected' : '') + '" data-color="' + c + '" style="background:' + c + ';' + (c === '#ffffff' ? 'border-color:#999;' : '') + '"></div>';
+    }).join('');
+    pal.querySelectorAll('.swatch').forEach(function(sw){
+      sw.addEventListener('click', function(){
+        selectedColor = sw.dataset.color;
+        renderPalette();
+      });
+    });
+  }
+
+  function renderCanvas(){
+    var wrap = document.getElementById('canvasWrap');
+    wrap.innerHTML = TEMPLATES[currentTemplate];
+    var svg = wrap.querySelector('svg');
+    var fillsForTemplate = allFills[currentTemplate] || {};
+    svg.querySelectorAll('[data-fillable]').forEach(function(el){
+      var id = el.id;
+      if (fillsForTemplate[id]) {
+        el.style.fill = fillsForTemplate[id];
+      }
+      el.addEventListener('click', function(){
+        applyFill(id, selectedColor);
+      });
+    });
+  }
+
+  function applyFill(regionId, color){
+    if (!allFills[currentTemplate]) allFills[currentTemplate] = {};
+    allFills[currentTemplate][regionId] = color;
+    var svg = document.querySelector('#canvasWrap svg');
+    var el = svg.querySelector('#' + CSS.escape(regionId));
+    if (el) el.style.fill = color;
+    saveAllFills(allFills);
+    haptic();
+  }
+
+  function setTemplate(t){
+    currentTemplate = t;
+    document.querySelectorAll('.tab-btn').forEach(function(btn){
+      btn.classList.toggle('active', btn.dataset.t === t);
+    });
+    renderCanvas();
+  }
+
+  document.getElementById('tabs').addEventListener('click', function(e){
+    var btn = e.target.closest('.tab-btn');
+    if (!btn) return;
+    setTemplate(btn.dataset.t);
+  });
+
+  document.getElementById('customColor').addEventListener('input', function(e){
+    selectedColor = e.target.value;
+    renderPalette();
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', function(){
+    if (!confirm('この線画の色をすべてリセットしますか？')) return;
+    allFills[currentTemplate] = {};
+    saveAllFills(allFills);
+    renderCanvas();
+    notify('リセットしました', 'success');
+  });
+
+  (async function init(){
+    allFills = await loadAllFills();
+    renderPalette();
+    renderCanvas();
+  })();
+</script>
+</body>
+</html>

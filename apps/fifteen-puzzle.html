@@ -1,0 +1,379 @@
+<!--GUIOS-APP {"id":"fifteen-puzzle","name":"15パズル","icon":"🧩","color":"#5e35b1","version":"1.0.0","author":"Claude","description":"数字タイルをスライドさせて順番に並べ替える15パズルゲーム。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>15パズル</title>
+<style>
+  :root{
+    --accent:#5e35b1;
+    --bg:#140f1f;
+    --card:#1f1830;
+    --tile:#3f2f7a;
+    --text:#f2eefc;
+    --sub:#b7a9dd;
+    --clear:#3a9d6f;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    min-height:100vh;
+    padding:16px;
+    padding-bottom:40px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  h1{
+    font-size:20px;
+    margin:4px 0 12px;
+  }
+  .info-row{
+    display:flex;
+    gap:10px;
+    margin-bottom:10px;
+    flex-wrap:wrap;
+    justify-content:center;
+  }
+  .info-chip{
+    background:var(--card);
+    border-radius:10px;
+    padding:8px 14px;
+    font-size:13px;
+    color:var(--sub);
+    border:1px solid rgba(255,255,255,0.06);
+  }
+  .info-chip b{
+    color:var(--text);
+    font-size:15px;
+  }
+  .best-row{
+    font-size:12px;
+    color:var(--sub);
+    margin-bottom:10px;
+    text-align:center;
+  }
+  .clear-banner{
+    display:none;
+    background:var(--card);
+    border:1px solid var(--clear);
+    border-radius:14px;
+    padding:16px 22px;
+    text-align:center;
+    margin-bottom:14px;
+    max-width:340px;
+  }
+  .clear-banner.show{ display:block; }
+  .clear-banner .title{
+    font-size:20px;
+    font-weight:800;
+    color:var(--clear);
+    margin-bottom:6px;
+  }
+  .clear-banner .detail{
+    font-size:13px;
+    color:var(--sub);
+  }
+  .board{
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    grid-template-rows:repeat(4, 1fr);
+    gap:2vmin;
+    width:min(88vmin, 420px);
+    height:min(88vmin, 420px);
+    margin-bottom:18px;
+    background:var(--bg);
+  }
+  .tile{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:var(--tile);
+    color:#fff;
+    font-size:min(8vmin, 34px);
+    font-weight:800;
+    border-radius:10px;
+    cursor:pointer;
+    user-select:none;
+    -webkit-tap-highlight-color:transparent;
+    box-shadow:0 2px 0 rgba(0,0,0,0.25);
+    transition:transform 0.05s;
+  }
+  .tile.empty{
+    background:transparent;
+    box-shadow:none;
+    cursor:default;
+  }
+  .tile.movable:active{
+    transform:scale(0.95);
+  }
+  .btn-row{
+    display:flex;
+    gap:12px;
+  }
+  .btn{
+    padding:12px 26px;
+    border-radius:12px;
+    border:none;
+    background:var(--accent);
+    color:#fff;
+    font-weight:800;
+    font-size:15px;
+    cursor:pointer;
+  }
+  .btn.secondary{
+    background:var(--card);
+    color:var(--sub);
+    border:1px solid rgba(255,255,255,0.1);
+    font-size:12px;
+    padding:10px 18px;
+  }
+</style>
+</head>
+<body>
+  <h1>🧩 15パズル</h1>
+
+  <div class="info-row">
+    <div class="info-chip">手数: <b id="movesVal">0</b></div>
+    <div class="info-chip">時間: <b id="timeVal">0.0s</b></div>
+  </div>
+  <div class="best-row" id="bestRow">ベスト記録なし</div>
+
+  <div class="clear-banner" id="clearBanner">
+    <div class="title">クリア！ 🎉</div>
+    <div class="detail" id="clearDetail"></div>
+  </div>
+
+  <div class="board" id="board"></div>
+
+  <div class="btn-row">
+    <button class="btn" id="newBtn" type="button">新しいゲーム</button>
+    <button class="btn secondary" id="resetBestBtn" type="button">ベストをリセット</button>
+  </div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var STORE_KEY = "best15";
+  var LS_KEY = "fifteen-puzzle:" + STORE_KEY;
+  var SIZE = 4;
+  var EMPTY = 0;
+
+  var boardEl = document.getElementById("board");
+  var movesVal = document.getElementById("movesVal");
+  var timeVal = document.getElementById("timeVal");
+  var bestRow = document.getElementById("bestRow");
+  var clearBanner = document.getElementById("clearBanner");
+  var clearDetail = document.getElementById("clearDetail");
+  var newBtn = document.getElementById("newBtn");
+  var resetBestBtn = document.getElementById("resetBestBtn");
+
+  var tiles = []; // flat array length 16, value 1-15 or 0 for empty
+  var moves = 0;
+  var startTime = null;
+  var timerId = null;
+  var solved = false;
+  var best = null; // { moves, time }
+
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify){
+      window.GUIOS.notify(msg, { type: type || "info" });
+    }
+  }
+  function haptic(){
+    if (window.GUIOS && window.GUIOS.haptic){
+      try { window.GUIOS.haptic(); } catch(e){}
+    }
+  }
+
+  async function loadBest(){
+    try {
+      if (hasSDK){
+        var v = await window.GUIOS.storage.get(STORE_KEY);
+        if (v && typeof v === "object") best = v;
+      } else {
+        var raw = localStorage.getItem(LS_KEY);
+        if (raw) best = JSON.parse(raw);
+      }
+    } catch(e){}
+    renderBest();
+  }
+  async function saveBest(){
+    try {
+      if (hasSDK){
+        await window.GUIOS.storage.set(STORE_KEY, best);
+      } else {
+        localStorage.setItem(LS_KEY, JSON.stringify(best));
+      }
+    } catch(e){}
+  }
+  function renderBest(){
+    if (best){
+      bestRow.textContent = "ベスト: " + best.moves + "手 / " + best.time.toFixed(1) + "秒";
+    } else {
+      bestRow.textContent = "ベスト記録なし";
+    }
+  }
+
+  function stopTimer(){
+    if (timerId !== null){
+      clearInterval(timerId);
+      timerId = null;
+    }
+  }
+  function startTimer(){
+    stopTimer();
+    startTime = Date.now();
+    timerId = setInterval(function(){
+      var elapsed = (Date.now() - startTime) / 1000;
+      timeVal.textContent = elapsed.toFixed(1) + "s";
+    }, 100);
+  }
+
+  function solvedState(){
+    var arr = [];
+    for (var i = 1; i <= 15; i++) arr.push(i);
+    arr.push(EMPTY);
+    return arr;
+  }
+
+  function isSolved(arr){
+    for (var i = 0; i < 15; i++){
+      if (arr[i] !== i + 1) return false;
+    }
+    return arr[15] === EMPTY;
+  }
+
+  // Neighbor indices (up/down/left/right) for a given flat index in a SIZE x SIZE grid.
+  function neighborsOf(idx){
+    var r = Math.floor(idx / SIZE), c = idx % SIZE;
+    var result = [];
+    if (r > 0) result.push(idx - SIZE);
+    if (r < SIZE - 1) result.push(idx + SIZE);
+    if (c > 0) result.push(idx - 1);
+    if (c < SIZE - 1) result.push(idx + 1);
+    return result;
+  }
+
+  // Guarantee solvability by shuffling via a long random walk of valid slide-moves
+  // starting from the solved state (never a raw random permutation).
+  function shuffledSolvableBoard(){
+    var arr = solvedState();
+    var emptyIdx = arr.indexOf(EMPTY);
+    var lastIdx = -1;
+    var STEPS = 400;
+    for (var step = 0; step < STEPS; step++){
+      var opts = neighborsOf(emptyIdx).filter(function(n){ return n !== lastIdx; });
+      if (opts.length === 0) opts = neighborsOf(emptyIdx);
+      var pick = opts[Math.floor(Math.random() * opts.length)];
+      arr[emptyIdx] = arr[pick];
+      arr[pick] = EMPTY;
+      lastIdx = emptyIdx;
+      emptyIdx = pick;
+    }
+    // Extremely unlikely, but guard against landing back on the solved state.
+    if (isSolved(arr)){
+      var e2 = arr.indexOf(EMPTY);
+      var n2 = neighborsOf(e2)[0];
+      arr[e2] = arr[n2];
+      arr[n2] = EMPTY;
+    }
+    return arr;
+  }
+
+  function render(){
+    boardEl.innerHTML = "";
+    for (var i = 0; i < tiles.length; i++){
+      var v = tiles[i];
+      var el = document.createElement("div");
+      el.setAttribute("data-idx", i);
+      if (v === EMPTY){
+        el.className = "tile empty";
+      } else {
+        el.className = "tile movable";
+        el.textContent = v;
+      }
+      boardEl.appendChild(el);
+    }
+  }
+
+  function newGame(){
+    stopTimer();
+    solved = false;
+    moves = 0;
+    startTime = null;
+    movesVal.textContent = "0";
+    timeVal.textContent = "0.0s";
+    clearBanner.classList.remove("show");
+    tiles = shuffledSolvableBoard();
+    render();
+  }
+
+  function tryMove(idx){
+    if (solved) return;
+    var emptyIdx = tiles.indexOf(EMPTY);
+    var neighbors = neighborsOf(emptyIdx);
+    if (neighbors.indexOf(idx) === -1) return; // not adjacent, ignore tap
+
+    if (startTime === null) startTimer();
+
+    tiles[emptyIdx] = tiles[idx];
+    tiles[idx] = EMPTY;
+    moves += 1;
+    movesVal.textContent = moves;
+    render();
+    haptic();
+
+    if (isSolved(tiles)){
+      finishGame();
+    }
+  }
+
+  function finishGame(){
+    solved = true;
+    stopTimer();
+    var elapsed = startTime !== null ? (Date.now() - startTime) / 1000 : 0;
+    timeVal.textContent = elapsed.toFixed(1) + "s";
+
+    var isNewBest = false;
+    if (!best || moves < best.moves || (moves === best.moves && elapsed < best.time)){
+      best = { moves: moves, time: elapsed };
+      saveBest();
+      isNewBest = true;
+    }
+    renderBest();
+
+    clearDetail.textContent = moves + "手 / " + elapsed.toFixed(1) + "秒" + (isNewBest ? "（新記録！）" : "");
+    clearBanner.classList.add("show");
+    notify("クリア！ " + moves + "手 / " + elapsed.toFixed(1) + "秒", "success");
+  }
+
+  boardEl.addEventListener("click", function(e){
+    var t = e.target.closest(".tile");
+    if (!t) return;
+    var idx = parseInt(t.getAttribute("data-idx"), 10);
+    tryMove(idx);
+  });
+
+  newBtn.addEventListener("click", function(){
+    newGame();
+  });
+
+  resetBestBtn.addEventListener("click", function(){
+    best = null;
+    saveBest();
+    renderBest();
+    notify("ベスト記録をリセットしました", "info");
+  });
+
+  window.addEventListener("pagehide", stopTimer);
+  window.addEventListener("beforeunload", stopTimer);
+
+  loadBest();
+  newGame();
+</script>
+</body>
+</html>

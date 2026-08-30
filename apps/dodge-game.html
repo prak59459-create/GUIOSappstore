@@ -1,0 +1,400 @@
+<!--GUIOS-APP {"id":"dodge-game","name":"障害物避けゲーム","icon":"🏃","color":"#d84315","version":"1.0.0","author":"Claude","description":"落ちてくる障害物を左右に避け続けるシンプルなアクションゲーム。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>障害物避けゲーム</title>
+<style>
+  :root{
+    --accent:#ff7043;
+    --bg:#1a0f0a;
+    --card:#251510;
+    --card2:#1e120d;
+    --text:#fbe9e3;
+    --sub:#d0a394;
+    --line:rgba(255,255,255,0.08);
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text); min-height:100vh; padding:14px; padding-bottom:30px;
+    overflow-x:hidden;
+  }
+  .wrap{ max-width:480px; margin:0 auto; display:flex; flex-direction:column; gap:10px; }
+  h1{ font-size:19px; margin:2px 0 0; display:flex; align-items:center; gap:8px; }
+
+  .info-row{ display:flex; gap:10px; }
+  .info-card{
+    flex:1; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:8px 12px;
+    text-align:center;
+  }
+  .info-card .lbl{ font-size:11px; color:var(--sub); }
+  .info-card .val{ font-size:20px; font-weight:700; font-variant-numeric:tabular-nums; }
+
+  .board-wrap{
+    width:100%; aspect-ratio:3/4; background:var(--card2); border-radius:14px; border:1px solid var(--line);
+    padding:6px; position:relative;
+  }
+  canvas{ width:100%; height:100%; display:block; border-radius:8px; touch-action:none; }
+
+  .ctrl-row{ display:flex; gap:10px; }
+  .ctrl-btn{
+    flex:1; padding:16px; border-radius:12px; border:1px solid var(--line); background:var(--card);
+    color:var(--text); font-size:26px; cursor:pointer; min-height:58px;
+  }
+  .ctrl-btn:active{ background:var(--accent); }
+
+  .btn-row{ display:flex; gap:10px; }
+  .btn{
+    flex:1; padding:14px; border-radius:12px; border:1px solid var(--line); font-size:14px; font-weight:700;
+    cursor:pointer; min-height:48px; background:var(--card2); color:var(--text);
+  }
+  .btn.primary{ background:var(--accent); color:#2a0d02; border-color:var(--accent); }
+  .btn:active{ filter:brightness(1.15); }
+
+  .overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.75); display:flex; align-items:center;
+    justify-content:center; z-index:40; padding:20px;
+  }
+  .overlay[hidden]{ display:none; }
+  .modal{
+    background:var(--card); border-radius:18px; padding:26px 22px; text-align:center; max-width:320px; width:100%;
+  }
+  .modal h2{ font-size:22px; margin:0 0 10px; }
+  .modal p{ font-size:14px; color:var(--sub); margin:4px 0; }
+  .modal button{
+    width:100%; margin-top:16px; padding:14px; border-radius:12px; border:none; background:var(--accent);
+    color:#2a0d02; font-size:15px; font-weight:700; cursor:pointer; min-height:48px;
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🏃 障害物避けゲーム</h1>
+
+    <div class="info-row">
+      <div class="info-card"><div class="lbl">スコア</div><div class="val" id="scoreVal">0</div></div>
+      <div class="info-card"><div class="lbl">ハイスコア</div><div class="val" id="highVal">0</div></div>
+    </div>
+
+    <div class="board-wrap">
+      <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <div class="ctrl-row">
+      <button class="ctrl-btn" id="btnLeft">◀</button>
+      <button class="ctrl-btn" id="btnRight">▶</button>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn primary" id="startBtn">スタート</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="overOverlay" hidden>
+    <div class="modal">
+      <h2>ゲームオーバー</h2>
+      <p id="overScore">スコア: 0</p>
+      <p id="overHigh">ハイスコア: 0</p>
+      <button id="retryBtn">もう一度</button>
+    </div>
+  </div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var APP_ID = 'dodge-game';
+  var FALLBACK_KEY = 'guios-fallback-' + APP_ID + '-high';
+
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify) {
+      try { window.GUIOS.notify(msg, { type: type || 'info' }); return; } catch(e){}
+    }
+    var t = document.createElement('div');
+    t.textContent = msg;
+    t.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#251510;color:#fbe9e3;padding:10px 18px;border-radius:10px;font-size:13px;z-index:200;box-shadow:0 6px 18px rgba(0,0,0,.4);';
+    document.body.appendChild(t);
+    setTimeout(function(){ t.remove(); }, 2500);
+  }
+  function haptic(){
+    if (window.GUIOS && window.GUIOS.haptic) {
+      try { window.GUIOS.haptic(); } catch(e){}
+    }
+  }
+
+  async function loadHigh(){
+    if (hasSDK) {
+      try {
+        var v = await window.GUIOS.storage.get('highScore');
+        return (typeof v === 'number' && !isNaN(v)) ? v : 0;
+      } catch(e){ return 0; }
+    } else {
+      try {
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        var n = raw ? parseInt(raw,10) : 0;
+        return isNaN(n) ? 0 : n;
+      } catch(e){ return 0; }
+    }
+  }
+  async function saveHigh(v){
+    if (hasSDK) {
+      try { await window.GUIOS.storage.set('highScore', v); } catch(e){}
+    } else {
+      try { localStorage.setItem(FALLBACK_KEY, String(v)); } catch(e){}
+    }
+  }
+
+  var canvas = document.getElementById('gameCanvas');
+  var ctx = canvas.getContext('2d');
+  var W = 0, H = 0;
+
+  function resizeCanvas(){
+    var wrap = canvas.parentElement;
+    var w = wrap.clientWidth - 12;
+    var h = wrap.clientHeight - 12;
+    var dpr = window.devicePixelRatio || 1;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    W = w; H = h;
+    draw();
+  }
+
+  var player, obstacles, score, highScore, gameRunning, rafId, lastTime;
+  var spawnTimer, spawnInterval, fallSpeed, elapsed;
+  var LANE_COUNT = 5;
+  var playerW, playerH;
+
+  function laneWidth(){ return W / LANE_COUNT; }
+
+  function resetState(){
+    playerW = Math.min(46, laneWidth()*0.7);
+    playerH = playerW * 0.9;
+    player = { lane: Math.floor(LANE_COUNT/2), x: 0, targetX: 0 };
+    player.x = player.lane * laneWidth() + laneWidth()/2;
+    player.targetX = player.x;
+    obstacles = [];
+    score = 0;
+    elapsed = 0;
+    fallSpeed = 130; // px/sec
+    spawnInterval = 1100; // ms
+    spawnTimer = 0;
+    gameRunning = false;
+    updateHud();
+  }
+
+  function updateHud(){
+    document.getElementById('scoreVal').textContent = Math.floor(score);
+    document.getElementById('highVal').textContent = highScore;
+  }
+
+  function spawnObstacle(){
+    var lane = Math.floor(Math.random()*LANE_COUNT);
+    var w = Math.min(46, laneWidth()*0.7);
+    obstacles.push({
+      lane: lane,
+      x: lane*laneWidth() + laneWidth()/2,
+      y: -w,
+      w: w,
+      h: w
+    });
+  }
+
+  function draw(){
+    ctx.fillStyle = '#150a06';
+    ctx.fillRect(0,0,W,H);
+
+    // lane guides
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    for (var i=1;i<LANE_COUNT;i++){
+      var lx = i*laneWidth();
+      ctx.beginPath(); ctx.moveTo(lx,0); ctx.lineTo(lx,H); ctx.stroke();
+    }
+
+    // obstacles
+    ctx.fillStyle = '#ffb74d';
+    obstacles.forEach(function(o){
+      roundRect(o.x - o.w/2, o.y - o.h/2, o.w, o.h, 8);
+      ctx.fill();
+    });
+
+    // player
+    if (player){
+      var py = H - playerH*1.4;
+      ctx.fillStyle = '#ff7043';
+      roundRect(player.x - playerW/2, py - playerH/2, playerW, playerH, 10);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.beginPath();
+      ctx.arc(player.x, py - playerH*0.15, playerW*0.18, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+
+  function roundRect(x,y,w,h,r){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r);
+    ctx.closePath();
+  }
+
+  function moveLeft(){
+    if (!gameRunning) return;
+    if (player.lane > 0) player.lane -= 1;
+    player.targetX = player.lane*laneWidth() + laneWidth()/2;
+  }
+  function moveRight(){
+    if (!gameRunning) return;
+    if (player.lane < LANE_COUNT-1) player.lane += 1;
+    player.targetX = player.lane*laneWidth() + laneWidth()/2;
+  }
+
+  function checkCollision(){
+    var py = H - playerH*1.4;
+    for (var i=0;i<obstacles.length;i++){
+      var o = obstacles[i];
+      var dx = Math.abs(o.x - player.x);
+      var dy = Math.abs(o.y - py);
+      if (dx < (o.w/2 + playerW/2)*0.75 && dy < (o.h/2 + playerH/2)*0.75){
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function update(dt){
+    elapsed += dt;
+    score += dt/1000 * 10; // score over time
+
+    // difficulty ramps up
+    fallSpeed = 130 + elapsed/1000 * 8;
+    spawnInterval = Math.max(380, 1100 - elapsed/1000*30);
+
+    // smooth lane transition
+    player.x += (player.targetX - player.x) * Math.min(1, dt/70);
+
+    spawnTimer += dt;
+    if (spawnTimer >= spawnInterval){
+      spawnTimer = 0;
+      spawnObstacle();
+    }
+
+    obstacles.forEach(function(o){ o.y += fallSpeed * dt/1000; });
+    obstacles = obstacles.filter(function(o){ return o.y - o.h/2 < H + 20; });
+
+    if (checkCollision()){
+      endGame();
+    }
+  }
+
+  function loop(ts){
+    if (!gameRunning) return;
+    if (!lastTime) lastTime = ts;
+    var dt = ts - lastTime;
+    lastTime = ts;
+    if (dt > 100) dt = 100; // clamp large gaps (tab switch etc.)
+    update(dt);
+    draw();
+    updateHud();
+    if (gameRunning) rafId = requestAnimationFrame(loop);
+  }
+
+  function startLoop(){
+    stopLoop();
+    lastTime = 0;
+    rafId = requestAnimationFrame(loop);
+  }
+  function stopLoop(){
+    if (rafId !== null){ cancelAnimationFrame(rafId); rafId = null; }
+  }
+
+  async function endGame(){
+    gameRunning = false;
+    stopLoop();
+    haptic();
+    var finalScore = Math.floor(score);
+    var isNewHigh = finalScore > highScore;
+    if (isNewHigh){
+      highScore = finalScore;
+      await saveHigh(highScore);
+    }
+    updateHud();
+    document.getElementById('overScore').textContent = 'スコア: ' + finalScore;
+    document.getElementById('overHigh').textContent = 'ハイスコア: ' + highScore + (isNewHigh ? ' (新記録!)' : '');
+    document.getElementById('overOverlay').hidden = false;
+  }
+
+  function startGame(){
+    document.getElementById('overOverlay').hidden = true;
+    stopLoop();
+    resetState();
+    gameRunning = true;
+    draw();
+    startLoop();
+  }
+
+  var rafId = null;
+
+  document.getElementById('startBtn').addEventListener('click', startGame);
+  document.getElementById('retryBtn').addEventListener('click', startGame);
+  document.getElementById('btnLeft').addEventListener('click', moveLeft);
+  document.getElementById('btnRight').addEventListener('click', moveRight);
+
+  window.addEventListener('keydown', function(e){
+    if (!gameRunning) return;
+    if (e.key === 'ArrowLeft'){ e.preventDefault(); moveLeft(); }
+    else if (e.key === 'ArrowRight'){ e.preventDefault(); moveRight(); }
+  }, { passive:false });
+
+  // tap left/right half of canvas, and swipe
+  var touchStartX = null;
+  canvas.addEventListener('touchstart', function(e){
+    if (!e.touches || !e.touches.length) return;
+    touchStartX = e.touches[0].clientX;
+  }, { passive:true });
+  canvas.addEventListener('touchend', function(e){
+    if (!gameRunning) { touchStartX = null; return; }
+    var touch = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0] : null;
+    if (!touch){ touchStartX = null; return; }
+    var rect = canvas.getBoundingClientRect();
+    if (touchStartX !== null){
+      var dx = touch.clientX - touchStartX;
+      if (Math.abs(dx) > 24){
+        if (dx > 0) moveRight(); else moveLeft();
+        touchStartX = null;
+        return;
+      }
+    }
+    touchStartX = null;
+    // tap on left/right half
+    var relX = touch.clientX - rect.left;
+    if (relX < rect.width/2) moveLeft(); else moveRight();
+  }, { passive:true });
+
+  // mouse click fallback (desktop testing)
+  canvas.addEventListener('click', function(e){
+    if (!gameRunning) return;
+    var rect = canvas.getBoundingClientRect();
+    var relX = e.clientX - rect.left;
+    if (relX < rect.width/2) moveLeft(); else moveRight();
+  });
+
+  window.addEventListener('resize', resizeCanvas);
+  window.addEventListener('beforeunload', stopLoop);
+  window.addEventListener('pagehide', stopLoop);
+
+  (async function init(){
+    highScore = await loadHigh();
+    resetState();
+    resizeCanvas();
+    updateHud();
+  })();
+</script>
+</body>
+</html>

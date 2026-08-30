@@ -1290,6 +1290,16 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/water-tracker.html"
   },
   {
+    "id": "web-browser",
+    "name": "ウェブブラウザ",
+    "version": "1.0.0",
+    "icon": "🌐",
+    "color": "#2f6fed",
+    "description": "タブ・拡張機能・ブックマークを備えた本格的なタブ型ウェブブラウザアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/web-browser.html"
+  },
+  {
     "id": "weight-tracker",
     "name": "体重記録",
     "version": "1.0.0",

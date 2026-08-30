@@ -370,6 +370,16 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/json-formatter.html"
   },
   {
+    "id": "kanban-board",
+    "name": "カンバンボード",
+    "version": "1.0.0",
+    "icon": "🗂️",
+    "color": "#1565c0",
+    "description": "タスクを未着手・進行中・完了の3列で管理できるカンバンボードアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/kanban-board.html"
+  },
+  {
     "id": "loan-calculator",
     "name": "ローン計算機",
     "version": "1.0.0",
@@ -408,6 +418,16 @@
     "description": "開始・終了時にベルの音が鳴る瞑想用のシンプルなタイマーアプリ。",
     "author": "Claude",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/meditation-timer.html"
+  },
+  {
+    "id": "meeting-notes",
+    "name": "会議メモ",
+    "version": "1.0.0",
+    "icon": "📝",
+    "color": "#3949ab",
+    "description": "議題・決定事項・次のアクションをテンプレート形式で記録できるアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/meeting-notes.html"
   },
   {
     "id": "memory-game",
@@ -548,6 +568,16 @@
     "description": "マスターパスワードで暗号化して複数サイトのログイン情報を保管する金庫アプリ。",
     "author": "Claude",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/password-vault.html"
+  },
+  {
+    "id": "percentage-calculator",
+    "name": "割合計算機",
+    "version": "1.0.0",
+    "icon": "％",
+    "color": "#5d4037",
+    "description": "様々なパターンの割合(パーセント)計算ができる多機能計算機。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/percentage-calculator.html"
   },
   {
     "id": "pomodoro-timer",

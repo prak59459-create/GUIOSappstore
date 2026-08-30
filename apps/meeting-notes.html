@@ -1,0 +1,568 @@
+<!--GUIOS-APP {"id":"meeting-notes","name":"会議メモ","icon":"📝","color":"#3949ab","version":"1.0.0","author":"Claude","description":"議題・決定事項・次のアクションをテンプレート形式で記録できるアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>会議メモ</title>
+<style>
+  :root{
+    --accent:#5c6bc0;
+    --accent-text:#0e1030;
+    --bg:#10121d;
+    --card:#181b2c;
+    --card2:#1e2238;
+    --text:#e8e9f5;
+    --sub:#a7abc9;
+    --line:#2b2f47;
+    --input:#0d0f1a;
+    --danger:#e05353;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    padding:16px; padding-bottom:56px;
+  }
+  h1{font-size:20px; margin:4px 0 4px; display:flex; align-items:center; gap:8px;}
+  .sub-tag{font-size:12px; color:var(--sub); margin:0 0 14px;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:16px; margin-bottom:16px;
+  }
+  .field{margin-bottom:12px;}
+  .field-row{display:flex; gap:10px; flex-wrap:wrap;}
+  .field-row > .field{flex:1; min-width:140px; margin-bottom:12px;}
+  label{display:block; font-size:12px; color:var(--sub); margin-bottom:6px; font-weight:600;}
+  input[type=text], input[type=datetime-local], input[type=date], textarea{
+    width:100%; padding:11px 12px; border-radius:10px; border:1px solid var(--line);
+    background:var(--input); color:var(--text); font-size:15px; outline:none; font-family:inherit;
+  }
+  textarea{resize:vertical; min-height:44px;}
+  input:focus, textarea:focus{border-color:var(--accent);}
+  button{
+    padding:11px 18px; border-radius:10px; border:none; background:var(--accent);
+    color:var(--accent-text); font-weight:700; font-size:14px; cursor:pointer; min-height:44px;
+  }
+  button.secondary{background:transparent; color:var(--sub); border:1px solid var(--line); font-weight:600;}
+  button.danger-outline{background:transparent; color:var(--danger); border:1px solid var(--line); font-weight:600;}
+  button.block{width:100%;}
+  .btn-row{display:flex; gap:10px; flex-wrap:wrap; margin-top:6px;}
+  .btn-row button{flex:1; min-width:110px;}
+  .section-title{
+    font-size:14px; color:var(--sub); margin:18px 0 10px; font-weight:700;
+    display:flex; align-items:center; gap:6px;
+  }
+  .section-title:first-child{margin-top:0;}
+  .line-row{display:flex; gap:8px; margin-bottom:8px; align-items:flex-start;}
+  .line-row input[type=text]{flex:1;}
+  .line-del{
+    flex:none; width:40px; height:44px; border-radius:10px; border:1px solid var(--line);
+    background:var(--input); color:var(--sub); font-size:16px; cursor:pointer; padding:0;
+  }
+  .action-row{
+    background:var(--card2); border:1px solid var(--line); border-radius:12px;
+    padding:10px; margin-bottom:8px;
+  }
+  .action-row-top{display:flex; gap:8px;}
+  .action-row-sub{display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;}
+  .action-row-sub .sub-field{flex:1; min-width:110px;}
+  .action-row-sub label{font-size:11px; margin-bottom:4px;}
+  .add-line-btn{
+    width:100%; background:transparent; border:1px dashed var(--line); color:var(--accent);
+    font-weight:700; font-size:13px; padding:10px; border-radius:10px; cursor:pointer;
+  }
+  .toolbar{display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap;}
+  .toolbar input[type=text]{flex:1; min-width:140px;}
+  .list-card{
+    background:var(--card2); border:1px solid var(--line); border-radius:14px;
+    padding:12px 14px; margin-bottom:10px;
+  }
+  .list-top{display:flex; justify-content:space-between; align-items:flex-start; gap:8px;}
+  .list-title{font-size:15px; font-weight:700;}
+  .list-meta{font-size:12px; color:var(--sub); margin-top:3px;}
+  .list-actions{display:flex; gap:6px; margin-top:10px; flex-wrap:wrap;}
+  .list-actions button{flex:1; min-width:90px; padding:9px 10px; font-size:12px; min-height:38px;}
+  .empty{color:var(--sub); text-align:center; padding:40px 20px; font-size:14px;}
+  .editing-badge{
+    display:inline-block; background:var(--accent); color:var(--accent-text); font-size:11px;
+    font-weight:700; padding:3px 10px; border-radius:999px; margin-bottom:10px;
+  }
+</style>
+</head>
+<body>
+  <h1>📝 会議メモ</h1>
+  <p class="sub-tag">議題・決定事項・次のアクションをテンプレート形式で記録</p>
+
+  <div class="card">
+    <div id="editingBadge" class="editing-badge" style="display:none;">編集中</div>
+
+    <div class="field">
+      <label for="titleInput">会議タイトル</label>
+      <input type="text" id="titleInput" placeholder="例: 週次定例ミーティング">
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="dtInput">日時</label>
+        <input type="datetime-local" id="dtInput">
+      </div>
+      <div class="field">
+        <label for="participantsInput">参加者</label>
+        <input type="text" id="participantsInput" placeholder="例: 田中, 佐藤, 鈴木">
+      </div>
+    </div>
+
+    <div class="section-title">🗂 議題</div>
+    <div id="agendaList"></div>
+    <button type="button" class="add-line-btn" id="agendaAddBtn">+ 議題を追加</button>
+
+    <div class="section-title">✅ 決定事項</div>
+    <div id="decisionsList"></div>
+    <button type="button" class="add-line-btn" id="decisionsAddBtn">+ 決定事項を追加</button>
+
+    <div class="section-title">🚀 次のアクション</div>
+    <div id="actionsList"></div>
+    <button type="button" class="add-line-btn" id="actionsAddBtn">+ アクションを追加</button>
+
+    <div class="btn-row" style="margin-top:16px;">
+      <button type="button" id="saveBtn">保存する</button>
+      <button type="button" class="secondary" id="newBtn">新規作成</button>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <input type="text" id="searchInput" placeholder="🔍 タイトルで検索">
+  </div>
+
+  <div class="section-title">保存済みの会議メモ</div>
+  <div id="listWrap">
+    <div class="empty">まだ保存された会議メモがありません</div>
+  </div>
+
+  <div id="toast" style="position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:var(--card2); color:var(--text); padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; pointer-events:none; transition:all .25s; border:1px solid var(--line);
+    max-width:90%; text-align:center; z-index:999;"></div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var STORAGE_KEY = 'meetings';
+  var FALLBACK_KEY = 'guios-fallback-meeting-notes-meetings';
+
+  var meetings = [];
+  var editingId = null;
+
+  var state = {
+    agenda: [''],
+    decisions: [''],
+    actions: [{text:'', owner:'', due:''}]
+  };
+
+  function showToast(msg){
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.opacity = '1';
+    t.style.transform = 'translateX(-50%) translateY(0)';
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(function(){
+      t.style.opacity = '0';
+      t.style.transform = 'translateX(-50%) translateY(20px)';
+    }, 1800);
+  }
+  function notify(msg, type){
+    if(window.GUIOS && window.GUIOS.notify){
+      GUIOS.notify(msg, {type: type || 'info'});
+    } else {
+      showToast(msg);
+    }
+  }
+  function copyText(text){
+    if(hasSDK && window.GUIOS.clipboard && window.GUIOS.clipboard.writeText){
+      window.GUIOS.clipboard.writeText(text).then(function(){
+        notify('コピーしました', 'success');
+      }).catch(function(){ fallbackCopy(text); });
+    } else {
+      fallbackCopy(text);
+    }
+  }
+  function fallbackCopy(text){
+    try{
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(function(){
+          notify('コピーしました', 'success');
+        }).catch(function(){ legacyCopy(text); });
+        return;
+      }
+    }catch(e){}
+    legacyCopy(text);
+  }
+  function legacyCopy(text){
+    try{
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      notify('コピーしました', 'success');
+    }catch(e){
+      notify('コピーに失敗しました', 'error');
+    }
+  }
+
+  function pad2(n){ return ('0'+n).slice(-2); }
+  function nowLocalDatetimeStr(){
+    var d = new Date();
+    return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())+'T'+pad2(d.getHours())+':'+pad2(d.getMinutes());
+  }
+  function formatDisplayDateTime(dtStr){
+    var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(dtStr || '');
+    if(!m) return dtStr || '';
+    return m[1]+'/'+m[2]+'/'+m[3]+' '+m[4]+':'+m[5];
+  }
+  function nonEmpty(s){ return !!(s && String(s).trim().length > 0); }
+
+  async function loadMeetings(){
+    if(hasSDK){
+      var v = await GUIOS.storage.get(STORAGE_KEY);
+      return Array.isArray(v) ? v : [];
+    } else {
+      try{
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        return raw ? JSON.parse(raw) : [];
+      }catch(e){ return []; }
+    }
+  }
+  async function saveMeetings(list){
+    if(hasSDK){
+      await GUIOS.storage.set(STORAGE_KEY, list);
+    } else {
+      try{ localStorage.setItem(FALLBACK_KEY, JSON.stringify(list)); }catch(e){}
+    }
+  }
+
+  // ---------- dynamic line list rendering (agenda / decisions) ----------
+  function renderSimpleList(containerId, arrName, placeholder){
+    var wrap = document.getElementById(containerId);
+    wrap.innerHTML = '';
+    var arr = state[arrName];
+    arr.forEach(function(val, idx){
+      var row = document.createElement('div');
+      row.className = 'line-row';
+
+      var input = document.createElement('input');
+      input.type = 'text';
+      input.value = val;
+      input.placeholder = placeholder;
+      input.addEventListener('input', function(){
+        state[arrName][idx] = input.value;
+      });
+      row.appendChild(input);
+
+      var del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'line-del';
+      del.textContent = '✕';
+      del.addEventListener('click', function(){
+        if(state[arrName].length <= 1){
+          state[arrName][0] = '';
+        } else {
+          state[arrName].splice(idx, 1);
+        }
+        renderSimpleList(containerId, arrName, placeholder);
+      });
+      row.appendChild(del);
+
+      wrap.appendChild(row);
+    });
+  }
+
+  function renderActionsList(){
+    var wrap = document.getElementById('actionsList');
+    wrap.innerHTML = '';
+    state.actions.forEach(function(item, idx){
+      var row = document.createElement('div');
+      row.className = 'action-row';
+
+      var top = document.createElement('div');
+      top.className = 'action-row-top';
+
+      var input = document.createElement('input');
+      input.type = 'text';
+      input.placeholder = '例: 資料を共有する';
+      input.value = item.text;
+      input.addEventListener('input', function(){
+        state.actions[idx].text = input.value;
+      });
+      top.appendChild(input);
+
+      var del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'line-del';
+      del.textContent = '✕';
+      del.addEventListener('click', function(){
+        if(state.actions.length <= 1){
+          state.actions[0] = {text:'', owner:'', due:''};
+        } else {
+          state.actions.splice(idx, 1);
+        }
+        renderActionsList();
+      });
+      top.appendChild(del);
+      row.appendChild(top);
+
+      var sub = document.createElement('div');
+      sub.className = 'action-row-sub';
+
+      var ownerField = document.createElement('div');
+      ownerField.className = 'sub-field';
+      var ownerLabel = document.createElement('label');
+      ownerLabel.textContent = '担当者';
+      var ownerInput = document.createElement('input');
+      ownerInput.type = 'text';
+      ownerInput.placeholder = '例: 田中';
+      ownerInput.value = item.owner;
+      ownerInput.addEventListener('input', function(){
+        state.actions[idx].owner = ownerInput.value;
+      });
+      ownerField.appendChild(ownerLabel);
+      ownerField.appendChild(ownerInput);
+
+      var dueField = document.createElement('div');
+      dueField.className = 'sub-field';
+      var dueLabel = document.createElement('label');
+      dueLabel.textContent = '期限';
+      var dueInput = document.createElement('input');
+      dueInput.type = 'date';
+      dueInput.value = item.due;
+      dueInput.addEventListener('input', function(){
+        state.actions[idx].due = dueInput.value;
+      });
+      dueField.appendChild(dueLabel);
+      dueField.appendChild(dueInput);
+
+      sub.appendChild(ownerField);
+      sub.appendChild(dueField);
+      row.appendChild(sub);
+
+      wrap.appendChild(row);
+    });
+  }
+
+  function renderAllLists(){
+    renderSimpleList('agendaList', 'agenda', '例: 進捗共有');
+    renderSimpleList('decisionsList', 'decisions', '例: 来週までにデザイン確定');
+    renderActionsList();
+  }
+
+  document.getElementById('agendaAddBtn').addEventListener('click', function(){
+    state.agenda.push('');
+    renderSimpleList('agendaList', 'agenda', '例: 進捗共有');
+  });
+  document.getElementById('decisionsAddBtn').addEventListener('click', function(){
+    state.decisions.push('');
+    renderSimpleList('decisionsList', 'decisions', '例: 来週までにデザイン確定');
+  });
+  document.getElementById('actionsAddBtn').addEventListener('click', function(){
+    state.actions.push({text:'', owner:'', due:''});
+    renderActionsList();
+  });
+
+  // ---------- form <-> meeting object ----------
+  function resetForm(){
+    editingId = null;
+    document.getElementById('editingBadge').style.display = 'none';
+    document.getElementById('titleInput').value = '';
+    document.getElementById('dtInput').value = nowLocalDatetimeStr();
+    document.getElementById('participantsInput').value = '';
+    state = {
+      agenda: [''],
+      decisions: [''],
+      actions: [{text:'', owner:'', due:''}]
+    };
+    renderAllLists();
+  }
+
+  function loadIntoForm(m){
+    editingId = m.id;
+    document.getElementById('editingBadge').style.display = 'inline-block';
+    document.getElementById('titleInput').value = m.title || '';
+    document.getElementById('dtInput').value = m.datetime || nowLocalDatetimeStr();
+    document.getElementById('participantsInput').value = m.participants || '';
+    state = {
+      agenda: (m.agenda && m.agenda.length) ? m.agenda.slice() : [''],
+      decisions: (m.decisions && m.decisions.length) ? m.decisions.slice() : [''],
+      actions: (m.actions && m.actions.length) ? m.actions.map(function(a){
+        return {text:a.text||'', owner:a.owner||'', due:a.due||''};
+      }) : [{text:'', owner:'', due:''}]
+    };
+    renderAllLists();
+    window.scrollTo(0,0);
+  }
+
+  async function saveMeeting(){
+    var title = document.getElementById('titleInput').value.trim();
+    if(!title){
+      notify('会議タイトルを入力してください', 'error');
+      return;
+    }
+    var m = {
+      id: editingId || ('mtg-' + Date.now() + '-' + Math.floor(Math.random()*10000)),
+      title: title,
+      datetime: document.getElementById('dtInput').value || nowLocalDatetimeStr(),
+      participants: document.getElementById('participantsInput').value.trim(),
+      agenda: state.agenda.filter(nonEmpty),
+      decisions: state.decisions.filter(nonEmpty),
+      actions: state.actions.filter(function(a){ return nonEmpty(a.text); }).map(function(a){
+        return {text:a.text.trim(), owner:(a.owner||'').trim(), due:a.due||''};
+      }),
+      updatedAt: Date.now()
+    };
+
+    if(editingId){
+      var idx = meetings.findIndex(function(x){ return x.id === editingId; });
+      if(idx >= 0){ meetings[idx] = m; } else { meetings.push(m); }
+    } else {
+      meetings.push(m);
+    }
+    await saveMeetings(meetings);
+    resetForm();
+    renderList();
+    notify('保存しました', 'success');
+  }
+
+  async function deleteMeeting(id){
+    if(!confirm('この会議メモを削除しますか？')) return;
+    meetings = meetings.filter(function(m){ return m.id !== id; });
+    await saveMeetings(meetings);
+    if(editingId === id) resetForm();
+    renderList();
+  }
+
+  function buildPlainText(m){
+    var lines = [];
+    lines.push('■ ' + (m.title || '(無題の会議)'));
+    lines.push('日時: ' + formatDisplayDateTime(m.datetime));
+    if(nonEmpty(m.participants)) lines.push('参加者: ' + m.participants);
+    lines.push('');
+    lines.push('【議題】');
+    var agenda = (m.agenda || []).filter(nonEmpty);
+    if(agenda.length){
+      agenda.forEach(function(a){ lines.push('・' + a); });
+    } else {
+      lines.push('(なし)');
+    }
+    lines.push('');
+    lines.push('【決定事項】');
+    var decisions = (m.decisions || []).filter(nonEmpty);
+    if(decisions.length){
+      decisions.forEach(function(a){ lines.push('・' + a); });
+    } else {
+      lines.push('(なし)');
+    }
+    lines.push('');
+    lines.push('【次のアクション】');
+    var actions = (m.actions || []).filter(function(a){ return nonEmpty(a.text); });
+    if(actions.length){
+      actions.forEach(function(a){
+        var extra = [];
+        if(nonEmpty(a.owner)) extra.push('担当: ' + a.owner);
+        if(nonEmpty(a.due)) extra.push('期限: ' + a.due);
+        lines.push('・' + a.text + (extra.length ? ' (' + extra.join(' / ') + ')' : ''));
+      });
+    } else {
+      lines.push('(なし)');
+    }
+    return lines.join('\n');
+  }
+
+  function sortedMeetings(){
+    return meetings.slice().sort(function(a,b){
+      return (b.datetime||'').localeCompare(a.datetime||'');
+    });
+  }
+
+  function renderList(){
+    var wrap = document.getElementById('listWrap');
+    var q = document.getElementById('searchInput').value.trim().toLowerCase();
+    var list = sortedMeetings();
+    if(q){
+      list = list.filter(function(m){
+        return (m.title || '').toLowerCase().indexOf(q) !== -1;
+      });
+    }
+    if(list.length === 0){
+      wrap.innerHTML = '<div class="empty">' + (q ? '該当する会議メモがありません' : 'まだ保存された会議メモがありません') + '</div>';
+      return;
+    }
+    wrap.innerHTML = '';
+    list.forEach(function(m){
+      var card = document.createElement('div');
+      card.className = 'list-card';
+
+      var top = document.createElement('div');
+      top.className = 'list-top';
+      var left = document.createElement('div');
+      var titleEl = document.createElement('div');
+      titleEl.className = 'list-title';
+      titleEl.textContent = m.title || '(無題の会議)';
+      var metaEl = document.createElement('div');
+      metaEl.className = 'list-meta';
+      var metaParts = [formatDisplayDateTime(m.datetime)];
+      if(nonEmpty(m.participants)) metaParts.push(m.participants);
+      metaEl.textContent = metaParts.join(' ・ ');
+      left.appendChild(titleEl);
+      left.appendChild(metaEl);
+      top.appendChild(left);
+      card.appendChild(top);
+
+      var actions = document.createElement('div');
+      actions.className = 'list-actions';
+
+      var openBtn = document.createElement('button');
+      openBtn.className = 'secondary';
+      openBtn.textContent = '開く / 編集';
+      openBtn.addEventListener('click', function(){ loadIntoForm(m); });
+
+      var copyBtn = document.createElement('button');
+      copyBtn.className = 'secondary';
+      copyBtn.textContent = 'コピー(テキスト)';
+      copyBtn.addEventListener('click', function(){ copyText(buildPlainText(m)); });
+
+      var delBtn = document.createElement('button');
+      delBtn.className = 'danger-outline';
+      delBtn.textContent = '削除';
+      delBtn.addEventListener('click', function(){ deleteMeeting(m.id); });
+
+      actions.appendChild(openBtn);
+      actions.appendChild(copyBtn);
+      actions.appendChild(delBtn);
+      card.appendChild(actions);
+
+      wrap.appendChild(card);
+    });
+  }
+
+  document.getElementById('saveBtn').addEventListener('click', saveMeeting);
+  document.getElementById('newBtn').addEventListener('click', function(){
+    resetForm();
+    notify('新規作成しました', 'info');
+  });
+  document.getElementById('searchInput').addEventListener('input', renderList);
+
+  async function init(){
+    document.getElementById('dtInput').value = nowLocalDatetimeStr();
+    renderAllLists();
+    meetings = await loadMeetings();
+    renderList();
+  }
+  init();
+</script>
+</body>
+</html>

@@ -190,47 +190,45 @@
       ' A' + r + ',' + r + ' 0 ' + largeArc + ' 1 ' + p2.x.toFixed(2) + ',' + p2.y.toFixed(2) + ' Z';
   }
 
-  var SVGNS = 'http://www.w3.org/2000/svg';
+  function escapeXml(s){
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+  }
 
+  // Built as an HTML string and assigned via innerHTML on the existing
+  // inline <svg> element: the parser's foreign-content handling creates the
+  // <path>/<text> children in the correct SVG namespace automatically, with
+  // no need for createElementNS (and no XML namespace URI string in source).
   function drawWheel(){
     var svg = document.getElementById('wheelSvg');
-    while(svg.firstChild) svg.removeChild(svg.firstChild);
     var n = options.length;
     if(n === 0){
-      var bg = document.createElementNS(SVGNS, 'circle');
-      bg.setAttribute('cx', '150'); bg.setAttribute('cy', '150'); bg.setAttribute('r', '145');
-      bg.setAttribute('fill', '#241717'); bg.setAttribute('stroke', 'rgba(255,255,255,0.1)');
-      svg.appendChild(bg);
+      svg.innerHTML = '<circle cx="150" cy="150" r="145" fill="#241717" stroke="rgba(255,255,255,0.1)"></circle>';
       return;
     }
     var wedgeAngle = 360 / n;
     var fontSize = Math.max(9, Math.min(15, 220 / n));
+    var markup = '';
     for(var i = 0; i < n; i++){
       var theta1 = i * wedgeAngle;
       var theta2 = (i + 1) * wedgeAngle;
-      var path = document.createElementNS(SVGNS, 'path');
-      path.setAttribute('d', wedgePath(theta1, theta2, 145));
-      path.setAttribute('fill', PALETTE[i % PALETTE.length]);
-      path.setAttribute('stroke', '#160f0f');
-      path.setAttribute('stroke-width', '2');
-      svg.appendChild(path);
+      markup += '<path d="' + wedgePath(theta1, theta2, 145) + '" fill="' + PALETTE[i % PALETTE.length] +
+        '" stroke="#160f0f" stroke-width="2"></path>';
 
       var mid = theta1 + wedgeAngle / 2;
       var lp = polarToXY(mid, 95);
-      var text = document.createElementNS(SVGNS, 'text');
-      text.setAttribute('x', lp.x.toFixed(2));
-      text.setAttribute('y', lp.y.toFixed(2));
-      text.setAttribute('text-anchor', 'middle');
-      text.setAttribute('dominant-baseline', 'middle');
-      text.setAttribute('fill', '#ffffff');
-      text.setAttribute('font-size', fontSize.toFixed(1));
-      text.setAttribute('font-weight', '700');
-      text.setAttribute('style', 'paint-order:stroke; stroke:rgba(0,0,0,0.55); stroke-width:3px;');
       var label = options[i];
       if(label.length > 10) label = label.slice(0, 9) + '…';
-      text.textContent = label;
-      svg.appendChild(text);
+      markup += '<text x="' + lp.x.toFixed(2) + '" y="' + lp.y.toFixed(2) +
+        '" text-anchor="middle" dominant-baseline="middle" fill="#ffffff" font-size="' + fontSize.toFixed(1) +
+        '" font-weight="700" style="paint-order:stroke; stroke:rgba(0,0,0,0.55); stroke-width:3px;">' +
+        escapeXml(label) + '</text>';
     }
+    svg.innerHTML = markup;
   }
 
   function renderOptionList(){

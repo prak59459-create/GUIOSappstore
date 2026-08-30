@@ -1,0 +1,380 @@
+<!--GUIOS-APP {"id":"focus-three","name":"今日の3つの目標","icon":"🎯","color":"#37474f","version":"1.0.0","author":"Claude","description":"「今日やる3つのこと」だけに絞って管理するミニマルな目標管理アプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>今日の3つの目標</title>
+<style>
+  :root{
+    --accent:#607d8b;
+    --accent-dark:#37474f;
+    --bg:#101315;
+    --card:#1a1f22;
+    --card2:#14181a;
+    --text:#eef1f2;
+    --sub:#9aa7ac;
+    --line:rgba(255,255,255,0.08);
+    --danger:#e5484d;
+    --good:#66bb6a;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    padding:16px; padding-bottom:48px;
+  }
+  .wrap{max-width:560px; margin:0 auto;}
+  h1{font-size:19px; margin:4px 0 4px; display:flex; align-items:center; gap:8px;}
+  .today-date{font-size:12px; color:var(--sub); margin-bottom:16px;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:16px; margin-bottom:14px;
+  }
+  .yesterday-banner{
+    background:rgba(102,187,106,0.12); border:1px solid rgba(102,187,106,0.35); color:#a8dcab;
+    border-radius:12px; padding:12px 14px; font-size:13px; margin-bottom:14px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .slot{
+    display:flex; align-items:center; gap:12px; padding:14px; border-radius:14px;
+    background:var(--card2); border:1px solid var(--line); margin-bottom:10px;
+  }
+  .slot:last-child{ margin-bottom:0; }
+  .slot.done{ border-color:var(--good); background:rgba(102,187,106,0.08); }
+  .check{
+    width:28px; height:28px; border-radius:50%; border:2px solid var(--sub); flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:15px; color:transparent;
+    background:transparent;
+  }
+  .slot.done .check{ border-color:var(--good); background:var(--good); color:#0c1e0d; }
+  .slot-text{ flex:1; font-size:15px; word-break:break-word; }
+  .slot.done .slot-text{ text-decoration:line-through; color:var(--sub); }
+  .slot .del{
+    background:transparent; border:none; color:var(--sub); font-size:17px; cursor:pointer;
+    min-width:32px; min-height:32px;
+  }
+  .slot .del:active{ color:var(--danger); }
+  .slot-empty{
+    display:flex; align-items:center; justify-content:center; padding:14px; border-radius:14px;
+    border:1px dashed var(--line); color:var(--sub); font-size:13px; margin-bottom:10px; min-height:56px;
+  }
+  .slot-empty:last-child{ margin-bottom:0; }
+  .add-row{display:flex; gap:8px; margin-top:14px;}
+  .add-row input{
+    flex:1; padding:12px 14px; border-radius:10px; border:1px solid var(--line);
+    background:var(--card2); color:var(--text); font-size:15px; outline:none;
+  }
+  .add-row input:focus{ border-color:var(--accent); }
+  .add-row button{
+    padding:0 18px; border-radius:10px; border:none; background:var(--accent); color:#0b1013;
+    font-weight:800; font-size:18px; cursor:pointer; min-height:46px; min-width:46px;
+  }
+  .add-row button:disabled{ opacity:0.4; }
+  .limit-msg{ font-size:12px; color:var(--sub); text-align:center; margin-top:10px; }
+  .progress-summary{ text-align:center; font-size:14px; color:var(--sub); margin-top:2px; }
+  .progress-summary b{ color:var(--text); }
+  .all-done{
+    text-align:center; font-size:15px; font-weight:700; color:var(--good); padding:6px 0 2px;
+  }
+  h2.section{ font-size:13px; color:var(--sub); margin:0 0 10px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:6px; }
+  .history-list{ display:flex; flex-direction:column; gap:8px; }
+  .history-item{
+    display:flex; justify-content:space-between; font-size:13px; color:var(--sub);
+    background:var(--card2); border:1px solid var(--line); border-radius:10px; padding:9px 12px;
+  }
+  .history-item b{ color:var(--text); }
+  #historyBody{ display:none; }
+  #historyBody.show{ display:block; }
+  .toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:#222; color:#fff; padding:11px 18px; border-radius:10px; font-size:13px;
+    opacity:0; transition:opacity .25s, transform .25s; pointer-events:none; z-index:999; max-width:88vw; text-align:center;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+  .toast.error{background:#5a1e1e;}
+  .toast.success{background:#1e4a2a;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🎯 今日の3つの目標</h1>
+  <div class="today-date" id="todayDateLabel"></div>
+
+  <div class="yesterday-banner" id="yesterdayBanner" style="display:none;"></div>
+
+  <div class="card">
+    <div id="slotsContainer"></div>
+    <div class="add-row" id="addRow">
+      <input type="text" id="slotInput" placeholder="今日やることを入力" maxlength="60">
+      <button id="addSlotBtn">＋</button>
+    </div>
+    <div class="limit-msg" id="limitMsg" style="display:none;">今日は3つまでです</div>
+    <div class="progress-summary" id="progressSummary"></div>
+  </div>
+
+  <div class="card">
+    <h2 class="section" id="historyToggle">📜 過去の記録 ▾</h2>
+    <div id="historyBody">
+      <div class="history-list" id="historyList"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  var APP_ID = "focus-three";
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var LS_KEY = APP_ID + "::state";
+  var MAX_SLOTS = 3;
+  var MAX_HISTORY_DAYS = 60;
+
+  // state = { records: { "YYYY-MM-DD": [{text, done}, ...] }, lastActiveDate: "YYYY-MM-DD" }
+  var state = { records: {}, lastActiveDate: null };
+  var todayKeyStr = "";
+
+  function toast(msg, type){
+    if(hasSDK && window.GUIOS.notify){
+      try{ window.GUIOS.notify(msg, {type: type||'info'}); return; }catch(e){}
+    }
+    var el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'toast show' + (type ? (' '+type) : '');
+    clearTimeout(el._t);
+    el._t = setTimeout(function(){ el.className = 'toast'; }, 2600);
+  }
+  function haptic(){
+    if(hasSDK && window.GUIOS.haptic){ try{ window.GUIOS.haptic(); }catch(e){} }
+  }
+
+  function pad(n){ return n < 10 ? ('0'+n) : (''+n); }
+  function dateKeyFromDate(d){
+    return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
+  }
+  function todayKey(){ return dateKeyFromDate(new Date()); }
+  function daysBetweenKeys(fromKey, toKeyStr){
+    var a = fromKey.split('-').map(Number);
+    var b = toKeyStr.split('-').map(Number);
+    var da = Date.UTC(a[0], a[1]-1, a[2]);
+    var db = Date.UTC(b[0], b[1]-1, b[2]);
+    return Math.round((db - da) / 86400000);
+  }
+  function formatKeyDisplay(key){
+    var p = key.split('-');
+    return p[0] + '/' + p[1] + '/' + p[2];
+  }
+  function weekdayLabel(key){
+    var p = key.split('-').map(Number);
+    var d = new Date(p[0], p[1]-1, p[2]);
+    var names = ['日','月','火','水','木','金','土'];
+    return names[d.getDay()];
+  }
+
+  function loadState(){
+    if(hasSDK){
+      return window.GUIOS.storage.get('state').then(function(v){
+        return (v && typeof v === 'object' && v.records) ? v : { records: {}, lastActiveDate: null };
+      }).catch(function(){ return { records: {}, lastActiveDate: null }; });
+    }
+    try{
+      var raw = localStorage.getItem(LS_KEY);
+      var v = raw ? JSON.parse(raw) : null;
+      return Promise.resolve((v && v.records) ? v : { records: {}, lastActiveDate: null });
+    }catch(e){ return Promise.resolve({ records: {}, lastActiveDate: null }); }
+  }
+  function saveState(){
+    // trim history to avoid unbounded growth
+    var keys = Object.keys(state.records).sort();
+    if(keys.length > MAX_HISTORY_DAYS){
+      var toRemove = keys.slice(0, keys.length - MAX_HISTORY_DAYS);
+      toRemove.forEach(function(k){ delete state.records[k]; });
+    }
+    if(hasSDK){
+      return window.GUIOS.storage.set('state', state).catch(function(){});
+    }
+    try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){}
+    return Promise.resolve(true);
+  }
+
+  function todaySlots(){
+    if(!state.records[todayKeyStr]) state.records[todayKeyStr] = [];
+    return state.records[todayKeyStr];
+  }
+
+  function renderSlots(){
+    var slots = todaySlots();
+    var container = document.getElementById('slotsContainer');
+    container.innerHTML = '';
+
+    for(var i = 0; i < MAX_SLOTS; i++){
+      if(i < slots.length){
+        (function(item, idx){
+          var row = document.createElement('div');
+          row.className = 'slot' + (item.done ? ' done' : '');
+          var check = document.createElement('div');
+          check.className = 'check';
+          check.textContent = '✓';
+          check.addEventListener('click', function(){ toggleSlot(idx); });
+          var text = document.createElement('div');
+          text.className = 'slot-text';
+          text.textContent = item.text;
+          var del = document.createElement('button');
+          del.className = 'del';
+          del.textContent = '✕';
+          del.addEventListener('click', function(){ removeSlot(idx); });
+          row.appendChild(check);
+          row.appendChild(text);
+          row.appendChild(del);
+          container.appendChild(row);
+        })(slots[i], i);
+      } else {
+        var empty = document.createElement('div');
+        empty.className = 'slot-empty';
+        empty.textContent = '空き枠';
+        container.appendChild(empty);
+      }
+    }
+
+    var addRow = document.getElementById('addRow');
+    var limitMsg = document.getElementById('limitMsg');
+    var full = slots.length >= MAX_SLOTS;
+    addRow.style.display = full ? 'none' : 'flex';
+    limitMsg.style.display = full ? 'block' : 'none';
+
+    var doneCount = slots.filter(function(s){ return s.done; }).length;
+    var summary = document.getElementById('progressSummary');
+    if(slots.length === 0){
+      summary.textContent = '';
+    } else if(doneCount === slots.length && slots.length === MAX_SLOTS){
+      summary.innerHTML = '<span class="all-done">🎉 今日の3つを達成しました!</span>';
+    } else {
+      summary.innerHTML = '進捗: <b>' + doneCount + ' / ' + slots.length + '</b> 達成';
+    }
+  }
+
+  function toggleSlot(idx){
+    var slots = todaySlots();
+    if(!slots[idx]) return;
+    slots[idx].done = !slots[idx].done;
+    haptic();
+    saveState().then(renderSlots);
+  }
+
+  function removeSlot(idx){
+    var slots = todaySlots();
+    slots.splice(idx, 1);
+    saveState().then(renderSlots);
+  }
+
+  function addSlot(){
+    var slots = todaySlots();
+    if(slots.length >= MAX_SLOTS){
+      toast('今日は3つまでです', 'error');
+      return;
+    }
+    var input = document.getElementById('slotInput');
+    var val = input.value.trim();
+    if(!val){
+      toast('内容を入力してください', 'error');
+      input.focus();
+      return;
+    }
+    slots.push({ text: val, done: false });
+    input.value = '';
+    saveState().then(renderSlots);
+  }
+
+  function renderHistory(){
+    var list = document.getElementById('historyList');
+    list.innerHTML = '';
+    var keys = Object.keys(state.records)
+      .filter(function(k){ return k !== todayKeyStr; })
+      .sort()
+      .reverse()
+      .slice(0, 14);
+    if(keys.length === 0){
+      var empty = document.createElement('div');
+      empty.style.cssText = 'color:var(--sub); font-size:13px; text-align:center; padding:10px 0;';
+      empty.textContent = 'まだ記録がありません。';
+      list.appendChild(empty);
+      return;
+    }
+    keys.forEach(function(k){
+      var slots = state.records[k] || [];
+      var doneCount = slots.filter(function(s){ return s.done; }).length;
+      var row = document.createElement('div');
+      row.className = 'history-item';
+      var left = document.createElement('span');
+      left.textContent = formatKeyDisplay(k) + '(' + weekdayLabel(k) + ')';
+      var right = document.createElement('b');
+      right.textContent = doneCount + ' / ' + slots.length + ' 達成';
+      row.appendChild(left);
+      row.appendChild(right);
+      list.appendChild(row);
+    });
+  }
+
+  function checkDayRollover(){
+    // Compare the STORED lastActiveDate string against TODAY's date string.
+    // This is authoritative regardless of in-memory session state, so a
+    // fresh page load on a new day always resets correctly.
+    var prevKey = state.lastActiveDate;
+    if(prevKey && prevKey !== todayKeyStr){
+      var prevSlots = state.records[prevKey] || [];
+      if(prevSlots.length > 0){
+        var doneCount = prevSlots.filter(function(s){ return s.done; }).length;
+        var diff = daysBetweenKeys(prevKey, todayKeyStr);
+        var msg = (diff === 1)
+          ? ('昨日は' + prevSlots.length + 'つ中' + doneCount + 'つ達成しました')
+          : (formatKeyDisplay(prevKey) + 'は' + prevSlots.length + 'つ中' + doneCount + 'つ達成しました');
+        var banner = document.getElementById('yesterdayBanner');
+        banner.style.display = 'flex';
+        banner.textContent = '📋 ' + msg;
+      }
+    }
+    // Today's slots are read fresh from state.records[todayKeyStr], which is
+    // simply absent/empty until items are added today -- the reset is
+    // structural, not dependent on remembering "we rolled over" in memory.
+    state.lastActiveDate = todayKeyStr;
+  }
+
+  function init(){
+    todayKeyStr = todayKey();
+    var d = new Date();
+    var months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+    var wd = ['日','月','火','水','木','金','土'];
+    document.getElementById('todayDateLabel').textContent =
+      d.getFullYear() + '年' + months[d.getMonth()] + d.getDate() + '日(' + wd[d.getDay()] + ')';
+
+    document.getElementById('addSlotBtn').addEventListener('click', addSlot);
+    document.getElementById('slotInput').addEventListener('keydown', function(e){
+      if(e.key === 'Enter') addSlot();
+    });
+    document.getElementById('historyToggle').addEventListener('click', function(){
+      var body = document.getElementById('historyBody');
+      body.classList.toggle('show');
+      renderHistory();
+    });
+
+    loadState().then(function(v){
+      state = v;
+      if(!state.records) state.records = {};
+      checkDayRollover();
+      renderSlots();
+      saveState();
+    });
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>

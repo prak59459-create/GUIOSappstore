@@ -1,0 +1,203 @@
+<!--GUIOS-APP {"id":"ascii-art-generator","name":"ASCIIアート生成","icon":"🔤","color":"#37474f","version":"1.0.0","author":"Claude","description":"テキストを大きなASCIIアート文字に変換して表示するツール。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ASCIIアート生成</title>
+<style>
+  :root{
+    --accent:#78909c;
+    --bg:#10151a;
+    --card:#1a2229;
+    --card2:#0f1519;
+    --text:#eef2f4;
+    --sub:#a5b3ba;
+    --line:#2d3941;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    padding:16px; padding-bottom:48px;
+  }
+  h1{font-size:20px; margin:4px 0 16px; display:flex; align-items:center; gap:8px;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:16px; margin-bottom:16px;
+  }
+  label{display:block; font-size:13px; color:var(--sub); margin-bottom:6px;}
+  input[type=text]{
+    width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--line);
+    background:var(--card2); color:var(--text); font-size:16px; outline:none;
+  }
+  input[type=text]:focus{border-color:var(--accent);}
+  .hint{font-size:11px; color:var(--sub); margin-top:6px;}
+  button{
+    padding:12px 18px; border-radius:10px; border:none; background:var(--accent);
+    color:#0a1013; font-weight:700; font-size:14px; cursor:pointer; min-height:44px;
+  }
+  .btnrow{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;}
+  .btnrow button{flex:1;}
+  .outwrap{
+    overflow-x:auto; background:var(--card2); border:1px solid var(--line); border-radius:10px;
+    padding:14px; margin-top:14px;
+  }
+  pre{
+    margin:0; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:10px; line-height:1.15; color:#9be3a8; white-space:pre; display:inline-block;
+  }
+  #toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:#212b31; color:var(--text); padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; pointer-events:none; transition:all .25s; border:1px solid var(--line);
+    max-width:90%; text-align:center; z-index:999;
+  }
+  #toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+  <h1>🔤 ASCIIアート生成</h1>
+
+  <div class="card">
+    <label for="txtInput">テキスト（半角英数字・一部記号、最大20文字）</label>
+    <input type="text" id="txtInput" maxlength="20" value="HELLO" placeholder="例: HELLO">
+    <div class="hint">対応外の文字は空白として表示されます。</div>
+    <div class="btnrow">
+      <button id="copyBtn">📋 コピー</button>
+    </div>
+    <div class="outwrap">
+      <pre id="artOut"></pre>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+<script>
+  function showToast(msg){
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(function(){ t.classList.remove('show'); }, 1800);
+  }
+  function notify(msg, type){
+    if(window.GUIOS && window.GUIOS.notify){
+      GUIOS.notify(msg, {type: type || 'info'});
+    } else {
+      showToast(msg);
+    }
+  }
+  async function copyText(text){
+    var ok = false;
+    try{
+      if(window.GUIOS && window.GUIOS.clipboard && window.GUIOS.clipboard.writeText){
+        await GUIOS.clipboard.writeText(text);
+        ok = true;
+      } else if(navigator.clipboard && navigator.clipboard.writeText){
+        await navigator.clipboard.writeText(text);
+        ok = true;
+      }
+    }catch(e){ ok = false; }
+    if(!ok){
+      try{
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        ok = true;
+      }catch(e2){ ok = false; }
+    }
+    return ok;
+  }
+
+  /* 5 rows x 5 cols bitmap font, '#' = filled, '.' = empty */
+  var FONT = {
+    'A': ['.###.','#...#','#####','#...#','#...#'],
+    'B': ['####.','#...#','####.','#...#','####.'],
+    'C': ['.####','#....','#....','#....','.####'],
+    'D': ['###..','#..#.','#...#','#..#.','###..'],
+    'E': ['#####','#....','###..','#....','#####'],
+    'F': ['#####','#....','###..','#....','#....'],
+    'G': ['.####','#....','#.###','#...#','.####'],
+    'H': ['#...#','#...#','#####','#...#','#...#'],
+    'I': ['#####','..#..','..#..','..#..','#####'],
+    'J': ['..###','...#.','...#.','#..#.','.##..'],
+    'K': ['#..#.','#.#..','##...','#.#..','#..#.'],
+    'L': ['#....','#....','#....','#....','#####'],
+    'M': ['#...#','##.##','#.#.#','#...#','#...#'],
+    'N': ['#...#','##..#','#.#.#','#..##','#...#'],
+    'O': ['.###.','#...#','#...#','#...#','.###.'],
+    'P': ['####.','#...#','####.','#....','#....'],
+    'Q': ['.###.','#...#','#.#.#','#..#.','.##.#'],
+    'R': ['####.','#...#','####.','#.#..','#..#.'],
+    'S': ['.####','#....','.###.','....#','####.'],
+    'T': ['#####','..#..','..#..','..#..','..#..'],
+    'U': ['#...#','#...#','#...#','#...#','.###.'],
+    'V': ['#...#','#...#','#...#','.#.#.','..#..'],
+    'W': ['#...#','#...#','#.#.#','##.##','#...#'],
+    'X': ['#...#','.#.#.','..#..','.#.#.','#...#'],
+    'Y': ['#...#','.#.#.','..#..','..#..','..#..'],
+    'Z': ['#####','...#.','..#..','.#...','#####'],
+    '0': ['.###.','#...#','#.#.#','#...#','.###.'],
+    '1': ['..#..','.##..','..#..','..#..','#####'],
+    '2': ['####.','....#','.###.','#....','#####'],
+    '3': ['####.','....#','.###.','....#','####.'],
+    '4': ['#..#.','#..#.','#####','...#.','...#.'],
+    '5': ['#####','#....','####.','....#','####.'],
+    '6': ['.###.','#....','####.','#...#','.###.'],
+    '7': ['#####','....#','...#.','..#..','..#..'],
+    '8': ['.###.','#...#','.###.','#...#','.###.'],
+    '9': ['.###.','#...#','.####','....#','.###.'],
+    ' ': ['.....','.....','.....','.....','.....'],
+    '.': ['.....','.....','.....','..#..','..#..'],
+    ',': ['.....','.....','.....','..#..','.#...'],
+    '!': ['..#..','..#..','..#..','.....','..#..'],
+    '?': ['.###.','#...#','..##.','.....','..#..'],
+    '-': ['.....','.....','#####','.....','.....'],
+    '_': ['.....','.....','.....','.....','#####'],
+    ':': ['.....','..#..','.....','..#..','.....'],
+    '/': ['....#','...#.','..#..','.#...','#....'],
+    "'": ['..#..','..#..','.....','.....','.....']
+  };
+  var BLANK = ['.....','.....','.....','.....','.....'];
+
+  function toAscii(text){
+    var chars = text.toUpperCase().split('');
+    if(chars.length === 0) return '';
+    var rows = ['', '', '', '', ''];
+    chars.forEach(function(ch){
+      var glyph = FONT[ch] || BLANK;
+      for(var r = 0; r < 5; r++){
+        rows[r] += glyph[r].replace(/#/g, '█').replace(/\./g, ' ') + '  ';
+      }
+    });
+    return rows.join('\n');
+  }
+
+  function render(){
+    var text = document.getElementById('txtInput').value;
+    document.getElementById('artOut').textContent = toAscii(text);
+  }
+
+  document.getElementById('txtInput').addEventListener('input', render);
+
+  document.getElementById('copyBtn').addEventListener('click', async function(){
+    var text = document.getElementById('artOut').textContent;
+    if(!text){
+      notify('先にテキストを入力してください', 'error');
+      return;
+    }
+    var ok = await copyText(text);
+    notify(ok ? 'ASCIIアートをコピーしました' : 'コピーに失敗しました', ok ? 'success' : 'error');
+  });
+
+  render();
+</script>
+</body>
+</html>

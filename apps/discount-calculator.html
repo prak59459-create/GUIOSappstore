@@ -1,0 +1,243 @@
+<!--GUIOS-APP {"id":"discount-calculator","name":"割引計算機","icon":"🏷️","color":"#d84315","version":"1.0.0","author":"Claude","description":"元の価格と割引率から割引後の価格・割引額を計算するツール。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>割引計算機</title>
+<style>
+  :root{
+    --accent:#ff7043;
+    --bg:#1a0f0a;
+    --card:#241610;
+    --card2:#180e09;
+    --text:#f7ece5;
+    --sub:#cbb0a2;
+    --line:#3d2a20;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    padding:16px; padding-bottom:48px;
+  }
+  h1{font-size:20px; margin:4px 0 16px; display:flex; align-items:center; gap:8px;}
+  .tabs{display:flex; gap:8px; margin-bottom:16px;}
+  .tab{
+    flex:1; padding:12px 8px; border-radius:10px; border:1px solid var(--line);
+    background:var(--card2); color:var(--sub); font-weight:700; font-size:13px;
+    text-align:center; cursor:pointer; min-height:44px;
+  }
+  .tab.active{background:var(--accent); color:#2a0f04; border-color:var(--accent);}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:16px; margin-bottom:16px;
+  }
+  .panel{display:none;}
+  .panel.active{display:block;}
+  .field{margin-bottom:14px;}
+  label{display:block; font-size:13px; color:var(--sub); margin-bottom:6px;}
+  input[type=number]{
+    width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--line);
+    background:var(--card2); color:var(--text); font-size:16px; outline:none;
+  }
+  input[type=number]:focus{border-color:var(--accent);}
+  .checkrow{display:flex; align-items:center; gap:10px; margin:10px 0 14px;}
+  .checkrow input[type=checkbox]{width:22px; height:22px; accent-color:var(--accent);}
+  .checkrow label{font-size:14px; color:var(--text); margin:0;}
+  .sub2{display:none;}
+  .sub2.show{display:block;}
+  .result{
+    background:var(--card2); border:1px solid var(--line); border-radius:12px; padding:16px;
+    margin-top:6px;
+  }
+  .result-row{display:flex; justify-content:space-between; align-items:baseline; padding:6px 0;}
+  .result-row .k{font-size:13px; color:var(--sub);}
+  .result-row .v{font-size:18px; font-weight:800; color:var(--accent);}
+  .result-row.small .v{font-size:14px; color:var(--sub); font-weight:700;}
+  .divider{height:1px; background:var(--line); margin:8px 0;}
+  .steps{font-size:12px; color:var(--sub); margin-top:8px; line-height:1.7;}
+  #toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:#2c1a12; color:var(--text); padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; pointer-events:none; transition:all .25s; border:1px solid var(--line);
+    max-width:90%; text-align:center; z-index:999;
+  }
+  #toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+  <h1>🏷️ 割引計算機</h1>
+
+  <div class="tabs">
+    <div class="tab active" id="tabForward">割引計算</div>
+    <div class="tab" id="tabReverse">元の価格を逆算</div>
+  </div>
+
+  <div class="panel active" id="panelForward">
+    <div class="card">
+      <div class="field">
+        <label for="origPrice">元の価格（円）</label>
+        <input type="number" id="origPrice" inputmode="decimal" min="0" step="1" value="10000">
+      </div>
+      <div class="field">
+        <label for="rate1">割引率（%）</label>
+        <input type="number" id="rate1" inputmode="decimal" min="0" max="100" step="0.1" value="20">
+      </div>
+      <div class="checkrow">
+        <input type="checkbox" id="stackToggle">
+        <label for="stackToggle">さらに2段階目の割引を適用する</label>
+      </div>
+      <div class="sub2" id="rate2Wrap">
+        <div class="field">
+          <label for="rate2">2段階目の割引率（%）</label>
+          <input type="number" id="rate2" inputmode="decimal" min="0" max="100" step="0.1" value="10">
+        </div>
+      </div>
+
+      <div class="result">
+        <div class="result-row">
+          <span class="k">割引後の価格</span>
+          <span class="v" id="fwFinalPrice">¥8,000</span>
+        </div>
+        <div class="divider"></div>
+        <div class="result-row small">
+          <span class="k">割引額（合計）</span>
+          <span class="v" id="fwDiscountAmount">¥2,000</span>
+        </div>
+        <div class="steps" id="fwSteps"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="panelReverse">
+    <div class="card">
+      <div class="field">
+        <label for="discountedPrice">割引後の価格（円）</label>
+        <input type="number" id="discountedPrice" inputmode="decimal" min="0" step="1" value="8000">
+      </div>
+      <div class="field">
+        <label for="rateRev">割引率（%）</label>
+        <input type="number" id="rateRev" inputmode="decimal" min="0" max="99.99" step="0.1" value="20">
+      </div>
+
+      <div class="result">
+        <div class="result-row">
+          <span class="k">元の価格</span>
+          <span class="v" id="revOrigPrice">¥10,000</span>
+        </div>
+        <div class="divider"></div>
+        <div class="result-row small">
+          <span class="k">割引額</span>
+          <span class="v" id="revDiscountAmount">¥2,000</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+<script>
+  function showToast(msg){
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(function(){ t.classList.remove('show'); }, 1800);
+  }
+  function notify(msg, type){
+    if(window.GUIOS && window.GUIOS.notify){
+      GUIOS.notify(msg, {type: type || 'info'});
+    } else {
+      showToast(msg);
+    }
+  }
+
+  function yen(n){
+    if(!isFinite(n)) return '¥--';
+    var rounded = Math.round(n);
+    return '¥' + rounded.toLocaleString('ja-JP');
+  }
+
+  /* ---------- tabs ---------- */
+  document.getElementById('tabForward').addEventListener('click', function(){
+    document.getElementById('tabForward').classList.add('active');
+    document.getElementById('tabReverse').classList.remove('active');
+    document.getElementById('panelForward').classList.add('active');
+    document.getElementById('panelReverse').classList.remove('active');
+  });
+  document.getElementById('tabReverse').addEventListener('click', function(){
+    document.getElementById('tabReverse').classList.add('active');
+    document.getElementById('tabForward').classList.remove('active');
+    document.getElementById('panelReverse').classList.add('active');
+    document.getElementById('panelForward').classList.remove('active');
+  });
+
+  /* ---------- forward mode ---------- */
+  document.getElementById('stackToggle').addEventListener('change', function(){
+    document.getElementById('rate2Wrap').classList.toggle('show', this.checked);
+    computeForward();
+  });
+
+  function computeForward(){
+    var orig = parseFloat(document.getElementById('origPrice').value);
+    var rate1 = parseFloat(document.getElementById('rate1').value);
+    var stacked = document.getElementById('stackToggle').checked;
+    var rate2 = stacked ? parseFloat(document.getElementById('rate2').value) : null;
+
+    if(!isFinite(orig) || orig < 0 || !isFinite(rate1)){
+      document.getElementById('fwFinalPrice').textContent = '¥--';
+      document.getElementById('fwDiscountAmount').textContent = '¥--';
+      document.getElementById('fwSteps').textContent = '';
+      return;
+    }
+
+    var afterStep1 = orig * (1 - rate1 / 100);
+    var steps = [];
+    steps.push('元の価格 ' + yen(orig) + ' から ' + rate1 + '% 引き → ' + yen(afterStep1));
+
+    var finalPrice = afterStep1;
+    if(stacked && isFinite(rate2)){
+      var afterStep2 = afterStep1 * (1 - rate2 / 100);
+      steps.push(yen(afterStep1) + ' から さらに ' + rate2 + '% 引き → ' + yen(afterStep2));
+      finalPrice = afterStep2;
+    }
+
+    var discountAmount = orig - finalPrice;
+
+    document.getElementById('fwFinalPrice').textContent = yen(finalPrice);
+    document.getElementById('fwDiscountAmount').textContent = yen(discountAmount);
+    document.getElementById('fwSteps').innerHTML = steps.map(function(s){ return '・' + s; }).join('<br>');
+  }
+
+  ['origPrice','rate1','rate2'].forEach(function(id){
+    document.getElementById(id).addEventListener('input', computeForward);
+  });
+
+  /* ---------- reverse mode ---------- */
+  function computeReverse(){
+    var discounted = parseFloat(document.getElementById('discountedPrice').value);
+    var rate = parseFloat(document.getElementById('rateRev').value);
+
+    if(!isFinite(discounted) || discounted < 0 || !isFinite(rate) || rate >= 100 || rate < 0){
+      document.getElementById('revOrigPrice').textContent = '¥--';
+      document.getElementById('revDiscountAmount').textContent = '¥--';
+      return;
+    }
+
+    var orig = discounted / (1 - rate / 100);
+    var discountAmount = orig - discounted;
+
+    document.getElementById('revOrigPrice').textContent = yen(orig);
+    document.getElementById('revDiscountAmount').textContent = yen(discountAmount);
+  }
+
+  ['discountedPrice','rateRev'].forEach(function(id){
+    document.getElementById(id).addEventListener('input', computeReverse);
+  });
+
+  computeForward();
+  computeReverse();
+</script>
+</body>
+</html>

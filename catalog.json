@@ -30,6 +30,16 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/anniversary-countdown.html"
   },
   {
+    "id": "ascii-art-generator",
+    "name": "ASCIIアート生成",
+    "version": "1.0.0",
+    "icon": "🔤",
+    "color": "#37474f",
+    "description": "テキストを大きなASCIIアート文字に変換して表示するツール。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/ascii-art-generator.html"
+  },
+  {
     "id": "base64-tool",
     "name": "Base64変換",
     "version": "1.0.0",
@@ -78,6 +88,16 @@
     "description": "CSSのbox-shadowをスライダーで調整して生成できるツール。",
     "author": "Claude",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/box-shadow-generator.html"
+  },
+  {
+    "id": "brain-dump",
+    "name": "ブレインダンプ",
+    "version": "1.0.0",
+    "icon": "🧠",
+    "color": "#8d6e63",
+    "description": "時間を区切って頭の中の考えを自由に書き出すフリーライティングアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/brain-dump.html"
   },
   {
     "id": "break-even-calculator",
@@ -250,6 +270,16 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/dice-roller.html"
   },
   {
+    "id": "discount-calculator",
+    "name": "割引計算機",
+    "version": "1.0.0",
+    "icon": "🏷️",
+    "color": "#d84315",
+    "description": "元の価格と割引率から割引後の価格・割引額を計算するツール。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/discount-calculator.html"
+  },
+  {
     "id": "drawing-pad",
     "name": "お絵かき帳",
     "version": "1.0.0",
@@ -300,6 +330,16 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/flashcards.html"
   },
   {
+    "id": "focus-three",
+    "name": "今日の3つの目標",
+    "version": "1.0.0",
+    "icon": "🎯",
+    "color": "#37474f",
+    "description": "「今日やる3つのこと」だけに絞って管理するミニマルな目標管理アプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/focus-three.html"
+  },
+  {
     "id": "game-2048",
     "name": "2048",
     "version": "1.0.0",
@@ -310,6 +350,16 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/game-2048.html"
   },
   {
+    "id": "goal-tracker",
+    "name": "目標達成トラッカー",
+    "version": "1.0.0",
+    "icon": "🎯",
+    "color": "#00838f",
+    "description": "目標に対する進捗を数値やパーセントで記録・可視化するアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/goal-tracker.html"
+  },
+  {
     "id": "gradient-generator",
     "name": "CSSグラデーション生成",
     "version": "1.0.0",
@@ -318,6 +368,16 @@
     "description": "2色以上を選んでCSSのグラデーションコードを生成できるツール。",
     "author": "Claude",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/gradient-generator.html"
+  },
+  {
+    "id": "gratitude-journal",
+    "name": "感謝日記",
+    "version": "1.0.0",
+    "icon": "🙏",
+    "color": "#8d6e63",
+    "description": "毎日感謝していることを記録できるシンプルな感謝日記アプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/gratitude-journal.html"
   },
   {
     "id": "habit-tracker",
@@ -510,6 +570,16 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/50Games.html"
   },
   {
+    "id": "mood-tracker",
+    "name": "気分トラッカー",
+    "version": "1.0.0",
+    "icon": "😊",
+    "color": "#f9a825",
+    "description": "毎日の気分を絵文字で記録し、推移を確認できるトラッカーアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/mood-tracker.html"
+  },
+  {
     "id": "moon-calendar",
     "name": "月齢カレンダー",
     "version": "1.0.0",
@@ -658,6 +728,16 @@
     "description": "多肢選択式の雑学クイズに挑戦してスコアを競うクイズアプリ。",
     "author": "Claude",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/quiz-app.html"
+  },
+  {
+    "id": "random-team-generator",
+    "name": "チーム分けツール",
+    "version": "1.0.0",
+    "icon": "👥",
+    "color": "#00796b",
+    "description": "名前リストからランダムに指定人数のチームへ分けてくれるツール。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/random-team-generator.html"
   },
   {
     "id": "reaction-test",
@@ -858,6 +938,16 @@
     "description": "税抜・税込金額を消費税率から相互に計算できるツール。",
     "author": "Claude",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/tax-calculator.html"
+  },
+  {
+    "id": "text-case-converter",
+    "name": "文字種変換",
+    "version": "1.0.0",
+    "icon": "🔡",
+    "color": "#00695c",
+    "description": "文字列を大文字・小文字・キャメルケースなどに変換するツール。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/text-case-converter.html"
   },
   {
     "id": "text-diff",

@@ -1,0 +1,414 @@
+<!--GUIOS-APP {"id":"goal-tracker","name":"目標達成トラッカー","icon":"🎯","color":"#00838f","version":"1.0.0","author":"Claude","description":"目標に対する進捗を数値やパーセントで記録・可視化するアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>目標達成トラッカー</title>
+<style>
+  :root{
+    --accent:#26c6da;
+    --accent-dark:#00838f;
+    --bg:#0b1416;
+    --card:#132025;
+    --card2:#0e191c;
+    --text:#e9f6f8;
+    --sub:#9fbcc2;
+    --line:rgba(255,255,255,0.08);
+    --danger:#e5484d;
+    --gold:#ffca28;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    padding:16px; padding-bottom:48px;
+  }
+  .wrap{max-width:640px; margin:0 auto;}
+  h1{font-size:19px; margin:4px 0 16px; display:flex; align-items:center; gap:8px;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:16px; margin-bottom:14px;
+  }
+  .card h2{font-size:14px; margin:0 0 12px; color:var(--sub); font-weight:600;}
+  label{display:block; font-size:12px; color:var(--sub); margin-bottom:6px;}
+  .field{margin-bottom:12px;}
+  input[type=text], input[type=number], input[type=date]{
+    width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--line);
+    background:var(--card2); color:var(--text); font-size:15px; outline:none;
+  }
+  input::-webkit-calendar-picker-indicator{ filter:invert(0.8); }
+  input:focus{border-color:var(--accent);}
+  .row2{display:flex; gap:10px;}
+  .row2 > *{flex:1;}
+  button{ font-family:inherit; }
+  button.primary{
+    padding:13px 20px; border-radius:12px; border:none; background:var(--accent);
+    color:#032427; font-weight:800; font-size:15px; cursor:pointer; min-height:46px; width:100%;
+  }
+  button.primary:active{filter:brightness(1.08);}
+  .toggle-add{display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer;}
+  #addPanel{display:none;}
+  #addPanel.show{display:block;}
+  .goal-list{display:flex; flex-direction:column; gap:12px;}
+  .goal-card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px 16px;
+    display:flex; flex-direction:column; gap:10px; border-left:4px solid var(--accent);
+  }
+  .goal-card.done{ border-left-color:var(--gold); }
+  .goal-top{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
+  .goal-name{font-size:16px; font-weight:700; word-break:break-word; display:flex; align-items:center; gap:6px;}
+  .goal-meta{font-size:12px; color:var(--sub); display:flex; flex-wrap:wrap; gap:8px;}
+  .badge-done{
+    display:inline-flex; align-items:center; gap:3px; padding:3px 9px; border-radius:20px; font-size:11px;
+    font-weight:700; background:rgba(255,202,40,0.18); color:var(--gold);
+  }
+  .progress-track{
+    height:14px; border-radius:7px; background:var(--card2); overflow:hidden; border:1px solid var(--line);
+  }
+  .progress-fill{ height:100%; background:var(--accent); border-radius:7px; transition:width .3s ease; }
+  .progress-fill.done{ background:var(--gold); }
+  .progress-label{ display:flex; justify-content:space-between; font-size:13px; color:var(--sub); }
+  .progress-label b{ color:var(--text); }
+  .update-row{display:flex; gap:8px; align-items:center;}
+  .update-row input{flex:1;}
+  .btn-sm{
+    padding:10px 14px; border-radius:10px; border:1px solid var(--line); background:var(--card2);
+    color:var(--text); font-size:13px; font-weight:700; cursor:pointer; min-height:42px; white-space:nowrap;
+  }
+  .btn-sm.bump{ background:var(--accent-dark); border-color:var(--accent); color:#fff; }
+  .goal-actions{display:flex; gap:8px;}
+  .goal-actions .btn-sm{flex:1;}
+  .btn-sm.del{color:var(--danger);}
+  .empty{ text-align:center; color:var(--sub); font-size:13px; padding:30px 10px; }
+  .quick-bumps{display:flex; gap:6px; flex-wrap:wrap;}
+  .quick-bumps button{
+    padding:8px 10px; border-radius:8px; border:1px solid var(--line); background:var(--card2);
+    color:var(--text); font-size:12px; cursor:pointer; min-height:36px;
+  }
+  .toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:#222; color:#fff; padding:11px 18px; border-radius:10px; font-size:13px;
+    opacity:0; transition:opacity .25s, transform .25s; pointer-events:none; z-index:999; max-width:88vw; text-align:center;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+  .toast.error{background:#5a1e1e;}
+  .toast.success{background:#1e4a2a;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🎯 目標達成トラッカー</h1>
+
+  <div class="card toggle-add" id="toggleAddBtn">
+    <h2 style="margin:0;">＋ 新しい目標を追加</h2>
+  </div>
+
+  <div class="card" id="addPanel">
+    <h2>新しい目標</h2>
+    <div class="field">
+      <label>タイトル</label>
+      <input type="text" id="goalTitle" placeholder="例: 本を12冊読む" maxlength="60">
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>目標値</label>
+        <input type="number" id="goalTarget" placeholder="例: 12" min="0" step="any">
+      </div>
+      <div class="field">
+        <label>単位</label>
+        <input type="text" id="goalUnit" placeholder="例: 冊 / 円 / km" maxlength="10">
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>現在値(任意)</label>
+        <input type="number" id="goalCurrent" placeholder="0" min="0" step="any">
+      </div>
+      <div class="field">
+        <label>期限日(任意)</label>
+        <input type="date" id="goalDeadline">
+      </div>
+    </div>
+    <button class="primary" id="addGoalBtn">追加する</button>
+  </div>
+
+  <div class="goal-list" id="goalList"></div>
+  <div class="empty" id="emptyMsg" style="display:none;">まだ目標が登録されていません。<br>上の「＋ 新しい目標を追加」から登録しましょう。</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  var APP_ID = "goal-tracker";
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var LS_KEY = APP_ID + "::goals";
+
+  var goals = [];
+
+  function toast(msg, type){
+    if(hasSDK && window.GUIOS.notify){
+      try{ window.GUIOS.notify(msg, {type: type||'info'}); return; }catch(e){}
+    }
+    var el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'toast show' + (type ? (' '+type) : '');
+    clearTimeout(el._t);
+    el._t = setTimeout(function(){ el.className = 'toast'; }, 2200);
+  }
+  function haptic(){
+    if(hasSDK && window.GUIOS.haptic){ try{ window.GUIOS.haptic(); }catch(e){} }
+  }
+  function uid(){ return 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+  function loadGoals(){
+    if(hasSDK){
+      return window.GUIOS.storage.get('goals').then(function(v){
+        return Array.isArray(v) ? v : [];
+      }).catch(function(){ return []; });
+    }
+    try{
+      var raw = localStorage.getItem(LS_KEY);
+      var v = raw ? JSON.parse(raw) : [];
+      return Promise.resolve(Array.isArray(v) ? v : []);
+    }catch(e){ return Promise.resolve([]); }
+  }
+  function saveGoals(){
+    if(hasSDK){
+      return window.GUIOS.storage.set('goals', goals).catch(function(){});
+    }
+    try{ localStorage.setItem(LS_KEY, JSON.stringify(goals)); }catch(e){}
+    return Promise.resolve(true);
+  }
+
+  function fmtNum(n){
+    if(!isFinite(n)) return '0';
+    var r = Math.round(n * 100) / 100;
+    return r.toLocaleString ? r.toLocaleString('ja-JP') : String(r);
+  }
+  function fmtDate(iso){
+    if(!iso) return '';
+    var p = iso.split('-');
+    if(p.length !== 3) return iso;
+    return p[0] + '/' + p[1] + '/' + p[2] + ' 締切';
+  }
+  function isDone(g){ return g.target > 0 && g.current >= g.target; }
+  function pct(g){
+    if(!g.target || g.target <= 0) return 0;
+    return Math.max(0, Math.min(100, (g.current / g.target) * 100));
+  }
+
+  function sortGoals(){
+    goals.sort(function(a, b){
+      var da = isDone(a) ? 1 : 0;
+      var db = isDone(b) ? 1 : 0;
+      if(da !== db) return da - db; // incomplete first
+      return (b.createdAt || 0) - (a.createdAt || 0);
+    });
+  }
+
+  function render(){
+    sortGoals();
+    var list = document.getElementById('goalList');
+    var emptyMsg = document.getElementById('emptyMsg');
+    list.innerHTML = '';
+    if(goals.length === 0){
+      emptyMsg.style.display = 'block';
+      return;
+    }
+    emptyMsg.style.display = 'none';
+
+    goals.forEach(function(g){
+      var done = isDone(g);
+      var p = pct(g);
+      var card = document.createElement('div');
+      card.className = 'goal-card' + (done ? ' done' : '');
+
+      var top = document.createElement('div');
+      top.className = 'goal-top';
+      var nameEl = document.createElement('div');
+      nameEl.className = 'goal-name';
+      nameEl.textContent = g.title;
+      top.appendChild(nameEl);
+      if(done){
+        var badge = document.createElement('span');
+        badge.className = 'badge-done';
+        badge.textContent = '🏆 達成';
+        top.appendChild(badge);
+      }
+      card.appendChild(top);
+
+      var meta = document.createElement('div');
+      meta.className = 'goal-meta';
+      var metaText = fmtNum(g.current) + ' / ' + fmtNum(g.target) + (g.unit ? (' ' + g.unit) : '');
+      var m1 = document.createElement('span');
+      m1.textContent = metaText;
+      meta.appendChild(m1);
+      if(g.deadline){
+        var m2 = document.createElement('span');
+        m2.textContent = fmtDate(g.deadline);
+        meta.appendChild(m2);
+      }
+      card.appendChild(meta);
+
+      var track = document.createElement('div');
+      track.className = 'progress-track';
+      var fill = document.createElement('div');
+      fill.className = 'progress-fill' + (done ? ' done' : '');
+      fill.style.width = p + '%';
+      track.appendChild(fill);
+      card.appendChild(track);
+
+      var plabel = document.createElement('div');
+      plabel.className = 'progress-label';
+      var pb = document.createElement('b');
+      pb.textContent = Math.round(p) + '%';
+      plabel.appendChild(pb);
+      card.appendChild(plabel);
+
+      if(!done){
+        var quick = document.createElement('div');
+        quick.className = 'quick-bumps';
+        [1, 5, 10].forEach(function(step){
+          var b = document.createElement('button');
+          b.textContent = '+' + step;
+          b.addEventListener('click', function(){ bumpGoal(g.id, step); });
+          quick.appendChild(b);
+        });
+        card.appendChild(quick);
+
+        var updateRow = document.createElement('div');
+        updateRow.className = 'update-row';
+        var input = document.createElement('input');
+        input.type = 'number';
+        input.step = 'any';
+        input.placeholder = '現在値を直接入力';
+        var setBtn = document.createElement('button');
+        setBtn.className = 'btn-sm bump';
+        setBtn.textContent = '進捗を更新';
+        setBtn.addEventListener('click', function(){
+          var v = parseFloat(input.value);
+          if(isNaN(v)){
+            toast('数値を入力してください', 'error');
+            return;
+          }
+          setGoalCurrent(g.id, v);
+          input.value = '';
+        });
+        updateRow.appendChild(input);
+        updateRow.appendChild(setBtn);
+        card.appendChild(updateRow);
+      }
+
+      var actions = document.createElement('div');
+      actions.className = 'goal-actions';
+      var delBtn = document.createElement('button');
+      delBtn.className = 'btn-sm del';
+      delBtn.textContent = '削除';
+      delBtn.addEventListener('click', function(){ deleteGoal(g.id); });
+      actions.appendChild(delBtn);
+      card.appendChild(actions);
+
+      list.appendChild(card);
+    });
+  }
+
+  function bumpGoal(id, step){
+    var g = goals.filter(function(x){ return x.id === id; })[0];
+    if(!g) return;
+    var wasDone = isDone(g);
+    g.current = Math.round((g.current + step) * 100) / 100;
+    if(!wasDone && isDone(g)){
+      haptic();
+      toast(g.title + ' を達成しました!', 'success');
+    }
+    saveGoals().then(render);
+  }
+
+  function setGoalCurrent(id, val){
+    var g = goals.filter(function(x){ return x.id === id; })[0];
+    if(!g) return;
+    var wasDone = isDone(g);
+    g.current = val;
+    if(!wasDone && isDone(g)){
+      haptic();
+      toast(g.title + ' を達成しました!', 'success');
+    } else {
+      toast('進捗を更新しました', 'success');
+    }
+    saveGoals().then(render);
+  }
+
+  function deleteGoal(id){
+    goals = goals.filter(function(g){ return g.id !== id; });
+    saveGoals().then(render);
+    toast('削除しました', 'info');
+  }
+
+  function addGoal(){
+    var titleInput = document.getElementById('goalTitle');
+    var targetInput = document.getElementById('goalTarget');
+    var unitInput = document.getElementById('goalUnit');
+    var currentInput = document.getElementById('goalCurrent');
+    var deadlineInput = document.getElementById('goalDeadline');
+
+    var title = titleInput.value.trim();
+    var target = parseFloat(targetInput.value);
+    if(!title){
+      toast('タイトルを入力してください', 'error');
+      titleInput.focus();
+      return;
+    }
+    if(isNaN(target) || target <= 0){
+      toast('目標値を入力してください', 'error');
+      targetInput.focus();
+      return;
+    }
+    var current = parseFloat(currentInput.value);
+    if(isNaN(current) || current < 0) current = 0;
+
+    var g = {
+      id: uid(),
+      title: title,
+      target: target,
+      current: current,
+      unit: unitInput.value.trim(),
+      deadline: deadlineInput.value || '',
+      createdAt: Date.now()
+    };
+    goals.push(g);
+    saveGoals().then(render);
+    toast('追加しました', 'success');
+
+    titleInput.value = '';
+    targetInput.value = '';
+    unitInput.value = '';
+    currentInput.value = '';
+    deadlineInput.value = '';
+    document.getElementById('addPanel').classList.remove('show');
+  }
+
+  function init(){
+    document.getElementById('toggleAddBtn').addEventListener('click', function(){
+      document.getElementById('addPanel').classList.toggle('show');
+    });
+    document.getElementById('addGoalBtn').addEventListener('click', addGoal);
+
+    loadGoals().then(function(v){
+      goals = v;
+      render();
+    });
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>

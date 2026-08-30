@@ -1,0 +1,390 @@
+<!--GUIOS-APP {"id":"brain-dump","name":"ブレインダンプ","icon":"🧠","color":"#8d6e63","version":"1.0.0","author":"Claude","description":"時間を区切って頭の中の考えを自由に書き出すフリーライティングアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ブレインダンプ</title>
+<style>
+  :root{
+    --accent:#a1887f;
+    --accent-dark:#8d6e63;
+    --bg:#141110;
+    --card:#211c1a;
+    --card2:#191513;
+    --text:#f2ece9;
+    --sub:#b3a49d;
+    --line:rgba(255,255,255,0.08);
+    --danger:#e5484d;
+    --good:#66bb6a;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    padding:16px; padding-bottom:48px;
+  }
+  .wrap{max-width:640px; margin:0 auto;}
+  h1{font-size:19px; margin:4px 0 16px; display:flex; align-items:center; gap:8px; justify-content:space-between;}
+  h1 .title-text{display:flex; align-items:center; gap:8px;}
+  .link-btn{
+    background:transparent; border:1px solid var(--line); color:var(--sub); border-radius:20px;
+    padding:8px 14px; font-size:12px; cursor:pointer; min-height:36px; font-family:inherit;
+  }
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:16px; margin-bottom:14px;
+  }
+  .duration-row{display:flex; gap:8px; margin-bottom:14px;}
+  .duration-btn{
+    flex:1; padding:12px 8px; border-radius:12px; border:1px solid var(--line); background:var(--card2);
+    color:var(--text); font-size:14px; font-weight:700; cursor:pointer; min-height:46px; font-family:inherit;
+  }
+  .duration-btn.active{ background:var(--accent-dark); border-color:var(--accent); color:#fff; }
+  .timer-display{
+    text-align:center; font-size:42px; font-weight:800; font-variant-numeric:tabular-nums;
+    margin:6px 0 12px; letter-spacing:1px;
+  }
+  .timer-display.finished{ color:var(--good); }
+  .status-line{ text-align:center; font-size:13px; color:var(--sub); margin-bottom:14px; }
+  textarea{
+    width:100%; min-height:38vh; max-height:60vh; padding:14px; border-radius:14px; border:1px solid var(--line);
+    background:var(--card2); color:var(--text); font-size:16px; line-height:1.6; resize:vertical; outline:none;
+    font-family:inherit;
+  }
+  textarea:focus{ border-color:var(--accent); }
+  .prompt-line{ font-size:12px; color:var(--sub); text-align:center; margin:8px 0 14px; }
+  button{ font-family:inherit; }
+  button.primary{
+    padding:15px 20px; border-radius:14px; border:none; background:var(--accent);
+    color:#1c1310; font-weight:800; font-size:16px; cursor:pointer; min-height:50px; width:100%;
+  }
+  button.primary:active{ filter:brightness(1.08); }
+  button.primary.stop{ background:var(--danger); color:#2a0808; }
+  .control-row{ display:flex; gap:10px; margin-top:12px; }
+  .control-row > *{ flex:1; }
+  button.secondary{
+    padding:13px 16px; border-radius:12px; border:1px solid var(--line); background:var(--card2);
+    color:var(--text); font-size:14px; font-weight:700; cursor:pointer; min-height:46px;
+  }
+  h2.section{ font-size:14px; margin:0 0 12px; color:var(--sub); font-weight:600; }
+  .history-list{ display:flex; flex-direction:column; gap:10px; }
+  .history-item{
+    background:var(--card2); border:1px solid var(--line); border-radius:12px; padding:12px 14px;
+  }
+  .history-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; gap:8px; }
+  .history-date{ font-size:12px; color:var(--sub); }
+  .history-dur{ font-size:11px; color:var(--sub); background:var(--card); padding:3px 8px; border-radius:10px; }
+  .history-text{ font-size:13px; color:var(--text); white-space:pre-wrap; word-break:break-word; max-height:80px; overflow:hidden; position:relative; }
+  .history-del{
+    background:transparent; border:none; color:var(--sub); font-size:15px; cursor:pointer; min-width:32px; min-height:32px;
+  }
+  .history-del:active{ color:var(--danger); }
+  .empty{ text-align:center; color:var(--sub); font-size:13px; padding:20px 10px; }
+  #historyView{ display:none; }
+  #mainView.hidden, #historyView.hidden{ display:none; }
+  .toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:#222; color:#fff; padding:11px 18px; border-radius:10px; font-size:13px;
+    opacity:0; transition:opacity .25s, transform .25s; pointer-events:none; z-index:999; max-width:88vw; text-align:center;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+  .toast.error{background:#5a1e1e;}
+  .toast.success{background:#1e4a2a;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>
+    <span class="title-text">🧠 ブレインダンプ</span>
+    <button class="link-btn" id="historyToggleBtn">過去の記録</button>
+  </h1>
+
+  <div id="mainView">
+    <div class="card">
+      <div class="duration-row" id="durationRow">
+        <button class="duration-btn" data-min="3">3分</button>
+        <button class="duration-btn active" data-min="5">5分</button>
+        <button class="duration-btn" data-min="10">10分</button>
+      </div>
+      <div class="timer-display" id="timerDisplay">05:00</div>
+      <div class="status-line" id="statusLine">時間を選んで「開始」を押してください</div>
+      <button class="primary" id="startStopBtn">開始</button>
+    </div>
+
+    <div class="card">
+      <div class="prompt-line">手を止めず、思いついたことをそのまま書き出しましょう。誤字は気にしなくて大丈夫です。</div>
+      <textarea id="writingArea" placeholder="ここに自由に書き出してください..."></textarea>
+      <div class="control-row">
+        <button class="secondary" id="saveBtn">記録として保存</button>
+        <button class="secondary" id="clearBtn">クリア</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="historyView" class="hidden">
+    <div class="card">
+      <h2 class="section">📜 過去の記録(最新10件)</h2>
+      <div class="history-list" id="historyList"></div>
+      <div class="empty" id="historyEmpty" style="display:none;">まだ記録がありません。</div>
+    </div>
+    <button class="secondary" id="backFromHistoryBtn" style="width:100%;">← 書く画面に戻る</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  var APP_ID = "brain-dump";
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var LS_KEY = APP_ID + "::history";
+  var MAX_HISTORY = 10;
+
+  var history = [];
+  var selectedMinutes = 5;
+  var timerState = 'idle'; // idle | running | finished
+  var remainingSeconds = 5 * 60;
+  var intervalId = null;
+
+  function toast(msg, type){
+    if(hasSDK && window.GUIOS.notify){
+      try{ window.GUIOS.notify(msg, {type: type||'info'}); return; }catch(e){}
+    }
+    var el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'toast show' + (type ? (' '+type) : '');
+    clearTimeout(el._t);
+    el._t = setTimeout(function(){ el.className = 'toast'; }, 2600);
+  }
+  function haptic(){
+    if(hasSDK && window.GUIOS.haptic){ try{ window.GUIOS.haptic(); }catch(e){} }
+  }
+
+  function loadHistory(){
+    if(hasSDK){
+      return window.GUIOS.storage.get('history').then(function(v){
+        return Array.isArray(v) ? v : [];
+      }).catch(function(){ return []; });
+    }
+    try{
+      var raw = localStorage.getItem(LS_KEY);
+      var v = raw ? JSON.parse(raw) : [];
+      return Promise.resolve(Array.isArray(v) ? v : []);
+    }catch(e){ return Promise.resolve([]); }
+  }
+  function saveHistory(){
+    if(hasSDK){
+      return window.GUIOS.storage.set('history', history).catch(function(){});
+    }
+    try{ localStorage.setItem(LS_KEY, JSON.stringify(history)); }catch(e){}
+    return Promise.resolve(true);
+  }
+
+  function pad2(n){ return n < 10 ? ('0'+n) : (''+n); }
+  function formatTime(sec){
+    var m = Math.floor(sec / 60);
+    var s = sec % 60;
+    return pad2(m) + ':' + pad2(s);
+  }
+  function formatTimestamp(ts){
+    var d = new Date(ts);
+    return d.getFullYear() + '/' + pad2(d.getMonth()+1) + '/' + pad2(d.getDate()) + ' ' +
+      pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+  }
+
+  function updateTimerDisplay(){
+    var el = document.getElementById('timerDisplay');
+    el.textContent = formatTime(remainingSeconds);
+    el.className = 'timer-display' + (timerState === 'finished' ? ' finished' : '');
+  }
+
+  function setDuration(min){
+    if(timerState === 'running') return;
+    selectedMinutes = min;
+    remainingSeconds = min * 60;
+    var buttons = document.querySelectorAll('.duration-btn');
+    buttons.forEach(function(b){
+      b.classList.toggle('active', parseInt(b.getAttribute('data-min'), 10) === min);
+    });
+    updateTimerDisplay();
+    document.getElementById('statusLine').textContent = '時間を選んで「開始」を押してください';
+  }
+
+  function tick(){
+    remainingSeconds--;
+    if(remainingSeconds <= 0){
+      remainingSeconds = 0;
+      updateTimerDisplay();
+      finishTimer();
+      return;
+    }
+    updateTimerDisplay();
+  }
+
+  function startTimer(){
+    timerState = 'running';
+    remainingSeconds = selectedMinutes * 60;
+    updateTimerDisplay();
+    document.getElementById('statusLine').textContent = '書き続けましょう。止まらずに手を動かして。';
+    var btn = document.getElementById('startStopBtn');
+    btn.textContent = '中断する';
+    btn.classList.add('stop');
+    intervalId = setInterval(tick, 1000);
+    document.getElementById('writingArea').focus();
+  }
+
+  function stopTimer(manual){
+    if(intervalId){ clearInterval(intervalId); intervalId = null; }
+    timerState = 'idle';
+    remainingSeconds = selectedMinutes * 60;
+    updateTimerDisplay();
+    var btn = document.getElementById('startStopBtn');
+    btn.textContent = '開始';
+    btn.classList.remove('stop');
+    document.getElementById('statusLine').textContent = manual ? '中断しました。' : '時間を選んで「開始」を押してください';
+  }
+
+  function finishTimer(){
+    if(intervalId){ clearInterval(intervalId); intervalId = null; }
+    timerState = 'finished';
+    var btn = document.getElementById('startStopBtn');
+    btn.textContent = '終了 - もう一度書く';
+    btn.classList.remove('stop');
+    document.getElementById('statusLine').textContent = '終了! お疲れさまでした。';
+    haptic();
+    toast('時間になりました。お疲れさまでした!', 'success');
+  }
+
+  function onStartStopClick(){
+    if(timerState === 'idle'){
+      startTimer();
+    } else if(timerState === 'running'){
+      stopTimer(true);
+    } else if(timerState === 'finished'){
+      timerState = 'idle';
+      remainingSeconds = selectedMinutes * 60;
+      updateTimerDisplay();
+      var btn = document.getElementById('startStopBtn');
+      btn.textContent = '開始';
+      document.getElementById('statusLine').textContent = '時間を選んで「開始」を押してください';
+    }
+  }
+
+  function saveSession(){
+    var textarea = document.getElementById('writingArea');
+    var text = textarea.value;
+    if(!text.trim()){
+      toast('保存する内容がありません', 'error');
+      return;
+    }
+    var entry = { ts: Date.now(), minutes: selectedMinutes, text: text };
+    history.unshift(entry);
+    history = history.slice(0, MAX_HISTORY);
+    saveHistory().then(function(){
+      toast('記録を保存しました', 'success');
+      renderHistory();
+    });
+  }
+
+  function clearWriting(){
+    var textarea = document.getElementById('writingArea');
+    if(!textarea.value){ return; }
+    textarea.value = '';
+    toast('クリアしました', 'info');
+  }
+
+  function renderHistory(){
+    var list = document.getElementById('historyList');
+    var emptyEl = document.getElementById('historyEmpty');
+    list.innerHTML = '';
+    if(history.length === 0){
+      emptyEl.style.display = 'block';
+      return;
+    }
+    emptyEl.style.display = 'none';
+    history.forEach(function(entry, idx){
+      var item = document.createElement('div');
+      item.className = 'history-item';
+
+      var top = document.createElement('div');
+      top.className = 'history-top';
+      var dateSpan = document.createElement('span');
+      dateSpan.className = 'history-date';
+      dateSpan.textContent = formatTimestamp(entry.ts);
+      var durSpan = document.createElement('span');
+      durSpan.className = 'history-dur';
+      durSpan.textContent = entry.minutes + '分';
+      var delBtn = document.createElement('button');
+      delBtn.className = 'history-del';
+      delBtn.textContent = '✕';
+      delBtn.addEventListener('click', function(){ deleteEntry(idx); });
+
+      var right = document.createElement('div');
+      right.style.display = 'flex';
+      right.style.alignItems = 'center';
+      right.style.gap = '8px';
+      right.appendChild(durSpan);
+      right.appendChild(delBtn);
+
+      top.appendChild(dateSpan);
+      top.appendChild(right);
+
+      var textDiv = document.createElement('div');
+      textDiv.className = 'history-text';
+      textDiv.textContent = entry.text;
+
+      item.appendChild(top);
+      item.appendChild(textDiv);
+      list.appendChild(item);
+    });
+  }
+
+  function deleteEntry(idx){
+    history.splice(idx, 1);
+    saveHistory().then(function(){
+      toast('削除しました', 'info');
+      renderHistory();
+    });
+  }
+
+  function showHistory(){
+    document.getElementById('mainView').classList.add('hidden');
+    document.getElementById('historyView').classList.remove('hidden');
+    renderHistory();
+  }
+  function showMain(){
+    document.getElementById('historyView').classList.add('hidden');
+    document.getElementById('mainView').classList.remove('hidden');
+  }
+
+  function init(){
+    document.querySelectorAll('.duration-btn').forEach(function(b){
+      b.addEventListener('click', function(){
+        setDuration(parseInt(b.getAttribute('data-min'), 10));
+      });
+    });
+    document.getElementById('startStopBtn').addEventListener('click', onStartStopClick);
+    document.getElementById('saveBtn').addEventListener('click', saveSession);
+    document.getElementById('clearBtn').addEventListener('click', clearWriting);
+    document.getElementById('historyToggleBtn').addEventListener('click', showHistory);
+    document.getElementById('backFromHistoryBtn').addEventListener('click', showMain);
+
+    updateTimerDisplay();
+
+    loadHistory().then(function(v){
+      history = v;
+    });
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>

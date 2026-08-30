@@ -220,6 +220,16 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/flashcards.html"
   },
   {
+    "id": "game-2048",
+    "name": "2048",
+    "version": "1.0.0",
+    "icon": "🔢",
+    "color": "#ff8f00",
+    "description": "同じ数字のタイルを合体させて2048を目指すスライドパズルゲーム。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/game-2048.html"
+  },
+  {
     "id": "habit-tracker",
     "name": "習慣トラッカー",
     "version": "1.0.0",
@@ -228,6 +238,16 @@
     "description": "毎日の習慣を記録し、継続日数を確認できるトラッカーアプリ。",
     "author": "Claude",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/habit-tracker.html"
+  },
+  {
+    "id": "hangman",
+    "name": "単語当てゲーム",
+    "version": "1.0.0",
+    "icon": "🔤",
+    "color": "#5d4037",
+    "description": "隠された単語をアルファベットを推測しながら当てるゲーム。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/hangman.html"
   },
   {
     "id": "interval-timer",
@@ -540,6 +560,16 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/schedule-planner.html"
   },
   {
+    "id": "scientific-calculator",
+    "name": "関数電卓",
+    "version": "1.0.0",
+    "icon": "🧮",
+    "color": "#1565c0",
+    "description": "三角関数・対数・べき乗など高度な計算ができる関数電卓アプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/scientific-calculator.html"
+  },
+  {
     "id": "shopping-list",
     "name": "買い物リスト",
     "version": "1.0.0",
@@ -570,6 +600,26 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/simon-says.html"
   },
   {
+    "id": "snake-game",
+    "name": "スネークゲーム",
+    "version": "1.0.0",
+    "icon": "🐍",
+    "color": "#1b5e20",
+    "description": "エサを食べて長くなりながら壁や自分の体を避けるスネークゲーム。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/snake-game.html"
+  },
+  {
+    "id": "snippet-manager",
+    "name": "スニペット管理",
+    "version": "1.0.0",
+    "icon": "📋",
+    "color": "#616161",
+    "description": "よく使う定型文やコードをタグ付きで保存し、すぐコピーできるアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/snippet-manager.html"
+  },
+  {
     "id": "sticky-notes",
     "name": "付箋ボード",
     "version": "1.0.0",
@@ -598,6 +648,16 @@
     "description": "9x9マスに1〜9の数字を重複なく埋めていく数独パズルゲーム。",
     "author": "Claude",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/sudoku.html"
+  },
+  {
+    "id": "tally-counter",
+    "name": "タリーカウンター",
+    "version": "1.0.0",
+    "icon": "🔢",
+    "color": "#607d8b",
+    "description": "人数や回数を数えるのに便利なシンプルなカウンターアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/tally-counter.html"
   },
   {
     "id": "tax-calculator",

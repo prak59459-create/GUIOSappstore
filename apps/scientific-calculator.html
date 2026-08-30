@@ -1,0 +1,458 @@
+<!--GUIOS-APP {"id":"scientific-calculator","name":"関数電卓","icon":"🧮","color":"#1565c0","version":"1.0.0","author":"Claude","description":"三角関数・対数・べき乗など高度な計算ができる関数電卓アプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>関数電卓</title>
+<style>
+  :root{
+    --accent:#42a5f5;
+    --accent-dark:#1565c0;
+    --bg:#0a0f16;
+    --card:#131b26;
+    --card2:#0d141c;
+    --text:#eaf1fb;
+    --sub:#8fa3bd;
+    --line:rgba(255,255,255,0.08);
+    --danger:#e5484d;
+    --op:#1e2c3d;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    padding:12px; padding-bottom:32px;
+  }
+  .wrap{max-width:420px; margin:0 auto;}
+  h1{font-size:17px; margin:2px 0 10px; display:flex; align-items:center; gap:8px;}
+  .display{
+    background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px;
+    margin-bottom:12px; min-height:96px; display:flex; flex-direction:column; justify-content:flex-end; gap:6px;
+  }
+  .mode-row{ display:flex; justify-content:space-between; align-items:center; margin-bottom:2px; }
+  .mode-badges{ display:flex; gap:6px; }
+  .mode-badge{
+    font-size:10px; padding:3px 8px; border-radius:10px; background:var(--card2); color:var(--sub); border:1px solid var(--line);
+  }
+  .mode-badge.on{ background:var(--accent-dark); color:#fff; border-color:var(--accent); }
+  .expr{
+    font-size:16px; color:var(--sub); word-break:break-all; min-height:20px; text-align:right; line-height:1.4;
+  }
+  .result{
+    font-size:32px; font-weight:800; text-align:right; word-break:break-all; line-height:1.2;
+  }
+  .result.err{ color:var(--danger); font-size:24px; }
+  .grid{
+    display:grid; grid-template-columns:repeat(5, 1fr); gap:7px;
+  }
+  button.key{
+    padding:0; border-radius:10px; border:1px solid var(--line); background:var(--op);
+    color:var(--text); font-size:14px; font-weight:600; cursor:pointer; min-height:46px;
+  }
+  button.key:active{ filter:brightness(1.25); }
+  button.key.num{ background:var(--card); font-size:16px; font-weight:700; }
+  button.key.op{ background:var(--accent-dark); color:#fff; font-weight:800; }
+  button.key.fn{ background:#132433; color:#9fd0ff; font-size:12px; }
+  button.key.mem{ background:#1c1530; color:#c9a9ff; font-size:12px; }
+  button.key.eq{ background:var(--accent); color:#04121f; font-weight:900; font-size:18px; grid-column: span 2; }
+  button.key.clear{ background:#3a1414; color:#ff9d9d; }
+  button.key.toggle{ background:#132b1c; color:#8fe0b0; font-size:12px; }
+  button.key.toggle.on{ background:#1f5c39; color:#fff; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🧮 関数電卓</h1>
+
+  <div class="display">
+    <div class="mode-row">
+      <div class="mode-badges">
+        <span class="mode-badge" id="memBadge">M</span>
+      </div>
+      <div class="mode-badges">
+        <span class="mode-badge on" id="degBadge">DEG</span>
+      </div>
+    </div>
+    <div class="expr" id="exprDisplay">&nbsp;</div>
+    <div class="result" id="resultDisplay">0</div>
+  </div>
+
+  <div class="grid">
+    <button type="button" class="key toggle on" id="angleToggle">DEG</button>
+    <button type="button" class="key mem" data-mem="mc">MC</button>
+    <button type="button" class="key mem" data-mem="mr">MR</button>
+    <button type="button" class="key mem" data-mem="m-">M-</button>
+    <button type="button" class="key mem" data-mem="m+">M+</button>
+
+    <button type="button" class="key fn" data-insert="(">(</button>
+    <button type="button" class="key fn" data-insert=")">)</button>
+    <button type="button" class="key fn" data-insert="sqrt(">√</button>
+    <button type="button" class="key fn" data-insert="^">x^y</button>
+    <button type="button" class="key fn" data-insert="^2">x²</button>
+
+    <button type="button" class="key fn" data-insert="sin(">sin</button>
+    <button type="button" class="key fn" data-insert="cos(">cos</button>
+    <button type="button" class="key fn" data-insert="tan(">tan</button>
+    <button type="button" class="key fn" data-insert="log(">log</button>
+    <button type="button" class="key fn" data-insert="ln(">ln</button>
+
+    <button type="button" class="key num" data-insert="7">7</button>
+    <button type="button" class="key num" data-insert="8">8</button>
+    <button type="button" class="key num" data-insert="9">9</button>
+    <button type="button" class="key op" data-insert="/">÷</button>
+    <button type="button" class="key clear" id="delBtn">DEL</button>
+
+    <button type="button" class="key num" data-insert="4">4</button>
+    <button type="button" class="key num" data-insert="5">5</button>
+    <button type="button" class="key num" data-insert="6">6</button>
+    <button type="button" class="key op" data-insert="*">×</button>
+    <button type="button" class="key clear" id="acBtn">AC</button>
+
+    <button type="button" class="key num" data-insert="1">1</button>
+    <button type="button" class="key num" data-insert="2">2</button>
+    <button type="button" class="key num" data-insert="3">3</button>
+    <button type="button" class="key op" data-insert="-">−</button>
+    <button type="button" class="key fn" data-insert="pi">π</button>
+
+    <button type="button" class="key num" data-insert="0">0</button>
+    <button type="button" class="key num" data-insert=".">.</button>
+    <button type="button" class="key fn" data-insert="e">e</button>
+    <button type="button" class="key op" data-insert="+">＋</button>
+    <button type="button" class="key eq" id="eqBtn">=</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var APP_ID = "scientific-calculator";
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var LS_KEY = APP_ID + "::state";
+
+  var expr = "";
+  var justEvaluated = false;
+  var angleMode = "deg"; // 'deg' or 'rad'
+  var memory = 0;
+
+  // ---------- Tokenizer ----------
+  function tokenize(s){
+    var tokens = [];
+    var i = 0, n = s.length;
+    while(i < n){
+      var c = s[i];
+      if(c === ' '){ i++; continue; }
+      if(c >= '0' && c <= '9' || c === '.'){
+        var j = i, dotCount = 0;
+        while(j < n && ((s[j] >= '0' && s[j] <= '9') || s[j] === '.')){
+          if(s[j] === '.'){ dotCount++; if(dotCount > 1) throw new Error('不正な数値'); }
+          j++;
+        }
+        var numStr = s.slice(i, j);
+        if(numStr === '.' ) throw new Error('不正な数値');
+        tokens.push({type:'num', value: parseFloat(numStr)});
+        i = j; continue;
+      }
+      if((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')){
+        var k = i;
+        while(k < n && ((s[k] >= 'a' && s[k] <= 'z') || (s[k] >= 'A' && s[k] <= 'Z'))) k++;
+        tokens.push({type:'ident', value: s.slice(i, k).toLowerCase()});
+        i = k; continue;
+      }
+      if('+-*/^(),'.indexOf(c) >= 0){
+        tokens.push({type:'op', value:c});
+        i++; continue;
+      }
+      throw new Error('不明な文字: ' + c);
+    }
+    return tokens;
+  }
+
+  // ---------- Recursive-descent parser ----------
+  function Parser(tokens, mode){
+    this.tokens = tokens;
+    this.pos = 0;
+    this.mode = mode;
+  }
+  Parser.prototype.peek = function(){ return this.tokens[this.pos]; };
+  Parser.prototype.isOp = function(t, v){ return !!t && t.type === 'op' && t.value === v; };
+  Parser.prototype.expectOp = function(v){
+    var t = this.peek();
+    if(!this.isOp(t, v)) throw new Error('構文エラー: ' + v + ' が必要です');
+    this.pos++;
+  };
+  Parser.prototype.parseExpression = function(){
+    var v = this.parseTerm();
+    while(true){
+      var t = this.peek();
+      if(this.isOp(t, '+') || this.isOp(t, '-')){
+        this.pos++;
+        var rhs = this.parseTerm();
+        v = (t.value === '+') ? (v + rhs) : (v - rhs);
+      } else break;
+    }
+    return v;
+  };
+  Parser.prototype.parseTerm = function(){
+    var v = this.parseUnary();
+    while(true){
+      var t = this.peek();
+      if(this.isOp(t, '*') || this.isOp(t, '/')){
+        this.pos++;
+        var rhs = this.parseUnary();
+        if(t.value === '/'){
+          if(rhs === 0) throw new Error('0で割ることはできません');
+          v = v / rhs;
+        } else {
+          v = v * rhs;
+        }
+      } else break;
+    }
+    return v;
+  };
+  Parser.prototype.parseUnary = function(){
+    var t = this.peek();
+    if(this.isOp(t, '-')){ this.pos++; return -this.parseUnary(); }
+    if(this.isOp(t, '+')){ this.pos++; return this.parseUnary(); }
+    return this.parsePower();
+  };
+  Parser.prototype.parsePower = function(){
+    var base = this.parsePrimary();
+    var t = this.peek();
+    if(this.isOp(t, '^')){
+      this.pos++;
+      var exp = this.parseUnary();
+      var r = Math.pow(base, exp);
+      if(typeof r !== 'number' || isNaN(r) || !isFinite(r)) throw new Error('計算できません');
+      return r;
+    }
+    return base;
+  };
+  Parser.prototype.parsePrimary = function(){
+    var t = this.peek();
+    if(!t) throw new Error('式が不完全です');
+    if(t.type === 'num'){ this.pos++; return t.value; }
+    if(this.isOp(t, '(')){
+      this.pos++;
+      var v = this.parseExpression();
+      this.expectOp(')');
+      return v;
+    }
+    if(t.type === 'ident'){
+      this.pos++;
+      var name = t.value;
+      if(name === 'pi') return Math.PI;
+      if(name === 'e') return Math.E;
+      var fnList = {sin:1, cos:1, tan:1, log:1, ln:1, sqrt:1};
+      if(fnList.hasOwnProperty(name)){
+        this.expectOp('(');
+        var arg = this.parseExpression();
+        this.expectOp(')');
+        return this.applyFn(name, arg);
+      }
+      throw new Error('不明な関数: ' + name);
+    }
+    throw new Error('式が不正です');
+  };
+  Parser.prototype.applyFn = function(name, arg){
+    var rad = (this.mode === 'deg') ? (arg * Math.PI / 180) : arg;
+    switch(name){
+      case 'sin': return Math.sin(rad);
+      case 'cos': return Math.cos(rad);
+      case 'tan': return Math.tan(rad);
+      case 'log':
+        if(arg <= 0) throw new Error('logの引数は正の数である必要があります');
+        return Math.log(arg) / Math.LN10;
+      case 'ln':
+        if(arg <= 0) throw new Error('lnの引数は正の数である必要があります');
+        return Math.log(arg);
+      case 'sqrt':
+        if(arg < 0) throw new Error('負の数の平方根は計算できません');
+        return Math.sqrt(arg);
+    }
+    throw new Error('不明な関数: ' + name);
+  };
+
+  function balanceParens(s){
+    var open = 0;
+    for(var i=0;i<s.length;i++){
+      if(s[i] === '(') open++;
+      else if(s[i] === ')') open--;
+    }
+    while(open > 0){ s += ')'; open--; }
+    return s;
+  }
+
+  function evaluateExpression(str){
+    if(!str || !str.trim()) throw new Error('式がありません');
+    var balanced = balanceParens(str);
+    var tokens = tokenize(balanced);
+    if(tokens.length === 0) throw new Error('式がありません');
+    var parser = new Parser(tokens, angleMode);
+    var result = parser.parseExpression();
+    if(parser.pos !== tokens.length) throw new Error('構文エラー');
+    if(typeof result !== 'number' || isNaN(result) || !isFinite(result)) throw new Error('計算できません');
+    return result;
+  }
+
+  function formatNumber(x){
+    if(typeof x !== 'number' || isNaN(x) || !isFinite(x)) return 'エラー';
+    var rounded = Math.round((x + Number.EPSILON) * 1e10) / 1e10;
+    if(Object.is(rounded, -0)) rounded = 0;
+    var str = String(rounded);
+    if(str.length > 16){
+      str = rounded.toPrecision(12).replace(/\.?0+$/, '').replace(/\.?0+e/, 'e');
+    }
+    return str;
+  }
+
+  // ---------- Persistence ----------
+  function loadState(){
+    if(hasSDK){
+      return window.GUIOS.storage.get('state').then(function(v){
+        return (v && typeof v === 'object') ? v : null;
+      }).catch(function(){ return null; });
+    }
+    try{
+      var raw = localStorage.getItem(LS_KEY);
+      return Promise.resolve(raw ? JSON.parse(raw) : null);
+    }catch(e){ return Promise.resolve(null); }
+  }
+  function saveState(){
+    var state = { memory: memory, angleMode: angleMode };
+    if(hasSDK){
+      window.GUIOS.storage.set('state', state).catch(function(){});
+    } else {
+      try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){}
+    }
+  }
+
+  // ---------- UI ----------
+  var exprEl = document.getElementById('exprDisplay');
+  var resultEl = document.getElementById('resultDisplay');
+  var memBadge = document.getElementById('memBadge');
+  var degBadge = document.getElementById('angleToggle');
+
+  function renderExpr(){
+    exprEl.innerHTML = expr ? escapeHtml(expr) : '&nbsp;';
+  }
+  function escapeHtml(s){
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+  function renderResult(text, isErr){
+    resultEl.textContent = text;
+    resultEl.className = 'result' + (isErr ? ' err' : '');
+  }
+  function renderMemBadge(){
+    memBadge.classList.toggle('on', memory !== 0);
+  }
+  function renderAngleBadge(){
+    degBadge.textContent = angleMode === 'deg' ? 'DEG' : 'RAD';
+    degBadge.classList.toggle('on', true);
+  }
+
+  function insertToken(tok){
+    if(justEvaluated){
+      // if previous action was '=', decide whether to continue or start fresh
+      var isDigitOrDot = /^[0-9.]$/.test(tok);
+      var isConst = (tok === 'pi' || tok === 'e');
+      var isFn = tok.indexOf('(') !== -1 && tok !== '(';
+      if(isDigitOrDot || isConst || isFn){
+        expr = '';
+      }
+      justEvaluated = false;
+    }
+    expr += tok;
+    renderExpr();
+  }
+
+  function doDelete(){
+    if(justEvaluated){ expr = ''; justEvaluated = false; renderExpr(); return; }
+    expr = expr.slice(0, -1);
+    renderExpr();
+  }
+  function doClear(){
+    expr = '';
+    justEvaluated = false;
+    renderExpr();
+    renderResult('0', false);
+  }
+  function doEvaluate(){
+    try{
+      var result = evaluateExpression(expr);
+      renderResult(formatNumber(result), false);
+      expr = formatNumber(result);
+      justEvaluated = true;
+      renderExpr();
+    }catch(e){
+      renderResult('エラー', true);
+      justEvaluated = true;
+    }
+  }
+  function currentValueForMemory(){
+    // use the last displayed result if available, else try to evaluate current expr
+    try{
+      return evaluateExpression(expr || resultEl.textContent);
+    }catch(e){
+      var n = parseFloat(resultEl.textContent);
+      return isNaN(n) ? 0 : n;
+    }
+  }
+  function doMemory(action){
+    if(action === 'mc'){
+      memory = 0;
+    } else if(action === 'mr'){
+      insertToken(formatNumber(memory));
+      return;
+    } else if(action === 'm+'){
+      memory += currentValueForMemory();
+    } else if(action === 'm-'){
+      memory -= currentValueForMemory();
+    }
+    renderMemBadge();
+    saveState();
+  }
+
+  document.querySelectorAll('[data-insert]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      insertToken(btn.getAttribute('data-insert'));
+    });
+  });
+  document.querySelectorAll('[data-mem]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      doMemory(btn.getAttribute('data-mem'));
+    });
+  });
+  document.getElementById('delBtn').addEventListener('click', doDelete);
+  document.getElementById('acBtn').addEventListener('click', doClear);
+  document.getElementById('eqBtn').addEventListener('click', doEvaluate);
+  document.getElementById('angleToggle').addEventListener('click', function(){
+    angleMode = (angleMode === 'deg') ? 'rad' : 'deg';
+    renderAngleBadge();
+    saveState();
+  });
+
+  function init(){
+    renderExpr();
+    renderResult('0', false);
+    renderAngleBadge();
+    loadState().then(function(state){
+      if(state){
+        if(typeof state.memory === 'number') memory = state.memory;
+        if(state.angleMode === 'rad' || state.angleMode === 'deg') angleMode = state.angleMode;
+      }
+      renderMemBadge();
+      renderAngleBadge();
+    });
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>

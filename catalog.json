@@ -1230,6 +1230,16 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/unit-converter.html"
   },
   {
+    "id": "unit-price-calculator",
+    "name": "単価計算機",
+    "version": "1.0.0",
+    "icon": "🛍️",
+    "color": "#795548",
+    "description": "内容量と価格から単価を計算し、複数商品をお得さで比較できるツール。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/unit-price-calculator.html"
+  },
+  {
     "id": "url-encoder",
     "name": "URLエンコード/デコード",
     "version": "1.0.0",

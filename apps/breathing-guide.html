@@ -1,0 +1,242 @@
+<!--GUIOS-APP {"id":"breathing-guide","name":"呼吸法ガイド","icon":"🫁","color":"#558b2f","version":"1.0.0","author":"Claude","description":"画面のアニメーションに合わせて深呼吸できるリラックス用ガイドアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>呼吸法ガイド</title>
+<style>
+  :root{
+    --accent:#558b2f;
+    --accent2:#9ccc65;
+    --bg:#0f150c;
+    --card:#182212;
+    --text:#eef5e6;
+    --sub:#a9c299;
+    --line:#2a3a20;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    display:flex; flex-direction:column;
+  }
+  .topbar{padding:16px 16px 4px; flex:none;}
+  .topbar h1{font-size:18px; margin:0 0 4px; display:flex; align-items:center; gap:8px;}
+  .note{font-size:11px; color:var(--sub); line-height:1.5;}
+
+  .wrap{flex:1; overflow-y:auto; padding:8px 16px 24px; display:flex; flex-direction:column; gap:14px;}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px;}
+  label{display:block; font-size:12px; color:var(--sub); margin-bottom:6px; font-weight:600;}
+  select, input[type="number"]{
+    width:100%; padding:11px 12px; border-radius:10px; border:1px solid var(--line);
+    background:#0c1309; color:var(--text); font-size:15px; outline:none; font-family:inherit;
+    min-height:44px;
+  }
+  select:focus, input:focus{border-color:var(--accent2);}
+  .field{margin-bottom:10px;}
+  .field:last-child{margin-bottom:0;}
+
+  .stage{
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:20px; padding:20px 10px; min-height:320px;
+  }
+  .circle-zone{
+    width:100%; max-width:280px; aspect-ratio:1/1; display:flex; align-items:center; justify-content:center;
+    position:relative;
+  }
+  .circle{
+    width:38%; height:38%; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, var(--accent2), var(--accent) 70%);
+    box-shadow:0 0 40px rgba(156,204,101,0.35);
+    transition:width 1s linear, height 1s linear, box-shadow 1s linear;
+  }
+  .phase-label{font-size:24px; font-weight:800; color:var(--accent2); min-height:34px; text-align:center;}
+  .phase-timer{font-size:14px; color:var(--sub); min-height:20px;}
+  .cycle-info{font-size:12px; color:var(--sub);}
+
+  .btnrow{display:flex; gap:10px;}
+  button.action{
+    border:none; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer;
+    min-height:48px; padding:0 18px; flex:1;
+  }
+  .btn-primary{background:var(--accent2); color:#0f1a08;}
+  .btn-stop{background:#2b241a; color:var(--text); border:1px solid var(--line);}
+  .btn-stop:disabled, .btn-primary:disabled{opacity:.4; cursor:not-allowed;}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>🫁 呼吸法ガイド</h1>
+    <div class="note">このアプリを開いたままにしておく必要があります。</div>
+  </div>
+
+  <div class="wrap">
+    <div class="card">
+      <div class="field">
+        <label for="patternSelect">呼吸法</label>
+        <select id="patternSelect">
+          <option value="478">4-7-8呼吸法（吸う4秒→止める7秒→吐く8秒）</option>
+          <option value="box">箱式呼吸（吸う4秒→止める4秒→吐く4秒→止める4秒）</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="cycleInput">繰り返し回数</label>
+        <input type="number" id="cycleInput" min="1" max="30" value="5">
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="circle-zone"><div class="circle" id="circle"></div></div>
+      <div class="phase-label" id="phaseLabel">開始を押してください</div>
+      <div class="phase-timer" id="phaseTimer"></div>
+      <div class="cycle-info" id="cycleInfo"></div>
+    </div>
+
+    <div class="btnrow">
+      <button class="action btn-primary" id="startBtn">開始</button>
+      <button class="action btn-stop" id="stopBtn" disabled>停止</button>
+    </div>
+  </div>
+
+<script>
+(function(){
+  'use strict';
+
+  if(window.GUIOS && window.GUIOS.setTitle){ try{ GUIOS.setTitle('呼吸法ガイド'); }catch(e){} }
+
+  var PATTERNS = {
+    '478': [
+      { label: '吸って…', seconds: 4, size: 78 },
+      { label: '止めて…', seconds: 7, size: 78 },
+      { label: '吐いて…', seconds: 8, size: 38 }
+    ],
+    'box': [
+      { label: '吸って…', seconds: 4, size: 78 },
+      { label: '止めて…', seconds: 4, size: 78 },
+      { label: '吐いて…', seconds: 4, size: 38 },
+      { label: '止めて…', seconds: 4, size: 38 }
+    ]
+  };
+
+  var circle = document.getElementById('circle');
+  var phaseLabel = document.getElementById('phaseLabel');
+  var phaseTimer = document.getElementById('phaseTimer');
+  var cycleInfo = document.getElementById('cycleInfo');
+  var patternSelect = document.getElementById('patternSelect');
+  var cycleInput = document.getElementById('cycleInput');
+  var startBtn = document.getElementById('startBtn');
+  var stopBtn = document.getElementById('stopBtn');
+
+  var running = false;
+  var phaseTimeoutId = null;
+  var tickIntervalId = null;
+  var currentCycle = 0;
+  var totalCycles = 0;
+  var currentPhaseIndex = 0;
+  var phaseEndsAt = 0;
+  var sequence = [];
+
+  function clearTimers(){
+    if(phaseTimeoutId){ clearTimeout(phaseTimeoutId); phaseTimeoutId = null; }
+    if(tickIntervalId){ clearInterval(tickIntervalId); tickIntervalId = null; }
+  }
+
+  function setCircleSize(percent){
+    circle.style.width = percent + '%';
+    circle.style.height = percent + '%';
+  }
+
+  function updateTimerDisplay(){
+    var remainMs = phaseEndsAt - Date.now();
+    var remainSec = Math.max(0, Math.ceil(remainMs / 1000));
+    phaseTimer.textContent = remainSec + '秒';
+  }
+
+  function runPhase(){
+    if(!running) return;
+    if(currentPhaseIndex >= sequence.length){
+      currentPhaseIndex = 0;
+      currentCycle++;
+      if(currentCycle >= totalCycles){
+        finish();
+        return;
+      }
+    }
+    var phase = sequence[currentPhaseIndex];
+    phaseLabel.textContent = phase.label;
+    cycleInfo.textContent = 'サイクル ' + (currentCycle + 1) + ' / ' + totalCycles;
+    setCircleSize(phase.size);
+
+    phaseEndsAt = Date.now() + phase.seconds * 1000;
+    updateTimerDisplay();
+
+    if(tickIntervalId) clearInterval(tickIntervalId);
+    tickIntervalId = setInterval(updateTimerDisplay, 200);
+
+    if(window.GUIOS && window.GUIOS.haptic){ try{ GUIOS.haptic(); }catch(e){} }
+
+    phaseTimeoutId = setTimeout(function(){
+      currentPhaseIndex++;
+      runPhase();
+    }, phase.seconds * 1000);
+  }
+
+  function finish(){
+    running = false;
+    clearTimers();
+    phaseLabel.textContent = 'お疲れさまでした';
+    phaseTimer.textContent = '';
+    cycleInfo.textContent = '完了 (' + totalCycles + ' サイクル)';
+    setCircleSize(38);
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+    patternSelect.disabled = false;
+    cycleInput.disabled = false;
+    if(window.GUIOS && window.GUIOS.notify){
+      try{ GUIOS.notify('呼吸法が完了しました', {type:'success'}); }catch(e){}
+    }
+  }
+
+  function start(){
+    var patternKey = patternSelect.value;
+    sequence = PATTERNS[patternKey];
+    var cycles = parseInt(cycleInput.value, 10);
+    if(isNaN(cycles) || cycles < 1) cycles = 1;
+    if(cycles > 30) cycles = 30;
+    totalCycles = cycles;
+    currentCycle = 0;
+    currentPhaseIndex = 0;
+    running = true;
+
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
+    patternSelect.disabled = true;
+    cycleInput.disabled = true;
+
+    runPhase();
+  }
+
+  function stop(){
+    running = false;
+    clearTimers();
+    phaseLabel.textContent = '停止しました';
+    phaseTimer.textContent = '';
+    cycleInfo.textContent = '';
+    setCircleSize(38);
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+    patternSelect.disabled = false;
+    cycleInput.disabled = false;
+  }
+
+  startBtn.addEventListener('click', start);
+  stopBtn.addEventListener('click', stop);
+
+  window.addEventListener('unload', clearTimers);
+})();
+</script>
+</body>
+</html>

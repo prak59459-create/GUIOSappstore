@@ -1,0 +1,351 @@
+<!--GUIOS-APP {"id":"text-to-speech","name":"読み上げアプリ","icon":"🔊","color":"#00acc1","version":"1.0.0","author":"Claude","description":"入力したテキストを音声で読み上げてくれるアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>読み上げアプリ</title>
+<style>
+  :root{
+    --accent:#26c6da;
+    --accent-dark:#00acc1;
+    --bg:#08161a;
+    --card:#0f2229;
+    --card2:#0b1a1f;
+    --text:#e8f7fa;
+    --sub:#8fbfc9;
+    --line:rgba(255,255,255,0.09);
+    --danger:#e5484d;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    padding:16px; padding-bottom:48px;
+  }
+  .wrap{max-width:560px; margin:0 auto;}
+  h1{font-size:18px; margin:2px 0 14px; display:flex; align-items:center; gap:8px;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:16px; margin-bottom:14px;
+  }
+  label{display:block; font-size:12px; color:var(--sub); margin-bottom:6px;}
+  .field{ margin-bottom:14px; }
+  textarea{
+    width:100%; min-height:130px; padding:12px 14px; border-radius:10px; border:1px solid var(--line);
+    background:var(--card2); color:var(--text); font-size:15px; outline:none; resize:vertical; font-family:inherit;
+    line-height:1.6;
+  }
+  textarea:focus{ border-color:var(--accent); }
+  select{
+    width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--line);
+    background:var(--card2); color:var(--text); font-size:14px; outline:none;
+  }
+  .slider-row{ display:flex; align-items:center; gap:10px; }
+  .slider-row .val{ width:40px; text-align:right; font-size:13px; color:var(--accent); font-weight:700; flex:0 0 auto; }
+  input[type=range]{ flex:1; accent-color:var(--accent-dark); }
+  .btn-grid{ display:grid; grid-template-columns:repeat(2, 1fr); gap:10px; }
+  button.ctrl{
+    padding:14px 8px; border-radius:12px; border:1px solid var(--line); background:var(--card2);
+    color:var(--text); font-size:14px; font-weight:700; cursor:pointer; min-height:50px;
+    display:flex; align-items:center; justify-content:center; gap:6px;
+  }
+  button.ctrl.play{ background:var(--accent-dark); color:#03282e; border-color:var(--accent); }
+  button.ctrl:disabled{ opacity:0.4; cursor:not-allowed; }
+  .status{ font-size:12px; color:var(--sub); text-align:center; margin-top:10px; min-height:16px; }
+  .unsupported{
+    text-align:center; padding:30px 16px; color:var(--sub); font-size:14px; line-height:1.7;
+  }
+  .toast{
+    position:fixed; left:50%; bottom:20px; transform:translateX(-50%) translateY(20px);
+    background:#222; color:#fff; padding:11px 18px; border-radius:10px; font-size:13px;
+    opacity:0; transition:opacity .25s, transform .25s; pointer-events:none; z-index:999; max-width:88vw; text-align:center;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+  .toast.error{background:#5a1e1e;}
+  .toast.success{background:#1e4a2a;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🔊 読み上げアプリ</h1>
+
+  <div id="mainArea">
+    <div class="card">
+      <div class="field">
+        <label>読み上げるテキスト</label>
+        <textarea id="textInput" placeholder="ここに読み上げたい文章を入力してください"></textarea>
+      </div>
+      <div class="field">
+        <label>声の種類</label>
+        <select id="voiceSelect"><option value="">読み込み中...</option></select>
+      </div>
+      <div class="field">
+        <label>速さ (<span id="rateVal">1.0</span>)</label>
+        <div class="slider-row">
+          <input type="range" id="rateRange" min="0.5" max="2" step="0.1" value="1">
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:4px;">
+        <label>高さ (<span id="pitchVal">1.0</span>)</label>
+        <div class="slider-row">
+          <input type="range" id="pitchRange" min="0" max="2" step="0.1" value="1">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="btn-grid">
+        <button type="button" class="ctrl play" id="playBtn">▶ 再生</button>
+        <button type="button" class="ctrl" id="pauseBtn" disabled>⏸ 一時停止</button>
+        <button type="button" class="ctrl" id="resumeBtn" disabled>⏯ 再開</button>
+        <button type="button" class="ctrl" id="stopBtn" disabled>⏹ 停止</button>
+      </div>
+      <div class="status" id="statusMsg">&nbsp;</div>
+    </div>
+  </div>
+
+  <div class="card unsupported" id="unsupportedArea" style="display:none;">
+    😢<br><br>このブラウザは音声合成に対応していません。
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  var APP_ID = "text-to-speech";
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var LS_KEY = APP_ID + "::settings";
+
+  function toast(msg, type){
+    if(hasSDK && window.GUIOS.notify){
+      try{ window.GUIOS.notify(msg, {type: type||'info'}); return; }catch(e){}
+    }
+    var el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'toast show' + (type ? (' '+type) : '');
+    clearTimeout(el._t);
+    el._t = setTimeout(function(){ el.className = 'toast'; }, 2200);
+  }
+  function haptic(){
+    if(hasSDK && window.GUIOS.haptic){ try{ window.GUIOS.haptic(); }catch(e){} }
+  }
+
+  function loadSettings(){
+    if(hasSDK){
+      return window.GUIOS.storage.get('settings').then(function(v){
+        return (v && typeof v === 'object') ? v : null;
+      }).catch(function(){ return null; });
+    }
+    try{
+      var raw = localStorage.getItem(LS_KEY);
+      return Promise.resolve(raw ? JSON.parse(raw) : null);
+    }catch(e){ return Promise.resolve(null); }
+  }
+  var saveTimer = null;
+  function saveSettings(){
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function(){
+      var data = {
+        text: document.getElementById('textInput').value,
+        voiceName: document.getElementById('voiceSelect').value,
+        rate: parseFloat(document.getElementById('rateRange').value),
+        pitch: parseFloat(document.getElementById('pitchRange').value)
+      };
+      if(hasSDK){
+        window.GUIOS.storage.set('settings', data).catch(function(){});
+      } else {
+        try{ localStorage.setItem(LS_KEY, JSON.stringify(data)); }catch(e){}
+      }
+    }, 400);
+  }
+
+  var synth = window.speechSynthesis;
+  if(!synth || typeof window.SpeechSynthesisUtterance === 'undefined'){
+    document.getElementById('mainArea').style.display = 'none';
+    document.getElementById('unsupportedArea').style.display = 'block';
+    return;
+  }
+
+  var voices = [];
+  var currentUtterance = null;
+  var isPaused = false;
+  var isSpeaking = false;
+
+  var textInput = document.getElementById('textInput');
+  var voiceSelect = document.getElementById('voiceSelect');
+  var rateRange = document.getElementById('rateRange');
+  var pitchRange = document.getElementById('pitchRange');
+  var rateVal = document.getElementById('rateVal');
+  var pitchVal = document.getElementById('pitchVal');
+  var playBtn = document.getElementById('playBtn');
+  var pauseBtn = document.getElementById('pauseBtn');
+  var resumeBtn = document.getElementById('resumeBtn');
+  var stopBtn = document.getElementById('stopBtn');
+  var statusMsg = document.getElementById('statusMsg');
+
+  var pendingVoiceName = "";
+
+  function populateVoices(){
+    try{
+      voices = synth.getVoices() || [];
+    }catch(e){ voices = []; }
+    var prevValue = voiceSelect.value || pendingVoiceName;
+    voiceSelect.innerHTML = '';
+    if(voices.length === 0){
+      var opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = 'デフォルトの声';
+      voiceSelect.appendChild(opt);
+      return;
+    }
+    voices.forEach(function(v, idx){
+      var opt = document.createElement('option');
+      opt.value = v.name;
+      opt.textContent = v.name + (v.lang ? ' (' + v.lang + ')' : '');
+      voiceSelect.appendChild(opt);
+    });
+    if(prevValue){
+      var found = voices.some(function(v){ return v.name === prevValue; });
+      if(found) voiceSelect.value = prevValue;
+    } else {
+      // prefer a Japanese voice by default if available
+      var jaIdx = voices.findIndex(function(v){ return v.lang && v.lang.toLowerCase().indexOf('ja') === 0; });
+      if(jaIdx >= 0) voiceSelect.selectedIndex = jaIdx;
+    }
+  }
+
+  populateVoices();
+  if('onvoiceschanged' in synth){
+    synth.onvoiceschanged = populateVoices;
+  }
+  // extra fallback in case voiceschanged never fires
+  setTimeout(populateVoices, 300);
+  setTimeout(populateVoices, 1200);
+
+  function setStatus(text){
+    statusMsg.textContent = text;
+  }
+
+  function updateButtons(){
+    playBtn.disabled = isSpeaking && !isPaused;
+    pauseBtn.disabled = !isSpeaking || isPaused;
+    resumeBtn.disabled = !isSpeaking || !isPaused;
+    stopBtn.disabled = !isSpeaking;
+  }
+
+  rateRange.addEventListener('input', function(){
+    rateVal.textContent = parseFloat(rateRange.value).toFixed(1);
+    saveSettings();
+  });
+  pitchRange.addEventListener('input', function(){
+    pitchVal.textContent = parseFloat(pitchRange.value).toFixed(1);
+    saveSettings();
+  });
+  voiceSelect.addEventListener('change', saveSettings);
+  textInput.addEventListener('input', saveSettings);
+
+  playBtn.addEventListener('click', function(){
+    var text = textInput.value.trim();
+    if(!text){
+      toast('テキストを入力してください', 'error');
+      textInput.focus();
+      return;
+    }
+    try{
+      synth.cancel();
+    }catch(e){}
+
+    var utter = new SpeechSynthesisUtterance(text);
+    var selectedName = voiceSelect.value;
+    var voice = voices.filter(function(v){ return v.name === selectedName; })[0];
+    if(voice) utter.voice = voice;
+    utter.rate = parseFloat(rateRange.value) || 1;
+    utter.pitch = parseFloat(pitchRange.value) || 1;
+
+    utter.onstart = function(){
+      isSpeaking = true;
+      isPaused = false;
+      setStatus('読み上げ中...');
+      updateButtons();
+    };
+    utter.onend = function(){
+      isSpeaking = false;
+      isPaused = false;
+      setStatus('読み上げが完了しました');
+      updateButtons();
+    };
+    utter.onerror = function(){
+      isSpeaking = false;
+      isPaused = false;
+      setStatus('エラーが発生しました');
+      updateButtons();
+    };
+    utter.onpause = function(){
+      isPaused = true;
+      setStatus('一時停止中');
+      updateButtons();
+    };
+    utter.onresume = function(){
+      isPaused = false;
+      setStatus('読み上げ中...');
+      updateButtons();
+    };
+
+    currentUtterance = utter;
+    haptic();
+    try{
+      synth.speak(utter);
+    }catch(e){
+      toast('再生に失敗しました', 'error');
+    }
+  });
+
+  pauseBtn.addEventListener('click', function(){
+    try{ synth.pause(); }catch(e){}
+    haptic();
+  });
+  resumeBtn.addEventListener('click', function(){
+    try{ synth.resume(); }catch(e){}
+    haptic();
+  });
+  stopBtn.addEventListener('click', function(){
+    try{ synth.cancel(); }catch(e){}
+    isSpeaking = false;
+    isPaused = false;
+    setStatus('停止しました');
+    updateButtons();
+    haptic();
+  });
+
+  window.addEventListener('beforeunload', function(){
+    try{ synth.cancel(); }catch(e){}
+  });
+
+  function init(){
+    updateButtons();
+    loadSettings().then(function(s){
+      if(!s) return;
+      if(typeof s.text === 'string') textInput.value = s.text;
+      if(typeof s.rate === 'number'){ rateRange.value = s.rate; rateVal.textContent = s.rate.toFixed(1); }
+      if(typeof s.pitch === 'number'){ pitchRange.value = s.pitch; pitchVal.textContent = s.pitch.toFixed(1); }
+      if(typeof s.voiceName === 'string'){
+        pendingVoiceName = s.voiceName;
+        var found = voices.some(function(v){ return v.name === s.voiceName; });
+        if(found) voiceSelect.value = s.voiceName;
+      }
+    });
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,288 @@
+<!--GUIOS-APP {"id":"lorem-generator","name":"ダミーテキスト生成","icon":"📝","color":"#8d6e63","version":"1.0.0","author":"Claude","description":"指定した段落数・文字数のダミーテキストを生成できるツール。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ダミーテキスト生成</title>
+<style>
+  :root{
+    --accent:#8d6e63;
+    --accent2:#c8a99b;
+    --bg:#181310;
+    --card:#231b17;
+    --text:#f2e9e4;
+    --sub:#b8a89f;
+    --line:#3a2d27;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    display:flex; flex-direction:column;
+  }
+  .topbar{padding:16px 16px 8px; flex:none;}
+  .topbar h1{font-size:18px; margin:0; display:flex; align-items:center; gap:8px;}
+  .wrap{flex:1; overflow-y:auto; padding:8px 16px 24px; display:flex; flex-direction:column; gap:14px;}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px;}
+  .row{display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;}
+  .field{flex:1; min-width:120px;}
+  label{display:block; font-size:12px; color:var(--sub); margin-bottom:6px; font-weight:600;}
+  select, input[type="number"]{
+    width:100%; padding:11px 12px; border-radius:10px; border:1px solid var(--line);
+    background:#100c0a; color:var(--text); font-size:15px; outline:none; font-family:inherit;
+    min-height:44px;
+  }
+  select:focus, input[type="number"]:focus{border-color:var(--accent2);}
+  .mode-toggle{display:flex; gap:8px; margin-top:4px;}
+  .mode-btn{
+    flex:1; padding:10px; border-radius:10px; border:1px solid var(--line); background:#100c0a;
+    color:var(--sub); font-size:13px; font-weight:700; cursor:pointer; min-height:44px;
+  }
+  .mode-btn.active{background:var(--accent); color:#1a120e; border-color:var(--accent);}
+  .btnrow{display:flex; gap:10px; margin-top:14px; flex-wrap:wrap;}
+  button.action{
+    border:none; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer;
+    min-height:44px; padding:0 18px; flex:1; min-width:120px;
+  }
+  .btn-primary{background:var(--accent2); color:#1a120e;}
+  .btn-secondary{background:#2b211b; color:var(--text); border:1px solid var(--line);}
+  #output{
+    width:100%; min-height:220px; resize:vertical; padding:14px; border-radius:10px;
+    border:1px solid var(--line); background:#100c0a; color:var(--text); font-size:14px;
+    outline:none; font-family:inherit; line-height:1.8; white-space:pre-wrap;
+  }
+  .toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:#2b211b; color:var(--text); padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; pointer-events:none; transition:all .25s; border:1px solid var(--line);
+    max-width:90%; text-align:center; z-index:999;
+  }
+</style>
+</head>
+<body>
+  <div class="topbar"><h1>📝 ダミーテキスト生成</h1></div>
+
+  <div class="wrap">
+    <div class="card">
+      <label>言語スタイル</label>
+      <div class="mode-toggle">
+        <button type="button" class="mode-btn active" id="modeJa">日本語</button>
+        <button type="button" class="mode-btn" id="modeLatin">Lorem Ipsum</button>
+      </div>
+
+      <div class="row" style="margin-top:14px;">
+        <div class="field">
+          <label for="unitSelect">生成する単位</label>
+          <select id="unitSelect">
+            <option value="paragraph">段落</option>
+            <option value="sentence">文</option>
+            <option value="word">単語</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="countInput">数量</label>
+          <input type="number" id="countInput" min="1" max="200" value="3">
+        </div>
+      </div>
+
+      <div class="btnrow">
+        <button class="action btn-primary" id="genBtn">生成</button>
+        <button class="action btn-secondary" id="copyBtn">コピー</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <label for="output">生成結果</label>
+      <textarea id="output" readonly placeholder="ここに生成されたテキストが表示されます"></textarea>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+<script>
+(function(){
+  'use strict';
+
+  function showToast(msg){
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.opacity = '1';
+    t.style.transform = 'translateX(-50%) translateY(0)';
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(function(){
+      t.style.opacity = '0';
+      t.style.transform = 'translateX(-50%) translateY(20px)';
+    }, 1800);
+  }
+  function notify(msg, type){
+    if(window.GUIOS && window.GUIOS.notify){
+      GUIOS.notify(msg, {type: type || 'info'});
+    } else {
+      showToast(msg);
+    }
+  }
+  async function copyText(text){
+    try{
+      if(window.GUIOS && window.GUIOS.clipboard && window.GUIOS.clipboard.writeText){
+        await GUIOS.clipboard.writeText(text);
+        return true;
+      }
+    }catch(e){}
+    try{
+      await navigator.clipboard.writeText(text);
+      return true;
+    }catch(e){}
+    return false;
+  }
+  if(window.GUIOS && window.GUIOS.setTitle){ try{ GUIOS.setTitle('ダミーテキスト生成'); }catch(e){} }
+
+  /* ---------------- Word banks ---------------- */
+  var LATIN_WORDS = ('lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor ' +
+    'incididunt ut labore et dolore magna aliqua enim ad minim veniam quis nostrud exercitation ' +
+    'ullamco laboris nisi aliquip ex ea commodo consequat duis aute irure in reprehenderit ' +
+    'voluptate velit esse cillum eu fugiat nulla pariatur excepteur sint occaecat cupidatat ' +
+    'non proident sunt culpa qui officia deserunt mollit anim id est laborum').split(' ');
+
+  var JA_WORDS = ('サンプル テキスト 内容 項目 情報 データ 画面 表示 確認 設定 状態 結果 手順 説明 概要 ' +
+    '対象 条件 方式 処理 機能 環境 構成 資料 記録 一覧 詳細 更新 変更 追加 削除 検索 選択 入力 出力 ' +
+    '完了 開始 終了 進行 予定 期間 目的 方法 事例 傾向 比較 分析 評価 検討').split(' ');
+
+  var JA_SENTENCE_TEMPLATES = [
+    'これはダミーテキストの一例です。',
+    '本文の内容には特に意味はありません。',
+    'レイアウトの確認用に生成された文章です。',
+    'サンプルとして自由にご利用いただけます。',
+    '文章量や体裁を確認するための仮テキストです。',
+    'ここに実際の内容が入る予定です。',
+    'デザインの検証を目的としたテキストです。',
+    '文字数や行間のバランスを見るためのものです。',
+    '内容の意味よりも見た目を重視した文章です。',
+    '編集前の仮置きとして使用してください。',
+    '長さの目安としてご参照ください。',
+    '実データが用意され次第、差し替えてください。'
+  ];
+
+  function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+  function randomInt(min, max){ return Math.floor(Math.random()*(max-min+1))+min; }
+
+  /* ---------------- Latin generation ---------------- */
+  function latinWord(){ return pick(LATIN_WORDS); }
+  function latinSentence(){
+    var len = randomInt(5, 14);
+    var words = [];
+    for(var i=0;i<len;i++) words.push(latinWord());
+    var s = words.join(' ');
+    return s.charAt(0).toUpperCase() + s.slice(1) + '.';
+  }
+  function latinParagraph(){
+    var sentCount = randomInt(3, 6);
+    var sentences = [];
+    for(var i=0;i<sentCount;i++) sentences.push(latinSentence());
+    return sentences.join(' ');
+  }
+
+  /* ---------------- Japanese generation ---------------- */
+  function jaWord(){ return pick(JA_WORDS); }
+  function jaSentence(){
+    // Either a canned template sentence, or a light word-composition
+    if(Math.random() < 0.5){
+      return pick(JA_SENTENCE_TEMPLATES);
+    }
+    var n = randomInt(2, 4);
+    var parts = [];
+    for(var i=0;i<n;i++) parts.push(jaWord());
+    return parts.join('・') + 'に関するダミー文章です。';
+  }
+  function jaParagraph(){
+    var sentCount = randomInt(3, 6);
+    var sentences = [];
+    for(var i=0;i<sentCount;i++) sentences.push(jaSentence());
+    return sentences.join('');
+  }
+
+  /* ---------------- Orchestration ---------------- */
+  function generate(mode, unit, count){
+    count = Math.max(1, Math.min(200, count|0));
+    if(mode === 'latin'){
+      if(unit === 'word'){
+        var words = [];
+        for(var i=0;i<count;i++) words.push(latinWord());
+        return words.join(' ');
+      } else if(unit === 'sentence'){
+        var sentences = [];
+        for(var i=0;i<count;i++) sentences.push(latinSentence());
+        return sentences.join(' ');
+      } else {
+        var paragraphs = [];
+        for(var i=0;i<count;i++) paragraphs.push(latinParagraph());
+        return paragraphs.join('\n\n');
+      }
+    } else {
+      if(unit === 'word'){
+        var words = [];
+        for(var i=0;i<count;i++) words.push(jaWord());
+        return words.join('、') + '。';
+      } else if(unit === 'sentence'){
+        var sentences = [];
+        for(var i=0;i<count;i++) sentences.push(jaSentence());
+        return sentences.join('');
+      } else {
+        var paragraphs = [];
+        for(var i=0;i<count;i++) paragraphs.push(jaParagraph());
+        return paragraphs.join('\n\n');
+      }
+    }
+  }
+
+  /* ---------------- Wiring ---------------- */
+  var currentMode = 'ja';
+  var modeJa = document.getElementById('modeJa');
+  var modeLatin = document.getElementById('modeLatin');
+  var unitSelect = document.getElementById('unitSelect');
+  var countInput = document.getElementById('countInput');
+  var output = document.getElementById('output');
+  var genBtn = document.getElementById('genBtn');
+  var copyBtn = document.getElementById('copyBtn');
+
+  modeJa.addEventListener('click', function(){
+    currentMode = 'ja';
+    modeJa.classList.add('active');
+    modeLatin.classList.remove('active');
+  });
+  modeLatin.addEventListener('click', function(){
+    currentMode = 'latin';
+    modeLatin.classList.add('active');
+    modeJa.classList.remove('active');
+  });
+
+  genBtn.addEventListener('click', function(){
+    var unit = unitSelect.value;
+    var count = parseInt(countInput.value, 10);
+    if(isNaN(count) || count < 1){
+      notify('数量を正しく入力してください', 'error');
+      return;
+    }
+    output.value = generate(currentMode, unit, count);
+    notify('テキストを生成しました', 'success');
+    if(window.GUIOS && window.GUIOS.haptic){ try{ GUIOS.haptic(); }catch(e){} }
+  });
+
+  copyBtn.addEventListener('click', async function(){
+    if(!output.value){
+      notify('コピーする内容がありません', 'error');
+      return;
+    }
+    var ok = await copyText(output.value);
+    notify(ok ? 'コピーしました' : 'コピーに失敗しました', ok ? 'success' : 'error');
+  });
+
+  // initial sample
+  output.value = generate(currentMode, 'paragraph', 3);
+})();
+</script>
+</body>
+</html>

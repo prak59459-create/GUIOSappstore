@@ -70,6 +70,36 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/bookmark-manager.html"
   },
   {
+    "id": "box-shadow-generator",
+    "name": "box-shadow生成",
+    "version": "1.0.0",
+    "icon": "🔲",
+    "color": "#455a64",
+    "description": "CSSのbox-shadowをスライダーで調整して生成できるツール。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/box-shadow-generator.html"
+  },
+  {
+    "id": "break-even-calculator",
+    "name": "損益分岐点計算機",
+    "version": "1.0.0",
+    "icon": "📉",
+    "color": "#4527a0",
+    "description": "固定費・変動費・販売価格から損益分岐点の販売数を計算するツール。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/break-even-calculator.html"
+  },
+  {
+    "id": "breathing-guide",
+    "name": "呼吸法ガイド",
+    "version": "1.0.0",
+    "icon": "🫁",
+    "color": "#558b2f",
+    "description": "画面のアニメーションに合わせて深呼吸できるリラックス用ガイドアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/breathing-guide.html"
+  },
+  {
     "id": "calculator",
     "name": "電卓",
     "version": "1.0.0",
@@ -170,6 +200,16 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/countdown-timer.html"
   },
   {
+    "id": "csv-viewer",
+    "name": "CSV表示・編集",
+    "version": "1.0.0",
+    "icon": "📊",
+    "color": "#2e7d32",
+    "description": "CSVファイルを表として表示・編集し、書き出しできるツール。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/csv-viewer.html"
+  },
+  {
     "id": "dice-roller",
     "name": "サイコロ",
     "version": "1.0.0",
@@ -250,6 +290,26 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/hangman.html"
   },
   {
+    "id": "hash-generator",
+    "name": "ハッシュ値計算",
+    "version": "1.0.0",
+    "icon": "#️⃣",
+    "color": "#37474f",
+    "description": "テキストからSHA-256などのハッシュ値を計算できるツール。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/hash-generator.html"
+  },
+  {
+    "id": "hourly-wage-calculator",
+    "name": "時給計算機",
+    "version": "1.0.0",
+    "icon": "💵",
+    "color": "#00695c",
+    "description": "時給・勤務時間・残業時間から給与を計算する時給計算機アプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/hourly-wage-calculator.html"
+  },
+  {
     "id": "interval-timer",
     "name": "インターバルタイマー",
     "version": "1.0.0",
@@ -298,6 +358,16 @@
     "description": "借入額・金利・返済期間から月々の返済額を計算するローン計算機。",
     "author": "Claude",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/loan-calculator.html"
+  },
+  {
+    "id": "lorem-generator",
+    "name": "ダミーテキスト生成",
+    "version": "1.0.0",
+    "icon": "📝",
+    "color": "#8d6e63",
+    "description": "指定した段落数・文字数のダミーテキストを生成できるツール。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/lorem-generator.html"
   },
   {
     "id": "markdown-editor",
@@ -470,6 +540,16 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/pomodoro-timer.html"
   },
   {
+    "id": "qr-code-generator",
+    "name": "QRコード生成",
+    "version": "1.0.0",
+    "icon": "📱",
+    "color": "#1f2937",
+    "description": "テキストやURLからQRコードを生成し、画像として保存できるツール。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/qr-code-generator.html"
+  },
+  {
     "id": "quiz-app",
     "name": "クイズアプリ",
     "version": "1.0.0",
@@ -518,6 +598,16 @@
     "description": "正規表現とテスト文字列をその場で試せる正規表現テストツール。",
     "author": "Claude",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/regex-tester.html"
+  },
+  {
+    "id": "reminder-list",
+    "name": "リマインダー",
+    "version": "1.0.0",
+    "icon": "🔔",
+    "color": "#ef6c00",
+    "description": "期限付きのタスクを登録し、期限が来たら知らせてくれるリマインダーアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/reminder-list.html"
   },
   {
     "id": "resume-builder",
@@ -680,6 +770,16 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/text-diff.html"
   },
   {
+    "id": "text-to-speech",
+    "name": "読み上げアプリ",
+    "version": "1.0.0",
+    "icon": "🔊",
+    "color": "#00acc1",
+    "description": "入力したテキストを音声で読み上げてくれるアプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/text-to-speech.html"
+  },
+  {
     "id": "tic-tac-toe",
     "name": "三目並べ",
     "version": "1.0.0",
@@ -688,6 +788,16 @@
     "description": "2人対戦またはCPU対戦で遊べる三目並べ(マルバツゲーム)。",
     "author": "Claude",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/tic-tac-toe.html"
+  },
+  {
+    "id": "timezone-converter",
+    "name": "タイムゾーン変換",
+    "version": "1.0.0",
+    "icon": "🕐",
+    "color": "#00838f",
+    "description": "ある地域の日時を別のタイムゾーンの時刻に変換して表示するツール。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/timezone-converter.html"
   },
   {
     "id": "tip-calculator",
@@ -738,6 +848,16 @@
     "description": "文字列をURLエンコード・デコードできるシンプルな変換ツール。",
     "author": "Claude",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/url-encoder.html"
+  },
+  {
+    "id": "uuid-generator",
+    "name": "UUID生成",
+    "version": "1.0.0",
+    "icon": "🆔",
+    "color": "#5e35b1",
+    "description": "ランダムなUUID(v4)を生成できるシンプルなツール。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/uuid-generator.html"
   },
   {
     "id": "watch-log",

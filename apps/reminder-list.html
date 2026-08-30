@@ -1,0 +1,394 @@
+<!--GUIOS-APP {"id":"reminder-list","name":"リマインダー","icon":"🔔","color":"#ef6c00","version":"1.0.0","author":"Claude","description":"期限付きのタスクを登録し、期限が来たら知らせてくれるリマインダーアプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>リマインダー</title>
+<style>
+  :root{
+    --accent:#ef6c00;
+    --accent2:#ffb066;
+    --bg:#171310;
+    --card:#221a14;
+    --text:#f7ece1;
+    --sub:#c2ab98;
+    --line:#3d2f22;
+    --danger:#e05a4e;
+    --danger-bg:rgba(224,90,78,0.14);
+    --ok:#7cb87a;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    display:flex; flex-direction:column;
+  }
+  .topbar{padding:16px 16px 4px; flex:none;}
+  .topbar h1{font-size:18px; margin:0 0 4px; display:flex; align-items:center; gap:8px;}
+  .note{font-size:11px; color:var(--sub); line-height:1.5;}
+  .wrap{flex:1; overflow-y:auto; padding:8px 16px 24px; display:flex; flex-direction:column; gap:14px;}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px;}
+  label{display:block; font-size:12px; color:var(--sub); margin-bottom:6px; font-weight:600;}
+  input[type="text"], input[type="datetime-local"], select{
+    width:100%; padding:11px 12px; border-radius:10px; border:1px solid var(--line);
+    background:#100c09; color:var(--text); font-size:15px; outline:none; font-family:inherit;
+    min-height:44px;
+  }
+  input:focus, select:focus{border-color:var(--accent2);}
+  .field{margin-bottom:10px;}
+  .row2{display:flex; gap:10px;}
+  .row2 .field{flex:1;}
+  button.action{
+    border:none; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer;
+    min-height:44px; padding:0 18px; width:100%; margin-top:4px;
+    background:var(--accent); color:#1c1108;
+  }
+  .section-title{font-size:13px; font-weight:700; color:var(--sub); margin:4px 2px 8px; display:flex; align-items:center; justify-content:space-between;}
+  .r-card{
+    background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px 14px; margin-bottom:10px;
+    display:flex; gap:10px; align-items:flex-start;
+  }
+  .r-card.overdue{border-color:var(--danger); background:var(--danger-bg);}
+  .r-check{
+    flex:none; width:26px; height:26px; border-radius:8px; border:2px solid var(--line);
+    background:transparent; cursor:pointer; margin-top:2px;
+    display:flex; align-items:center; justify-content:center; color:var(--text); font-size:14px;
+  }
+  .r-body{flex:1; min-width:0;}
+  .r-text{font-size:15px; font-weight:700; word-break:break-word;}
+  .r-text.done{text-decoration:line-through; color:var(--sub); font-weight:500;}
+  .r-meta{font-size:12px; color:var(--sub); margin-top:4px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
+  .r-due{font-weight:600;}
+  .r-due.overdue{color:var(--danger);}
+  .prio-badge{font-size:10px; padding:2px 8px; border-radius:999px; font-weight:700;}
+  .prio-high{background:rgba(224,90,78,0.2); color:#f08a80;}
+  .prio-mid{background:rgba(239,108,0,0.2); color:var(--accent2);}
+  .prio-low{background:rgba(124,184,122,0.2); color:var(--ok);}
+  .r-del{
+    flex:none; width:32px; height:32px; border-radius:8px; border:none; background:transparent;
+    color:var(--sub); font-size:16px; cursor:pointer;
+  }
+  .r-del:hover{color:var(--danger);}
+  .empty{color:var(--sub); text-align:center; padding:30px 20px; font-size:14px;}
+  .collapse-toggle{
+    background:none; border:none; color:var(--sub); font-size:12px; cursor:pointer; font-weight:700;
+    padding:4px 0;
+  }
+  .toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:#2b2118; color:var(--text); padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; pointer-events:none; transition:all .25s; border:1px solid var(--line);
+    max-width:90%; text-align:center; z-index:999;
+  }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>🔔 リマインダー</h1>
+    <div class="note">このアプリを開いたままにしておく必要があります（通知はアプリ表示中のみ届きます）。</div>
+  </div>
+
+  <div class="wrap">
+    <div class="card">
+      <div class="field">
+        <label for="taskInput">内容</label>
+        <input type="text" id="taskInput" placeholder="タスクの内容を入力...">
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label for="dueInput">期限日時</label>
+          <input type="datetime-local" id="dueInput">
+        </div>
+        <div class="field" style="max-width:120px;">
+          <label for="prioSelect">優先度</label>
+          <select id="prioSelect">
+            <option value="mid" selected>中</option>
+            <option value="high">高</option>
+            <option value="low">低</option>
+          </select>
+        </div>
+      </div>
+      <button class="action" id="addBtn">追加</button>
+    </div>
+
+    <div>
+      <div class="section-title">未完了</div>
+      <div id="activeList"></div>
+    </div>
+
+    <div>
+      <div class="section-title">
+        <span>完了済み (<span id="doneCount">0</span>)</span>
+        <button class="collapse-toggle" id="toggleDone">表示 ▾</button>
+      </div>
+      <div id="doneList" hidden></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+<script>
+(function(){
+  'use strict';
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var STORAGE_KEY = 'reminders';
+  var FALLBACK_KEY = 'guios-fallback-reminder-list-reminders';
+  var CHECK_INTERVAL_MS = 30000;
+
+  var reminders = [];
+  var checkTimer = null;
+
+  function showToast(msg){
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.opacity = '1';
+    t.style.transform = 'translateX(-50%) translateY(0)';
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(function(){
+      t.style.opacity = '0';
+      t.style.transform = 'translateX(-50%) translateY(20px)';
+    }, 1800);
+  }
+  function notify(msg, type){
+    if(window.GUIOS && window.GUIOS.notify){
+      GUIOS.notify(msg, {type: type || 'info'});
+    } else {
+      showToast(msg);
+    }
+  }
+  function haptic(){
+    if(window.GUIOS && window.GUIOS.haptic){ try{ GUIOS.haptic(); }catch(e){} }
+  }
+  if(window.GUIOS && window.GUIOS.setTitle){ try{ GUIOS.setTitle('リマインダー'); }catch(e){} }
+
+  async function loadReminders(){
+    if(hasSDK){
+      var v = await GUIOS.storage.get(STORAGE_KEY);
+      return Array.isArray(v) ? v : [];
+    } else {
+      try{
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        return raw ? JSON.parse(raw) : [];
+      }catch(e){ return []; }
+    }
+  }
+  async function saveReminders(list){
+    if(hasSDK){
+      await GUIOS.storage.set(STORAGE_KEY, list);
+    } else {
+      try{ localStorage.setItem(FALLBACK_KEY, JSON.stringify(list)); }catch(e){}
+    }
+  }
+
+  function formatDue(ts){
+    var d = new Date(ts);
+    var y = d.getFullYear();
+    var mo = ('0'+(d.getMonth()+1)).slice(-2);
+    var da = ('0'+d.getDate()).slice(-2);
+    var h = ('0'+d.getHours()).slice(-2);
+    var mi = ('0'+d.getMinutes()).slice(-2);
+    return y+'/'+mo+'/'+da+' '+h+':'+mi;
+  }
+
+  function relativeTime(ts){
+    var diffMs = ts - Date.now();
+    if(diffMs <= 0){
+      return '期限超過';
+    }
+    var mins = Math.round(diffMs / 60000);
+    if(mins < 60) return 'あと' + mins + '分';
+    var hours = Math.round(mins / 60);
+    if(hours < 24) return 'あと' + hours + '時間';
+    var days = Math.round(hours / 24);
+    return 'あと' + days + '日';
+  }
+
+  function prioLabel(p){
+    if(p === 'high') return {cls:'prio-high', text:'高'};
+    if(p === 'low') return {cls:'prio-low', text:'低'};
+    return {cls:'prio-mid', text:'中'};
+  }
+
+  function render(){
+    var active = reminders.filter(function(r){ return !r.done; });
+    var done = reminders.filter(function(r){ return r.done; });
+
+    active.sort(function(a,b){ return a.due - b.due; });
+    done.sort(function(a,b){ return (b.completedAt||0) - (a.completedAt||0); });
+
+    var activeList = document.getElementById('activeList');
+    if(active.length === 0){
+      activeList.innerHTML = '<div class="empty">リマインダーはありません</div>';
+    } else {
+      activeList.innerHTML = '';
+      active.forEach(function(r){
+        activeList.appendChild(buildCard(r, false));
+      });
+    }
+
+    var doneList = document.getElementById('doneList');
+    document.getElementById('doneCount').textContent = done.length;
+    if(done.length === 0){
+      doneList.innerHTML = '<div class="empty">完了したリマインダーはありません</div>';
+    } else {
+      doneList.innerHTML = '';
+      done.forEach(function(r){
+        doneList.appendChild(buildCard(r, true));
+      });
+    }
+  }
+
+  function buildCard(r, isDone){
+    var now = Date.now();
+    var overdue = !isDone && r.due <= now;
+
+    var card = document.createElement('div');
+    card.className = 'r-card' + (overdue ? ' overdue' : '');
+
+    var check = document.createElement('button');
+    check.className = 'r-check';
+    check.textContent = isDone ? '✓' : '';
+    check.setAttribute('aria-label', isDone ? '未完了に戻す' : '完了にする');
+    check.addEventListener('click', function(){ toggleDone(r.id); });
+
+    var body = document.createElement('div');
+    body.className = 'r-body';
+
+    var text = document.createElement('div');
+    text.className = 'r-text' + (isDone ? ' done' : '');
+    text.textContent = r.text;
+
+    var meta = document.createElement('div');
+    meta.className = 'r-meta';
+
+    var due = document.createElement('span');
+    due.className = 'r-due' + (overdue ? ' overdue' : '');
+    due.textContent = formatDue(r.due) + (isDone ? '' : '（' + relativeTime(r.due) + '）');
+
+    var prio = prioLabel(r.priority);
+    var prioEl = document.createElement('span');
+    prioEl.className = 'prio-badge ' + prio.cls;
+    prioEl.textContent = prio.text;
+
+    meta.appendChild(due);
+    meta.appendChild(prioEl);
+
+    body.appendChild(text);
+    body.appendChild(meta);
+
+    var del = document.createElement('button');
+    del.className = 'r-del';
+    del.textContent = '✕';
+    del.addEventListener('click', function(){ deleteReminder(r.id); });
+
+    card.appendChild(check);
+    card.appendChild(body);
+    card.appendChild(del);
+    return card;
+  }
+
+  async function toggleDone(id){
+    var r = reminders.find(function(x){ return x.id === id; });
+    if(!r) return;
+    r.done = !r.done;
+    r.completedAt = r.done ? Date.now() : null;
+    await saveReminders(reminders);
+    render();
+    haptic();
+  }
+
+  async function deleteReminder(id){
+    if(!confirm('このリマインダーを削除しますか？')) return;
+    reminders = reminders.filter(function(r){ return r.id !== id; });
+    await saveReminders(reminders);
+    render();
+  }
+
+  async function addReminder(){
+    var taskInput = document.getElementById('taskInput');
+    var dueInput = document.getElementById('dueInput');
+    var prioSelect = document.getElementById('prioSelect');
+
+    var text = taskInput.value.trim();
+    if(!text){
+      notify('内容を入力してください', 'error');
+      return;
+    }
+    if(!dueInput.value){
+      notify('期限日時を指定してください', 'error');
+      return;
+    }
+    var due = new Date(dueInput.value).getTime();
+    if(isNaN(due)){
+      notify('期限日時が正しくありません', 'error');
+      return;
+    }
+
+    reminders.push({
+      id: 'rem-' + Date.now() + '-' + Math.floor(Math.random()*10000),
+      text: text,
+      due: due,
+      priority: prioSelect.value,
+      done: false,
+      completedAt: null,
+      notified: false
+    });
+
+    taskInput.value = '';
+    dueInput.value = '';
+    prioSelect.value = 'mid';
+
+    await saveReminders(reminders);
+    render();
+    haptic();
+    notify('リマインダーを追加しました', 'success');
+  }
+
+  async function checkDueReminders(){
+    var now = Date.now();
+    var changed = false;
+    for(var i=0;i<reminders.length;i++){
+      var r = reminders[i];
+      if(!r.done && !r.notified && r.due <= now){
+        r.notified = true;
+        changed = true;
+        notify('期限です: ' + r.text, 'error');
+        haptic();
+      }
+    }
+    if(changed){
+      await saveReminders(reminders);
+    }
+    // refresh relative-time labels even if nothing newly fired
+    render();
+  }
+
+  document.getElementById('addBtn').addEventListener('click', addReminder);
+  document.getElementById('taskInput').addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){ e.preventDefault(); addReminder(); }
+  });
+  document.getElementById('toggleDone').addEventListener('click', function(){
+    var doneList = document.getElementById('doneList');
+    var btn = document.getElementById('toggleDone');
+    doneList.hidden = !doneList.hidden;
+    btn.textContent = doneList.hidden ? '表示 ▾' : '非表示 ▴';
+  });
+
+  window.addEventListener('unload', function(){
+    if(checkTimer){ clearInterval(checkTimer); checkTimer = null; }
+  });
+
+  async function init(){
+    reminders = await loadReminders();
+    render();
+    checkDueReminders();
+    checkTimer = setInterval(checkDueReminders, CHECK_INTERVAL_MS);
+  }
+  init();
+})();
+</script>
+</body>
+</html>

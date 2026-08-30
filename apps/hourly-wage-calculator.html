@@ -1,0 +1,283 @@
+<!--GUIOS-APP {"id":"hourly-wage-calculator","name":"時給計算機","icon":"💵","color":"#00695c","version":"1.0.0","author":"Claude","description":"時給・勤務時間・残業時間から給与を計算する時給計算機アプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>時給計算機</title>
+<style>
+  :root{
+    --accent:#00c9a7;
+    --bg:#0a1715;
+    --card:#0f211d;
+    --card2:#0c1c18;
+    --text:#e9fbf6;
+    --sub:#9fc9bd;
+    --line:#1d3d35;
+    --danger:#e05a5a;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    padding:16px; padding-bottom:48px;
+  }
+  h1{font-size:20px; margin:4px 0 16px; display:flex; align-items:center; gap:8px;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:16px; margin-bottom:16px;
+  }
+  h2{font-size:14px; margin:0 0 12px; color:var(--sub); font-weight:700;}
+  label{display:block; font-size:13px; color:var(--sub); margin-bottom:6px;}
+  .field{margin-bottom:14px;}
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  input[type=number], input[type=text], input[type=date]{
+    width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--line);
+    background:#071310; color:var(--text); font-size:16px; outline:none;
+  }
+  input:focus{border-color:var(--accent);}
+  .checkline{display:flex; align-items:center; gap:8px; margin:6px 0 14px;}
+  .checkline input{width:20px; height:20px;}
+  .checkline label{margin:0; font-size:14px; color:var(--text);}
+  button{
+    padding:12px 20px; border-radius:10px; border:none; background:var(--accent);
+    color:#04231d; font-weight:700; font-size:15px; cursor:pointer; min-height:44px;
+  }
+  button.secondary{
+    background:transparent; color:var(--sub); border:1px solid var(--line); font-weight:600;
+  }
+  button.danger{ background:transparent; color:var(--danger); border:1px solid #4a2626; font-weight:600; }
+  .btnrow{display:flex; gap:10px; flex-wrap:wrap;}
+  .btnrow button{flex:1;}
+  .result-grid{display:flex; flex-direction:column; gap:10px; margin-top:4px;}
+  .result-line{
+    display:flex; justify-content:space-between; align-items:center;
+    background:var(--card2); border:1px solid var(--line); border-radius:10px;
+    padding:12px 14px; font-size:14px;
+  }
+  .result-line .lbl{color:var(--sub);}
+  .result-line .val{font-weight:700;}
+  .result-line.total{ background:#0b2e26; border-color:#1d5a4a; }
+  .result-line.total .val{ color:var(--accent); font-size:22px; }
+  .shift-list{display:flex; flex-direction:column; gap:8px; margin-top:12px;}
+  .shift-item{
+    background:var(--card2); border:1px solid var(--line); border-radius:10px;
+    padding:10px 12px; display:flex; justify-content:space-between; align-items:center; gap:8px;
+  }
+  .shift-item .info{font-size:13px; line-height:1.5;}
+  .shift-item .info .d{color:var(--sub); font-size:12px;}
+  .shift-item .amt{font-weight:700; color:var(--accent); white-space:nowrap;}
+  .shift-item .del{
+    background:none; border:none; color:var(--danger); font-size:18px; padding:4px 8px; min-height:auto; cursor:pointer;
+  }
+  .empty{color:var(--sub); font-size:13px; text-align:center; padding:16px 0;}
+  .period-total{
+    margin-top:12px; display:flex; justify-content:space-between; align-items:center;
+    background:#0b2e26; border:1px solid #1d5a4a; border-radius:10px; padding:12px 14px;
+  }
+  .period-total .lbl{color:var(--sub); font-size:13px;}
+  .period-total .val{font-weight:800; color:var(--accent); font-size:20px;}
+  .hint{font-size:12px; color:var(--sub); margin-top:-4px; margin-bottom:12px;}
+  #toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:#123028; color:var(--text); padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; pointer-events:none; transition:all .25s; border:1px solid var(--line);
+    max-width:90%; text-align:center; z-index:999;
+  }
+  #toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+  <h1>💵 時給計算機</h1>
+
+  <div class="card">
+    <h2>単発計算</h2>
+    <div class="field">
+      <label for="wage">時給（円）</label>
+      <input type="number" id="wage" inputmode="decimal" placeholder="例: 1200" min="0" step="1">
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label for="normalHours">通常勤務時間（時間）</label>
+        <input type="number" id="normalHours" inputmode="decimal" placeholder="例: 8" min="0" step="0.25">
+      </div>
+      <div class="field">
+        <label for="otHours">残業時間（時間）</label>
+        <input type="number" id="otHours" inputmode="decimal" placeholder="例: 2" min="0" step="0.25">
+      </div>
+    </div>
+    <div class="field">
+      <label for="otRate">割増率（残業）</label>
+      <input type="number" id="otRate" inputmode="decimal" value="1.25" min="1" step="0.01">
+    </div>
+    <div class="hint">法定の時間外割増率は原則1.25倍（深夜・法定休日はさらに異なります）</div>
+
+    <div class="result-grid">
+      <div class="result-line"><span class="lbl">通常分の給与</span><span class="val" id="normalPay">¥0</span></div>
+      <div class="result-line"><span class="lbl">残業分の給与</span><span class="val" id="otPay">¥0</span></div>
+      <div class="result-line total"><span class="lbl">合計</span><span class="val" id="totalPay">¥0</span></div>
+    </div>
+
+    <div class="btnrow" style="margin-top:14px;">
+      <button id="addShiftBtn">この内容をシフトとして追加</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>シフト一覧（給与期間の合計）</h2>
+    <div class="field">
+      <label for="shiftDate">日付（任意）</label>
+      <input type="date" id="shiftDate">
+    </div>
+    <div class="shift-list" id="shiftList">
+      <div class="empty">まだシフトが追加されていません</div>
+    </div>
+    <div class="period-total">
+      <span class="lbl">期間合計</span>
+      <span class="val" id="periodTotal">¥0</span>
+    </div>
+    <div class="btnrow" style="margin-top:12px;">
+      <button class="danger" id="clearShiftsBtn">全シフトを削除</button>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+<script>
+  var hasSDK = !!(window.GUIOS && window.GUIOS.storage);
+  var STORAGE_KEY = 'shifts';
+  var FALLBACK_KEY = 'guios-fallback-hourly-wage-calculator-shifts';
+
+  function showToast(msg){
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(function(){ t.classList.remove('show'); }, 1800);
+  }
+  function notify(msg, type){
+    if(window.GUIOS && window.GUIOS.notify){
+      GUIOS.notify(msg, {type: type || 'info'});
+    } else {
+      showToast(msg);
+    }
+  }
+
+  async function loadShifts(){
+    if(hasSDK){
+      var v = await GUIOS.storage.get(STORAGE_KEY);
+      return Array.isArray(v) ? v : [];
+    } else {
+      try{
+        var raw = localStorage.getItem(FALLBACK_KEY);
+        return raw ? JSON.parse(raw) : [];
+      }catch(e){ return []; }
+    }
+  }
+  async function saveShifts(list){
+    if(hasSDK){
+      await GUIOS.storage.set(STORAGE_KEY, list);
+    } else {
+      try{ localStorage.setItem(FALLBACK_KEY, JSON.stringify(list)); }catch(e){}
+    }
+  }
+
+  function yen(n){
+    if(!isFinite(n)) n = 0;
+    return '¥' + Math.round(n).toLocaleString('ja-JP');
+  }
+
+  function computeCurrent(){
+    var wage = parseFloat(document.getElementById('wage').value) || 0;
+    var normalH = parseFloat(document.getElementById('normalHours').value) || 0;
+    var otH = parseFloat(document.getElementById('otHours').value) || 0;
+    var otRate = parseFloat(document.getElementById('otRate').value);
+    if(!otRate || otRate < 1) otRate = 1.25;
+    var normalPay = wage * normalH;
+    var otPay = wage * otH * otRate;
+    var total = normalPay + otPay;
+    return {wage:wage, normalH:normalH, otH:otH, otRate:otRate, normalPay:normalPay, otPay:otPay, total:total};
+  }
+
+  function renderCurrent(){
+    var c = computeCurrent();
+    document.getElementById('normalPay').textContent = yen(c.normalPay);
+    document.getElementById('otPay').textContent = yen(c.otPay);
+    document.getElementById('totalPay').textContent = yen(c.total);
+  }
+
+  var currentShifts = [];
+
+  function renderShifts(){
+    var el = document.getElementById('shiftList');
+    if(currentShifts.length === 0){
+      el.innerHTML = '<div class="empty">まだシフトが追加されていません</div>';
+    } else {
+      el.innerHTML = '';
+      currentShifts.forEach(function(s, idx){
+        var div = document.createElement('div');
+        div.className = 'shift-item';
+        var dateLabel = s.date ? s.date : '日付未設定';
+        var detail = s.normalH + '時間';
+        if(s.otH > 0) detail += ' + 残業' + s.otH + '時間(×' + s.otRate + ')';
+        div.innerHTML =
+          '<div class="info"><div>' + detail + '</div><div class="d">' + dateLabel + ' ・ 時給' + yen(s.wage) + '</div></div>' +
+          '<div class="amt">' + yen(s.total) + '</div>' +
+          '<button class="del" data-idx="' + idx + '" title="削除">✕</button>';
+        el.appendChild(div);
+      });
+      el.querySelectorAll('.del').forEach(function(btn){
+        btn.addEventListener('click', async function(){
+          var i = parseInt(btn.getAttribute('data-idx'), 10);
+          currentShifts.splice(i, 1);
+          await saveShifts(currentShifts);
+          renderShifts();
+        });
+      });
+    }
+    var sum = currentShifts.reduce(function(acc, s){ return acc + s.total; }, 0);
+    document.getElementById('periodTotal').textContent = yen(sum);
+  }
+
+  ['wage','normalHours','otHours','otRate'].forEach(function(id){
+    document.getElementById(id).addEventListener('input', renderCurrent);
+  });
+
+  document.getElementById('addShiftBtn').addEventListener('click', async function(){
+    var c = computeCurrent();
+    if(c.wage <= 0 || (c.normalH <= 0 && c.otH <= 0)){
+      notify('時給と勤務時間を正しく入力してください', 'error');
+      return;
+    }
+    var dateVal = document.getElementById('shiftDate').value;
+    currentShifts.unshift({
+      date: dateVal || '',
+      wage: c.wage,
+      normalH: c.normalH,
+      otH: c.otH,
+      otRate: c.otRate,
+      total: c.total
+    });
+    await saveShifts(currentShifts);
+    renderShifts();
+    notify('シフトを追加しました', 'success');
+  });
+
+  document.getElementById('clearShiftsBtn').addEventListener('click', async function(){
+    if(currentShifts.length === 0) return;
+    if(!confirm('すべてのシフトを削除しますか？')) return;
+    currentShifts = [];
+    await saveShifts(currentShifts);
+    renderShifts();
+    notify('シフトを削除しました', 'success');
+  });
+
+  async function init(){
+    currentShifts = await loadShifts();
+    renderCurrent();
+    renderShifts();
+  }
+  init();
+</script>
+</body>
+</html>

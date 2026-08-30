@@ -1,0 +1,307 @@
+<!--GUIOS-APP {"id":"timezone-converter","name":"タイムゾーン変換","icon":"🕐","color":"#00838f","version":"1.0.0","author":"Claude","description":"ある地域の日時を別のタイムゾーンの時刻に変換して表示するツール。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>タイムゾーン変換</title>
+<style>
+  :root{
+    --accent:#00838f;
+    --accent2:#4dd0d9;
+    --bg:#0c1718;
+    --card:#132224;
+    --text:#e6f6f7;
+    --sub:#9bc0c3;
+    --line:#20393c;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    display:flex; flex-direction:column;
+  }
+  .topbar{padding:16px 16px 8px; flex:none;}
+  .topbar h1{font-size:18px; margin:0; display:flex; align-items:center; gap:8px;}
+  .wrap{flex:1; overflow-y:auto; padding:8px 16px 24px; display:flex; flex-direction:column; gap:14px;}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px;}
+  label{display:block; font-size:12px; color:var(--sub); margin-bottom:6px; font-weight:600;}
+  select, input[type="datetime-local"]{
+    width:100%; padding:11px 12px; border-radius:10px; border:1px solid var(--line);
+    background:#08141516; background-color:#081415; color:var(--text); font-size:15px; outline:none;
+    font-family:inherit; min-height:44px;
+  }
+  select:focus, input:focus{border-color:var(--accent2);}
+  .field{margin-bottom:10px;}
+  .field:last-child{margin-bottom:0;}
+  .section-title{font-size:13px; font-weight:700; color:var(--sub); margin:2px 2px 8px;}
+  .target-row{display:flex; gap:8px; align-items:center; margin-bottom:8px;}
+  .target-row select{flex:1;}
+  .target-del{
+    flex:none; width:40px; height:40px; border-radius:8px; border:none; background:#0e2426;
+    color:var(--sub); font-size:16px; cursor:pointer; border:1px solid var(--line);
+  }
+  .target-del:hover{color:#e07a7a;}
+  button.addTarget{
+    border:1px dashed var(--line); border-radius:10px; background:transparent; color:var(--accent2);
+    font-size:13px; font-weight:700; cursor:pointer; min-height:40px; padding:0 14px; width:100%;
+  }
+  .result-card{
+    background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:10px;
+  }
+  .result-zone{font-size:12px; color:var(--sub); font-weight:700;}
+  .result-time{font-size:22px; font-weight:800; margin-top:4px; color:var(--accent2);}
+  .result-date{font-size:13px; color:var(--sub); margin-top:2px;}
+  .result-offset{font-size:11px; color:var(--sub); margin-top:6px;}
+  .empty{color:var(--sub); text-align:center; padding:20px; font-size:13px;}
+</style>
+</head>
+<body>
+  <div class="topbar"><h1>🕐 タイムゾーン変換</h1></div>
+
+  <div class="wrap">
+    <div class="card">
+      <div class="section-title">変換元</div>
+      <div class="field">
+        <label for="sourceZone">タイムゾーン</label>
+        <select id="sourceZone"></select>
+      </div>
+      <div class="field">
+        <label for="sourceDateTime">日時</label>
+        <input type="datetime-local" id="sourceDateTime">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">変換先</div>
+      <div id="targetRows"></div>
+      <button class="addTarget" id="addTargetBtn">+ 変換先を追加</button>
+    </div>
+
+    <div>
+      <div class="section-title" style="margin-left:2px;">変換結果</div>
+      <div id="results"></div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  'use strict';
+
+  var ZONES = [
+    { id: 'Asia/Tokyo', label: '東京 (Asia/Tokyo)' },
+    { id: 'America/New_York', label: 'ニューヨーク (America/New_York)' },
+    { id: 'America/Los_Angeles', label: 'ロサンゼルス (America/Los_Angeles)' },
+    { id: 'Europe/London', label: 'ロンドン (Europe/London)' },
+    { id: 'Europe/Paris', label: 'パリ (Europe/Paris)' },
+    { id: 'Australia/Sydney', label: 'シドニー (Australia/Sydney)' },
+    { id: 'UTC', label: 'UTC' }
+  ];
+
+  if(window.GUIOS && window.GUIOS.setTitle){ try{ GUIOS.setTitle('タイムゾーン変換'); }catch(e){} }
+
+  function zoneLabel(id){
+    var z = ZONES.find(function(z){ return z.id === id; });
+    return z ? z.label : id;
+  }
+
+  function populateZoneSelect(sel, defaultId){
+    ZONES.forEach(function(z){
+      var opt = document.createElement('option');
+      opt.value = z.id;
+      opt.textContent = z.label;
+      if(z.id === defaultId) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  }
+
+  function pad2(n){ return ('0'+n).slice(-2); }
+
+  function partsFromFormatter(date, timeZone){
+    var fmt = new Intl.DateTimeFormat('en-US', {
+      timeZone: timeZone, hour12: false,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit'
+    });
+    var parts = fmt.formatToParts(date);
+    var map = {};
+    parts.forEach(function(p){ map[p.type] = p.value; });
+    // Intl can return "24" for midnight hour in hour12:false in some engines; normalize to 0.
+    var hour = parseInt(map.hour, 10);
+    if(hour === 24) hour = 0;
+    return {
+      year: parseInt(map.year, 10),
+      month: parseInt(map.month, 10),
+      day: parseInt(map.day, 10),
+      hour: hour,
+      minute: parseInt(map.minute, 10),
+      second: parseInt(map.second, 10)
+    };
+  }
+
+  // Convert a "wall clock" y/mo/d/h/mi in a given IANA timeZone into the
+  // correct absolute UTC instant (a Date object).
+  // Method: start with a naive UTC guess, see what that guess reads as when
+  // formatted in the target zone, then shift by the observed difference.
+  // One corrective pass is sufficient for all real-world offsets; only in the
+  // rare case where the intended wall-clock time itself falls inside a DST
+  // "spring-forward" gap (a wall time that never happens) does this need a
+  // second iteration, which we deliberately skip here for simplicity.
+  function zonedTimeToUtc(y, mo, d, h, mi, timeZone){
+    var guess = Date.UTC(y, mo - 1, d, h, mi, 0);
+    var asSeenInZone = partsFromFormatter(new Date(guess), timeZone);
+    var seenUtcMs = Date.UTC(asSeenInZone.year, asSeenInZone.month - 1, asSeenInZone.day, asSeenInZone.hour, asSeenInZone.minute, asSeenInZone.second);
+    var intendedUtcMs = Date.UTC(y, mo - 1, d, h, mi, 0);
+    var diffMs = intendedUtcMs - seenUtcMs;
+    return new Date(guess + diffMs);
+  }
+
+  function formatInZone(date, timeZone){
+    var p = partsFromFormatter(date, timeZone);
+    var weekdayFmt = new Intl.DateTimeFormat('ja-JP', { timeZone: timeZone, weekday: 'short' });
+    var weekday = weekdayFmt.format(date);
+    var timeStr = pad2(p.hour) + ':' + pad2(p.minute);
+    var dateStr = p.year + '/' + pad2(p.month) + '/' + pad2(p.day) + '（' + weekday + '）';
+    return { time: timeStr, date: dateStr };
+  }
+
+  function offsetLabel(date, timeZone){
+    try{
+      var fmt = new Intl.DateTimeFormat('en-US', { timeZone: timeZone, timeZoneName: 'shortOffset' });
+      var parts = fmt.formatToParts(date);
+      var tzPart = parts.find(function(p){ return p.type === 'timeZoneName'; });
+      return tzPart ? tzPart.value : '';
+    }catch(e){
+      return '';
+    }
+  }
+
+  var sourceZoneSel = document.getElementById('sourceZone');
+  var sourceDateTimeInput = document.getElementById('sourceDateTime');
+  var targetRowsEl = document.getElementById('targetRows');
+  var resultsEl = document.getElementById('results');
+
+  populateZoneSelect(sourceZoneSel, 'Asia/Tokyo');
+
+  var targetIds = ['America/New_York'];
+
+  function renderTargetRows(){
+    targetRowsEl.innerHTML = '';
+    targetIds.forEach(function(id, idx){
+      var row = document.createElement('div');
+      row.className = 'target-row';
+
+      var sel = document.createElement('select');
+      populateZoneSelect(sel, id);
+      sel.addEventListener('change', function(){
+        targetIds[idx] = sel.value;
+        compute();
+      });
+
+      row.appendChild(sel);
+
+      if(targetIds.length > 1){
+        var del = document.createElement('button');
+        del.className = 'target-del';
+        del.textContent = '✕';
+        del.addEventListener('click', function(){
+          targetIds.splice(idx, 1);
+          renderTargetRows();
+          compute();
+        });
+        row.appendChild(del);
+      }
+
+      targetRowsEl.appendChild(row);
+    });
+  }
+
+  function currentLocalDateTimeValue(){
+    var now = new Date();
+    var y = now.getFullYear();
+    var mo = pad2(now.getMonth()+1);
+    var d = pad2(now.getDate());
+    var h = pad2(now.getHours());
+    var mi = pad2(now.getMinutes());
+    return y+'-'+mo+'-'+d+'T'+h+':'+mi;
+  }
+
+  function compute(){
+    resultsEl.innerHTML = '';
+    var val = sourceDateTimeInput.value;
+    if(!val){
+      resultsEl.innerHTML = '<div class="empty">日時を入力してください</div>';
+      return;
+    }
+    var m = val.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+    if(!m){
+      resultsEl.innerHTML = '<div class="empty">日時の形式が正しくありません</div>';
+      return;
+    }
+    var y = parseInt(m[1],10), mo = parseInt(m[2],10), d = parseInt(m[3],10);
+    var h = parseInt(m[4],10), mi = parseInt(m[5],10);
+
+    var sourceZone = sourceZoneSel.value;
+    var utcInstant = zonedTimeToUtc(y, mo, d, h, mi, sourceZone);
+
+    if(targetIds.length === 0){
+      resultsEl.innerHTML = '<div class="empty">変換先を追加してください</div>';
+      return;
+    }
+
+    targetIds.forEach(function(zoneId){
+      var f = formatInZone(utcInstant, zoneId);
+      var off = offsetLabel(utcInstant, zoneId);
+
+      var card = document.createElement('div');
+      card.className = 'result-card';
+
+      var zoneEl = document.createElement('div');
+      zoneEl.className = 'result-zone';
+      zoneEl.textContent = zoneLabel(zoneId);
+
+      var timeEl = document.createElement('div');
+      timeEl.className = 'result-time';
+      timeEl.textContent = f.time;
+
+      var dateEl = document.createElement('div');
+      dateEl.className = 'result-date';
+      dateEl.textContent = f.date;
+
+      var offEl = document.createElement('div');
+      offEl.className = 'result-offset';
+      offEl.textContent = off;
+
+      card.appendChild(zoneEl);
+      card.appendChild(timeEl);
+      card.appendChild(dateEl);
+      card.appendChild(offEl);
+      resultsEl.appendChild(card);
+    });
+  }
+
+  document.getElementById('addTargetBtn').addEventListener('click', function(){
+    if(targetIds.length >= 6){
+      return;
+    }
+    // pick a zone not already selected, fallback to first
+    var unused = ZONES.map(function(z){return z.id;}).find(function(id){ return targetIds.indexOf(id) === -1; });
+    targetIds.push(unused || ZONES[0].id);
+    renderTargetRows();
+    compute();
+  });
+
+  sourceZoneSel.addEventListener('change', compute);
+  sourceDateTimeInput.addEventListener('change', compute);
+  sourceDateTimeInput.addEventListener('input', compute);
+
+  // init
+  sourceDateTimeInput.value = currentLocalDateTimeValue();
+  renderTargetRows();
+  compute();
+})();
+</script>
+</body>
+</html>

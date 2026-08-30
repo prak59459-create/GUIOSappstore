@@ -210,6 +210,16 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/countdown-timer.html"
   },
   {
+    "id": "cron-helper",
+    "name": "Cron式ヘルパー",
+    "version": "1.0.0",
+    "icon": "⏲️",
+    "color": "#6d4c41",
+    "description": "Cron式を組み立てたり、その意味を日本語で説明してくれるツール。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/cron-helper.html"
+  },
+  {
     "id": "csv-viewer",
     "name": "CSV表示・編集",
     "version": "1.0.0",
@@ -218,6 +228,16 @@
     "description": "CSVファイルを表として表示・編集し、書き出しできるツール。",
     "author": "Claude",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/csv-viewer.html"
+  },
+  {
+    "id": "decision-wheel",
+    "name": "ルーレット決定ツール",
+    "version": "1.0.0",
+    "icon": "🎡",
+    "color": "#c62828",
+    "description": "選択肢を入力してルーレットを回し、ランダムに1つ選んでくれるツール。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/decision-wheel.html"
   },
   {
     "id": "dice-roller",
@@ -258,6 +278,16 @@
     "description": "数字タイルをスライドさせて順番に並べ替える15パズルゲーム。",
     "author": "Claude",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/fifteen-puzzle.html"
+  },
+  {
+    "id": "five-line-journal",
+    "name": "5行日記",
+    "version": "1.0.0",
+    "icon": "✏️",
+    "color": "#795548",
+    "description": "1日の出来事を5行だけで簡潔に振り返る日記アプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/five-line-journal.html"
   },
   {
     "id": "flashcards",

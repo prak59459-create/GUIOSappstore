@@ -150,6 +150,16 @@
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/coin-flip.html"
   },
   {
+    "id": "color-palette-generator",
+    "name": "配色パレット生成",
+    "version": "1.0.0",
+    "icon": "🎨",
+    "color": "#c2185b",
+    "description": "基準となる色から調和の取れた配色パレットを生成するツール。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/color-palette-generator.html"
+  },
+  {
     "id": "color-picker",
     "name": "カラーピッカー",
     "version": "1.0.0",
@@ -268,6 +278,16 @@
     "description": "同じ数字のタイルを合体させて2048を目指すスライドパズルゲーム。",
     "author": "Claude",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/game-2048.html"
+  },
+  {
+    "id": "gradient-generator",
+    "name": "CSSグラデーション生成",
+    "version": "1.0.0",
+    "icon": "🌈",
+    "color": "#00838f",
+    "description": "2色以上を選んでCSSのグラデーションコードを生成できるツール。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/gradient-generator.html"
   },
   {
     "id": "habit-tracker",
@@ -538,6 +558,26 @@
     "description": "25分集中+5分休憩のサイクルで作業を管理するポモドーロタイマー。",
     "author": "Claude",
     "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/pomodoro-timer.html"
+  },
+  {
+    "id": "profit-margin-calculator",
+    "name": "利益率計算機",
+    "version": "1.0.0",
+    "icon": "📈",
+    "color": "#2e7d32",
+    "description": "原価・売価から利益率・利益額を計算する利益率計算機アプリ。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/profit-margin-calculator.html"
+  },
+  {
+    "id": "pros-cons-list",
+    "name": "メリット・デメリット比較",
+    "version": "1.0.0",
+    "icon": "⚖️",
+    "color": "#6a1b9a",
+    "description": "選択肢のメリット・デメリットを書き出して比較検討できるツール。",
+    "author": "Claude",
+    "url": "https://raw.githubusercontent.com/prak59459-create/GUIOSappstore/main/apps/pros-cons-list.html"
   },
   {
     "id": "qr-code-generator",

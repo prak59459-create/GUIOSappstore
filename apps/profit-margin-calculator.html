@@ -1,0 +1,180 @@
+<!--GUIOS-APP {"id":"profit-margin-calculator","name":"利益率計算機","icon":"📈","color":"#2e7d32","version":"1.0.0","author":"Claude","description":"原価・売価から利益率・利益額を計算する利益率計算機アプリ。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>利益率計算機</title>
+<style>
+  :root{
+    --accent:#4caf50;
+    --bg:#0c1710;
+    --card:#122018;
+    --card2:#0e1a14;
+    --text:#eafaef;
+    --sub:#a7c9ae;
+    --line:#20402a;
+    --danger:#e05a5a;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--text);
+    padding:16px; padding-bottom:48px;
+  }
+  h1{font-size:20px; margin:4px 0 16px; display:flex; align-items:center; gap:8px;}
+  .tabs{display:flex; gap:8px; margin-bottom:16px;}
+  .tab{
+    flex:1; text-align:center; padding:12px 8px; border-radius:10px; border:1px solid var(--line);
+    background:var(--card2); color:var(--sub); font-weight:700; font-size:13px; cursor:pointer; min-height:44px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .tab.active{ background:var(--accent); color:#04230a; border-color:var(--accent); }
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:16px; margin-bottom:16px;
+  }
+  .panel{display:none;}
+  .panel.active{display:block;}
+  h2{font-size:14px; margin:0 0 12px; color:var(--sub); font-weight:700;}
+  label{display:block; font-size:13px; color:var(--sub); margin-bottom:6px;}
+  .field{margin-bottom:14px;}
+  input[type=number]{
+    width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--line);
+    background:#081109; color:var(--text); font-size:16px; outline:none;
+  }
+  input:focus{border-color:var(--accent);}
+  .result-grid{display:flex; flex-direction:column; gap:10px; margin-top:4px;}
+  .result-line{
+    display:flex; justify-content:space-between; align-items:center;
+    background:var(--card2); border:1px solid var(--line); border-radius:10px;
+    padding:12px 14px; font-size:14px;
+  }
+  .result-line .lbl{color:var(--sub);}
+  .result-line .val{font-weight:700;}
+  .result-line.total{ background:#173a20; border-color:#2f6b3f; }
+  .result-line.total .val{ color:var(--accent); font-size:22px; }
+  .errbox{
+    background:#3a1a1a; border:1px solid #6b2b2b; color:#ffb3b3;
+    border-radius:10px; padding:14px; font-size:14px; text-align:center; line-height:1.6;
+  }
+</style>
+</head>
+<body>
+  <h1>📈 利益率計算機</h1>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="forward">原価→売価から計算</div>
+    <div class="tab" data-tab="reverse">目標利益率から売価を逆算</div>
+  </div>
+
+  <div class="card panel active" id="panel-forward">
+    <h2>原価と売価から利益を計算</h2>
+    <div class="field">
+      <label for="cost1">原価（円）</label>
+      <input type="number" id="cost1" inputmode="decimal" placeholder="例: 800" min="0" step="1">
+    </div>
+    <div class="field">
+      <label for="price1">売価（円）</label>
+      <input type="number" id="price1" inputmode="decimal" placeholder="例: 1000" min="0" step="1">
+    </div>
+    <div id="resultForward"></div>
+  </div>
+
+  <div class="card panel" id="panel-reverse">
+    <h2>原価と目標利益率から売価を逆算</h2>
+    <div class="field">
+      <label for="cost2">原価（円）</label>
+      <input type="number" id="cost2" inputmode="decimal" placeholder="例: 800" min="0" step="1">
+    </div>
+    <div class="field">
+      <label for="targetMargin">目標利益率（%）</label>
+      <input type="number" id="targetMargin" inputmode="decimal" placeholder="例: 30" step="0.1">
+    </div>
+    <div id="resultReverse"></div>
+  </div>
+
+<script>
+  function yenFmt(n){
+    if(!isFinite(n)) return '¥0';
+    var r = Math.round(n * 100) / 100;
+    return '¥' + r.toLocaleString('ja-JP', {maximumFractionDigits:2});
+  }
+  function pct(n){
+    if(!isFinite(n)) return '0%';
+    return (Math.round(n*100)/100).toLocaleString('ja-JP', {maximumFractionDigits:2}) + '%';
+  }
+
+  // Tabs
+  var tabs = document.querySelectorAll('.tab');
+  tabs.forEach(function(tab){
+    tab.addEventListener('click', function(){
+      tabs.forEach(function(t){ t.classList.remove('active'); });
+      document.querySelectorAll('.panel').forEach(function(p){ p.classList.remove('active'); });
+      tab.classList.add('active');
+      document.getElementById('panel-' + tab.getAttribute('data-tab')).classList.add('active');
+    });
+  });
+
+  function computeForward(){
+    var cost = parseFloat(document.getElementById('cost1').value);
+    var price = parseFloat(document.getElementById('price1').value);
+    var el = document.getElementById('resultForward');
+
+    if(isNaN(cost) || isNaN(price) || cost < 0 || price < 0){
+      el.innerHTML = '<div class="errbox" style="background:transparent;border:none;color:var(--sub);">原価と売価を入力してください</div>';
+      return;
+    }
+    if(price === 0){
+      el.innerHTML = '<div class="errbox">売価が0円のため利益率を計算できません</div>';
+      return;
+    }
+
+    var profit = price - cost;
+    var margin = (profit / price) * 100;
+    var costRatio = (cost / price) * 100;
+
+    el.innerHTML =
+      '<div class="result-grid">' +
+        '<div class="result-line"><span class="lbl">利益額</span><span class="val">' + yenFmt(profit) + '</span></div>' +
+        '<div class="result-line"><span class="lbl">原価率</span><span class="val">' + pct(costRatio) + '</span></div>' +
+        '<div class="result-line total"><span class="lbl">利益率</span><span class="val">' + pct(margin) + '</span></div>' +
+      '</div>';
+  }
+
+  function computeReverse(){
+    var cost = parseFloat(document.getElementById('cost2').value);
+    var targetMargin = parseFloat(document.getElementById('targetMargin').value);
+    var el = document.getElementById('resultReverse');
+
+    if(isNaN(cost) || isNaN(targetMargin) || cost < 0){
+      el.innerHTML = '<div class="errbox" style="background:transparent;border:none;color:var(--sub);">原価と目標利益率を入力してください</div>';
+      return;
+    }
+    if(targetMargin >= 100){
+      el.innerHTML = '<div class="errbox">利益率は100%未満で入力してください<br>（売価 = 原価 ÷ (1 - 利益率) のため、100%以上は計算できません）</div>';
+      return;
+    }
+
+    // price - cost = price * margin/100  =>  price (1 - margin/100) = cost => price = cost / (1 - margin/100)
+    var requiredPrice = cost / (1 - targetMargin / 100);
+    var profit = requiredPrice - cost;
+
+    el.innerHTML =
+      '<div class="result-grid">' +
+        '<div class="result-line"><span class="lbl">利益額</span><span class="val">' + yenFmt(profit) + '</span></div>' +
+        '<div class="result-line total"><span class="lbl">必要な売価</span><span class="val">' + yenFmt(requiredPrice) + '</span></div>' +
+      '</div>';
+  }
+
+  document.getElementById('cost1').addEventListener('input', computeForward);
+  document.getElementById('price1').addEventListener('input', computeForward);
+  document.getElementById('cost2').addEventListener('input', computeReverse);
+  document.getElementById('targetMargin').addEventListener('input', computeReverse);
+
+  computeForward();
+  computeReverse();
+</script>
+</body>
+</html>

@@ -1,0 +1,257 @@
+<!--GUIOS-APP {"id":"gradient-generator","name":"CSSグラデーション生成","icon":"🌈","color":"#00838f","version":"1.0.0","author":"Claude","description":"2色以上を選んでCSSのグラデーションコードを生成できるツール。"}-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>CSSグラデーション生成</title>
+<style>
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif;
+    background:#0d1a1c; color:#e3f4f5; min-height:100vh; padding:16px 12px 60px;
+  }
+  h1{ font-size:18px; margin:0 0 14px; color:#5fd6e0; }
+  .card{
+    background:#132528; border:1px solid #1f3a3e; border-radius:14px; padding:14px; margin-bottom:14px;
+  }
+  .preview{
+    width:100%; height:160px; border-radius:14px; border:1px solid #1f3a3e; margin-bottom:14px;
+  }
+  .seg{
+    display:flex; border:2px solid #1f3a3e; border-radius:10px; overflow:hidden; margin-bottom:12px;
+  }
+  .seg button{
+    flex:1; padding:10px 8px; border:none; background:#132528; color:#a9d7db; font-size:13px;
+    font-weight:700; cursor:pointer; min-height:42px;
+  }
+  .seg button.active{ background:#00838f; color:#fff; }
+  .angle-row{ margin-bottom:6px; }
+  .angle-row.hidden{ display:none; }
+  label{ display:block; font-size:12.5px; color:#8fb8bc; margin-bottom:6px; }
+  input[type="range"]{ width:100%; }
+  .angle-val{ font-size:13px; color:#5fd6e0; font-weight:700; }
+  .stops{ display:flex; flex-direction:column; gap:10px; margin-top:6px; }
+  .stop{
+    display:flex; align-items:center; gap:10px; background:#0c1a1c; border:1px solid #1f3a3e;
+    border-radius:12px; padding:10px;
+  }
+  .stop input[type="color"]{
+    width:44px; height:44px; border-radius:10px; border:2px solid #1f3a3e; background:none; padding:0;
+    cursor:pointer; flex-shrink:0;
+  }
+  .stop .pos-wrap{ flex:1; }
+  .stop .pos-wrap .pos-label{ display:flex; justify-content:space-between; font-size:11.5px; color:#8fb8bc; margin-bottom:4px; }
+  .stop .remove{
+    border:none; background:#26383a; color:#f0b0b0; font-size:16px; padding:8px 10px; border-radius:8px;
+    cursor:pointer; flex-shrink:0; min-height:40px;
+  }
+  .btn{
+    width:100%; padding:12px; border-radius:10px; border:2px solid #00838f; background:#123338;
+    color:#c9eef0; font-weight:700; font-size:14px; cursor:pointer; min-height:46px; margin-top:10px;
+  }
+  .btn.primary{ background:#00838f; border-color:#00838f; color:#fff; }
+  .code-box{
+    background:#0c1a1c; border:1px solid #1f3a3e; border-radius:12px; padding:12px; margin-top:6px;
+    font-family:ui-monospace,Menlo,Consolas,monospace; font-size:13px; color:#c9eef0; word-break:break-all;
+    white-space:pre-wrap;
+  }
+  .toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:#173032; color:#e3f4f5; padding:10px 18px; border-radius:10px;
+    font-size:13px; opacity:0; transition:opacity .25s, transform .25s; pointer-events:none;
+    max-width:90%; text-align:center; box-shadow:0 6px 18px rgba(0,0,0,.35); z-index:100;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+  <h1>🌈 CSSグラデーション生成</h1>
+
+  <div class="card">
+    <div class="preview" id="preview"></div>
+
+    <div class="seg" id="typeSeg">
+      <button class="active" data-type="linear">線形 (linear)</button>
+      <button data-type="radial">放射状 (radial)</button>
+    </div>
+
+    <div class="angle-row" id="angleRow">
+      <label>角度: <span class="angle-val" id="angleVal">135°</span></label>
+      <input type="range" id="angleSlider" min="0" max="360" value="135">
+    </div>
+  </div>
+
+  <div class="card">
+    <label style="margin-bottom:10px;">カラーストップ</label>
+    <div class="stops" id="stops"></div>
+    <button class="btn" id="addStopBtn">＋ 色を追加</button>
+  </div>
+
+  <div class="card">
+    <label>生成されたCSS</label>
+    <div class="code-box" id="codeBox"></div>
+    <button class="btn primary" id="copyBtn">📋 コピー</button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+  var preview = document.getElementById('preview');
+  var typeSeg = document.getElementById('typeSeg');
+  var angleRow = document.getElementById('angleRow');
+  var angleSlider = document.getElementById('angleSlider');
+  var angleVal = document.getElementById('angleVal');
+  var stopsEl = document.getElementById('stops');
+  var addStopBtn = document.getElementById('addStopBtn');
+  var codeBox = document.getElementById('codeBox');
+  var copyBtn = document.getElementById('copyBtn');
+  var toastEl = document.getElementById('toast');
+  var toastTimer = null;
+
+  var gradType = 'linear';
+  var angle = 135;
+  var stops = [
+    { color: '#ff0080', pos: 0 },
+    { color: '#00838f', pos: 100 }
+  ];
+
+  function showToast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ toastEl.classList.remove('show'); }, 1800);
+  }
+  function notify(msg, type){
+    if (window.GUIOS && window.GUIOS.notify) {
+      try { window.GUIOS.notify(msg, { type: type || 'info' }); return; } catch(e){}
+    }
+    showToast(msg);
+  }
+  function copyText(text){
+    if (window.GUIOS && window.GUIOS.clipboard && window.GUIOS.clipboard.writeText) {
+      try { window.GUIOS.clipboard.writeText(text); return; } catch(e){}
+    }
+    try { navigator.clipboard.writeText(text); } catch(e){}
+  }
+
+  function buildStopsCSS(){
+    var sorted = stops.slice().sort(function(a, b){ return a.pos - b.pos; });
+    return sorted.map(function(s){ return s.color + ' ' + s.pos + '%'; }).join(', ');
+  }
+
+  function buildGradientValue(){
+    var stopsCss = buildStopsCSS();
+    if (gradType === 'linear') {
+      return 'linear-gradient(' + angle + 'deg, ' + stopsCss + ')';
+    }
+    return 'radial-gradient(circle, ' + stopsCss + ')';
+  }
+
+  function render(){
+    var gradientValue = buildGradientValue();
+    preview.style.background = gradientValue;
+    codeBox.textContent = 'background: ' + gradientValue + ';';
+    angleRow.classList.toggle('hidden', gradType !== 'linear');
+    renderStops();
+  }
+
+  function renderStops(){
+    stopsEl.innerHTML = '';
+    stops.forEach(function(stop, idx){
+      var row = document.createElement('div');
+      row.className = 'stop';
+
+      var colorInput = document.createElement('input');
+      colorInput.type = 'color';
+      colorInput.value = stop.color;
+      colorInput.addEventListener('input', function(){
+        stops[idx].color = colorInput.value;
+        render();
+      });
+
+      var posWrap = document.createElement('div');
+      posWrap.className = 'pos-wrap';
+      var posLabel = document.createElement('div');
+      posLabel.className = 'pos-label';
+      var posName = document.createElement('span');
+      posName.textContent = '位置';
+      var posValue = document.createElement('span');
+      posValue.textContent = stop.pos + '%';
+      posLabel.appendChild(posName);
+      posLabel.appendChild(posValue);
+      var posSlider = document.createElement('input');
+      posSlider.type = 'range';
+      posSlider.min = '0';
+      posSlider.max = '100';
+      posSlider.value = stop.pos;
+      posSlider.addEventListener('input', function(){
+        stops[idx].pos = parseInt(posSlider.value, 10);
+        posValue.textContent = stops[idx].pos + '%';
+        renderPreviewOnly();
+      });
+      posSlider.addEventListener('change', function(){ render(); });
+      posWrap.appendChild(posLabel);
+      posWrap.appendChild(posSlider);
+
+      var removeBtn = document.createElement('button');
+      removeBtn.className = 'remove';
+      removeBtn.textContent = '✕';
+      removeBtn.addEventListener('click', function(){
+        if (stops.length <= 2) {
+          notify('最低2色は必要です', 'error');
+          return;
+        }
+        stops.splice(idx, 1);
+        render();
+      });
+
+      row.appendChild(colorInput);
+      row.appendChild(posWrap);
+      row.appendChild(removeBtn);
+      stopsEl.appendChild(row);
+    });
+  }
+
+  function renderPreviewOnly(){
+    var gradientValue = buildGradientValue();
+    preview.style.background = gradientValue;
+    codeBox.textContent = 'background: ' + gradientValue + ';';
+  }
+
+  typeSeg.querySelectorAll('button').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      typeSeg.querySelectorAll('button').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      gradType = btn.getAttribute('data-type');
+      render();
+    });
+  });
+
+  angleSlider.addEventListener('input', function(){
+    angle = parseInt(angleSlider.value, 10);
+    angleVal.textContent = angle + '°';
+    renderPreviewOnly();
+  });
+
+  addStopBtn.addEventListener('click', function(){
+    if (stops.length >= 6) {
+      notify('色は最大6個までです', 'error');
+      return;
+    }
+    var lastPos = stops.length ? stops[stops.length - 1].pos : 100;
+    var newPos = Math.min(100, lastPos);
+    var palette = ['#ff0080', '#7928ca', '#2af598', '#f8b500', '#00838f', '#e91e63'];
+    stops.push({ color: palette[stops.length % palette.length], pos: newPos });
+    render();
+  });
+
+  copyBtn.addEventListener('click', function(){
+    copyText(codeBox.textContent);
+    notify('コピーしました', 'success');
+  });
+
+  render();
+</script>
+</body>
+</html>
